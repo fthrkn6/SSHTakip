@@ -309,35 +309,48 @@ def create_app():
                     except Exception as e:
                         print(f"Sistem yükleme hatası: {e}")
                 
-                # Tramvaylar, Modüller ve Arıza Sınıfları - Sayfa2'den
+                # Tramvaylar, Modüller, Arıza Sınıfları ve Arıza Kaynakları - Sayfa2'den
                 modules = []  # default
                 ariza_siniflari = ['Kritik', 'Yüksek', 'Orta', 'Düşük']  # default
+                ariza_kaynaklari = ['Fabrika Hatası', 'Kullanıcı Hatası', 'Yıpranma', 'Bilinmiyor']  # default
+                
                 if os.path.exists(os.path.join(data_dir, 'Veriler.xlsx')):
                     try:
                         df_trams = pd.read_excel(os.path.join(data_dir, 'Veriler.xlsx'), sheet_name='Sayfa2', header=0)
+                        print(f"Sayfa2 Sütunları: {df_trams.columns.tolist()}")  # Debug
                         
-                        # tram_id sütununu bul
+                        # tram_id sütununu bul (tram_id olarak geliyorsa)
                         for col in df_trams.columns:
-                            if 'tram' in col.lower():
+                            if col.lower() == 'tram_id':
                                 tramvaylar = df_trams[col].dropna().unique().tolist()
                                 tramvaylar = [str(int(t)) if isinstance(t, (int, float)) else str(t) for t in tramvaylar]
+                                print(f"Tramvaylar: {tramvaylar[:5]}")  # Debug
                                 break
                         
-                        # Modül sütununu bul
+                        # Modül sütununu bul (Module olarak geliyorsa)
                         for col in df_trams.columns:
-                            if 'modul' in col.lower():
-                                modules = df_trams[col].dropna().unique().tolist()
-                                modules = [str(m).strip() for m in modules]
+                            if col.lower().strip() == 'module':
+                                modules = [str(m).strip() for m in df_trams[col].dropna().unique().tolist() if str(m).strip()]
+                                print(f"Modüller: {modules}")  # Debug
                                 break
                         
-                        # Arıza Sınıfı sütununu bul
+                        # Arıza Sınıfı sütununu bul (boşluk göz önüne alarak)
                         for col in df_trams.columns:
-                            if 'ariza' in col.lower() and 'sinif' in col.lower():
-                                ariza_siniflari = df_trams[col].dropna().unique().tolist()
-                                ariza_siniflari = [str(s).strip() for s in ariza_siniflari]
+                            col_clean = col.strip().lower()
+                            if 'ariza' in col_clean and 'sinif' in col_clean:
+                                ariza_siniflari = [str(s).strip() for s in df_trams[col].dropna().unique().tolist() if str(s).strip()]
+                                print(f"Arıza Sınıfları bulundu: {ariza_siniflari}")  # Debug
                                 break
-                    except:
-                        pass
+                        
+                        # Arıza Kaynağı sütununu bul
+                        for col in df_trams.columns:
+                            col_clean = col.strip().lower()
+                            if 'ariza' in col_clean and 'kaynak' in col_clean:
+                                ariza_kaynaklari = [str(k).strip() for k in df_trams[col].dropna().unique().tolist() if str(k).strip()]
+                                print(f"Arıza Kaynakları bulundu: {ariza_kaynaklari}")  # Debug
+                                break
+                    except Exception as e:
+                        print(f"Sayfa2 yükleme hatası: {e}")
                 
                 sistem_detay = {k: {'tedarikciler': list(set(v['tedarikciler'])), 'alt_sistemler': list(set(v['alt_sistemler']))} for k, v in sistemler.items()}
                 
@@ -348,7 +361,7 @@ def create_app():
                                      tramvaylar=tramvaylar,
                                      sistemler=list(sistemler.keys()),
                                      ariza_siniflari=ariza_siniflari,
-                                     ariza_kaynaklari=['Fabrika Hatası', 'Kullanıcı Hatası', 'Yıpranma', 'Bilinmiyor'])
+                                     ariza_kaynaklari=ariza_kaynaklari)
             else:
                 # POST - Excel'e kayıt et
                 try:
