@@ -926,6 +926,21 @@ def create_app():
                 except:
                     pass
             
+            # Bir önceki günün verileri al (form önceden doldurma için)
+            yesterday_str = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+            yesterday_data = {}
+            try:
+                from models import ServiceStatus
+                yesterday_records = ServiceStatus.query.filter_by(date=yesterday_str).all()
+                for record in yesterday_records:
+                    yesterday_data[record.tram_id] = {
+                        'status': record.status if hasattr(record, 'status') else '',
+                        'sistem': record.sistem if hasattr(record, 'sistem') else '',
+                        'aciklama': record.aciklama if hasattr(record, 'aciklama') else ''
+                    }
+            except:
+                pass
+            
             return render_template('servis_durumu.html', 
                                  stats=stats, 
                                  tramvaylar=tramvaylar,
@@ -936,7 +951,8 @@ def create_app():
                                  today=datetime.now().strftime('%Y-%m-%d'),
                                  sistemler=sistemler,
                                  sistemler_json=sistemler_json,
-                                 project_name=session.get('project_name', 'Belgrad'))
+                                 project_name=session.get('project_name', 'Belgrad'),
+                                 yesterday_data=yesterday_data)
 
         @app.route('/servis-durumu/guncelle', methods=['POST'])
         @login_required
@@ -949,8 +965,38 @@ def create_app():
         @login_required
         def servis_durumu_toplu_servise_al():
             """Bulk send to service"""
-            flash('Bulk service update completed', 'success')
-            return redirect(url_for('servis_durumu'))
+            try:
+                from datetime import datetime
+                from models import ServiceStatus
+                
+                today_str = datetime.now().strftime('%Y-%m-%d')
+                data = request.get_json()
+                tram_ids = data.get('tram_ids', [])
+                
+                for tram_id in tram_ids:
+                    # Mevcut kaydı kontrol et
+                    existing = ServiceStatus.query.filter_by(
+                        tram_id=str(tram_id),
+                        date=today_str
+                    ).first()
+                    
+                    if existing:
+                        existing.status = 'Servis'
+                    else:
+                        new_status = ServiceStatus(
+                            tram_id=str(tram_id),
+                            date=today_str,
+                            status='Servis',
+                            sistem='',
+                            aciklama='Toplu servise alındı'
+                        )
+                        db.session.add(new_status)
+                
+                db.session.commit()
+                return jsonify({'success': True, 'message': f'{len(tram_ids)} araç servise alındı'}), 200
+            except Exception as e:
+                db.session.rollback()
+                return jsonify({'success': False, 'message': str(e)}), 400
 
         @app.route('/servis-durumu/indir')
         @login_required

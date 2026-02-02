@@ -149,6 +149,52 @@
         transform: translateY(-2px);
         box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3);
     }
+
+    .btn-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        border: none;
+        border-radius: 8px;
+        padding: 0.65rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(16, 185, 129, 0.3);
+    }
+
+    .btn-warning {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        border: none;
+        border-radius: 8px;
+        padding: 0.65rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        color: white;
+    }
+
+    .btn-warning:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(245, 158, 11, 0.3);
+        color: white;
+    }
+
+    .btn-info {
+        background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+        border: none;
+        border-radius: 8px;
+        padding: 0.65rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        color: white;
+    }
+
+    .btn-info:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(6, 182, 212, 0.3);
+        color: white;
+    }
 </style>
 {% endblock %}
 
@@ -165,11 +211,12 @@
             style="border: none; border-left: 4px solid #10b981; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); padding: 0.5rem; height: 100%;">
             <div class="d-flex justify-content-between align-items-center gap-2">
                 <div>
-                    <h6 class="mb-0 text-muted" style="font-size: 0.75rem; font-weight: 600;">Serviste</h6>
-                    <h3 class="mb-0" style="font-size: 1.5rem; font-weight: 700; color: #10b981;">{{ stats.get('Servis',
+                    <h6 class="mb-0 text-muted" style="font-size: 0.85rem; font-weight: 600;">Serviste</h6>
+                    <h3 class="mb-0" style="font-size: 1.75rem; font-weight: 700; color: #10b981;">{{
+                        stats.get('Servis',
                         0) or stats.Servis or '0' }}</h3>
                 </div>
-                <i class="bi bi-check-circle text-success" style="font-size: 1.1rem;"></i>
+                <i class="bi bi-check-circle text-success" style="font-size: 1.3rem;"></i>
             </div>
         </div>
     </div>
@@ -178,11 +225,11 @@
             style="border: none; border-left: 4px solid #ef4444; background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); padding: 0.5rem; height: 100%;">
             <div class="d-flex justify-content-between align-items-center gap-2">
                 <div>
-                    <h6 class="mb-0 text-muted" style="font-size: 0.75rem; font-weight: 600;">Servis Dışı</h6>
-                    <h3 class="mb-0" style="font-size: 1.5rem; font-weight: 700; color: #ef4444;">{{ stats.get('Servis
+                    <h6 class="mb-0 text-muted" style="font-size: 0.85rem; font-weight: 600;">Servis Dışı</h6>
+                    <h3 class="mb-0" style="font-size: 1.75rem; font-weight: 700; color: #ef4444;">{{ stats.get('Servis
                         Dışı', 0) or stats['Servis Dışı'] or '0' }}</h3>
                 </div>
-                <i class="bi bi-x-circle text-danger" style="font-size: 1.1rem;"></i>
+                <i class="bi bi-x-circle text-danger" style="font-size: 1.3rem;"></i>
             </div>
         </div>
     </div>
@@ -191,11 +238,11 @@
             style="border: none; border-left: 4px solid #f59e0b; background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); padding: 0.5rem; height: 100%;">
             <div class="d-flex justify-content-between align-items-center gap-2">
                 <div>
-                    <h6 class="mb-0 text-muted" style="font-size: 0.75rem; font-weight: 600;">İşletme</h6>
-                    <h3 class="mb-0" style="font-size: 1.5rem; font-weight: 700; color: #f59e0b;">{{ stats.get('İşletme
+                    <h6 class="mb-0 text-muted" style="font-size: 0.85rem; font-weight: 600;">İşletme</h6>
+                    <h3 class="mb-0" style="font-size: 1.75rem; font-weight: 700; color: #f59e0b;">{{ stats.get('İşletme
                         Kaynaklı Servis Dışı', 0) or stats['İşletme Kaynaklı Servis Dışı'] or '0' }}</h3>
                 </div>
-                <i class="bi bi-exclamation-circle text-warning" style="font-size: 1.1rem;"></i>
+                <i class="bi bi-exclamation-circle text-warning" style="font-size: 1.3rem;"></i>
             </div>
         </div>
     </div>
@@ -204,11 +251,11 @@
             style="border: none; border-left: 4px solid #6366f1; background: linear-gradient(135deg, #f0f4ff 0%, #e0e7ff 100%); padding: 0.5rem; height: 100%;">
             <div class="d-flex justify-content-between align-items-center gap-2">
                 <div>
-                    <h6 class="mb-0 text-muted" style="font-size: 0.75rem; font-weight: 600;">Toplam</h6>
-                    <h3 class="mb-0" style="font-size: 1.5rem; font-weight: 700; color: #6366f1;">{{ tramvaylar|length
+                    <h6 class="mb-0 text-muted" style="font-size: 0.85rem; font-weight: 600;">Toplam</h6>
+                    <h3 class="mb-0" style="font-size: 1.75rem; font-weight: 700; color: #6366f1;">{{ tramvaylar|length
                         }}</h3>
                 </div>
-                <i class="bi bi-bus-front text-primary" style="font-size: 1.1rem;"></i>
+                <i class="bi bi-bus-front text-primary" style="font-size: 1.3rem;"></i>
             </div>
         </div>
     </div>
@@ -217,11 +264,11 @@
             style="border: none; border-top: 4px solid #3b82f6; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); padding: 0.5rem; height: 100%;">
             <div class="d-flex justify-content-between align-items-center gap-2">
                 <div>
-                    <h6 class="mb-0 text-muted" style="font-size: 0.75rem; font-weight: 600;">Availability</h6>
-                    <h3 class="mb-0" style="font-size: 1.5rem; font-weight: 800; color: #3b82f6;">{{
+                    <h6 class="mb-0 text-muted" style="font-size: 0.85rem; font-weight: 600;">Availability</h6>
+                    <h3 class="mb-0" style="font-size: 1.75rem; font-weight: 800; color: #3b82f6;">{{
                         stats.get('erisebilirlik', '0%') }}</h3>
                 </div>
-                <i class="bi bi-speedometer2 text-info" style="font-size: 1.1rem;"></i>
+                <i class="bi bi-speedometer2 text-info" style="font-size: 1.3rem;"></i>
             </div>
         </div>
     </div>
@@ -275,7 +322,16 @@
                         placeholder="Detay girebilirsiniz...">
                 </div>
             </div>
-            <button type="submit" class="btn btn-success mt-3"><i class="bi bi-check-circle me-2"></i>Kaydet</button>
+            <div class="mt-3 d-flex gap-2">
+                <button type="submit" class="btn btn-success"><i class="bi bi-check-circle me-2"></i>Kaydet</button>
+                <button type="button" class="btn btn-warning" data-bs-toggle="modal"
+                    data-bs-target="#topluServiseAlModal">
+                    <i class="bi bi-bus-front me-2"></i>Tüm Araçları Servise Al
+                </button>
+                <button type="button" class="btn btn-info" onclick="gecenGunuTekrarYukle()">
+                    <i class="bi bi-arrow-repeat me-2"></i>Dün'ü Tekrar Yükle
+                </button>
+            </div>
         </form>
     </div>
 </div>
@@ -358,8 +414,133 @@
     </div>
 </div>
 
+<!-- Toplu Servise Al Modal -->
+<div class="modal fade" id="topluServiseAlModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Onay</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">Tüm araçları servise almak istediğinizden emin misiniz?</p>
+                <p class="text-muted"><strong>Toplam {{ tram_ids|length }} araç</strong> bugüne ait
+                    <strong>"Servis"</strong> statusunda kaydedilecektir.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-warning" onclick="topluServiseAl()">Evet, Servise Al</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     const sistemler_data = {{ sistemler_json | safe }};
+    const yesterday_data = {{ yesterday_data | tojson }};
+    const tram_ids = {{ tram_ids | tojson }};
+
+    // Tüm araçları servise al
+    function topluServiseAl() {
+        fetch('/servis-durumu/toplu-servise-al', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ tram_ids: tram_ids })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ ' + data.message);
+                    location.reload();
+                } else {
+                    alert('❌ Hata: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('❌ İşlem sırasında hata oluştu');
+            });
+
+        const modal = bootstrap.Modal.getInstance(document.getElementById('topluServiseAlModal'));
+        if (modal) modal.hide();
+    }
+
+    // Sayfa yüklendiğinde dün'ün verilerini otomatik yükle
+    document.addEventListener('DOMContentLoaded', function () {
+        if (Object.keys(yesterday_data).length > 0) {
+            // Tüm araçlar için dün'ün durumunu al ve bugüne kopyala
+            Object.entries(yesterday_data).forEach(([tram_id, data]) => {
+                // Burada sadece sessiz yükle, alert gösterme
+            });
+
+            // İlk araç seçili olsun ve dün'ün durumu form'da gösterilsin
+            if (tram_ids.length > 0) {
+                const firstTramId = tram_ids[0];
+                document.getElementById('tramvay_id').value = firstTramId;
+
+                // İlk araç için dün'ün durumunu göster
+                if (yesterday_data[firstTramId]) {
+                    const data = yesterday_data[firstTramId];
+                    document.getElementById('durum').value = data.status || '';
+                    document.getElementById('aciklama').value = data.aciklama || '';
+
+                    // Sistem de seçiliyse doldur
+                    if (data.sistem) {
+                        document.getElementById('sistem').value = data.sistem;
+                        // Sistem select'i trigger et (change event)
+                        document.getElementById('sistem').dispatchEvent(new Event('change'));
+                    }
+                }
+            }
+
+            console.log('✅ Dün\'ün verileri otomatik yüklendi');
+        }
+    });
+
+    // Tramvay seçimi değiştiğinde dün'ün durumunu göster
+    function guncelleFormDunuVeri(tram_id) {
+        if (yesterday_data[tram_id]) {
+            const data = yesterday_data[tram_id];
+            document.getElementById('durum').value = data.status || '';
+            document.getElementById('aciklama').value = data.aciklama || '';
+
+            if (data.sistem) {
+                document.getElementById('sistem').value = data.sistem;
+                document.getElementById('sistem').dispatchEvent(new Event('change'));
+            } else {
+                document.getElementById('sistem').value = '';
+            }
+        } else {
+            document.getElementById('durum').value = '';
+            document.getElementById('sistem').value = '';
+            document.getElementById('aciklama').value = '';
+        }
+    }
+
+    // Tramvay seçim event'i
+    document.getElementById('tramvay_id').addEventListener('change', function () {
+        guncelleFormDunuVeri(this.value);
+    });
+
+    // Tüm araçların dün'ü tekrar yükle - Bilgi dialog
+    function gecenGunuTekrarYukle() {
+        if (Object.keys(yesterday_data).length === 0) {
+            alert('⚠️ Dün için kaydedilmiş durum verisi yok.');
+            return;
+        }
+
+        // Tüm araçlar için dün'ün durumunu göster
+        const resultText = [];
+        Object.entries(yesterday_data).forEach(([tram_id, data]) => {
+            resultText.push(`${tram_id}: ${data.status || 'Belirtilmemiş'}`);
+        });
+
+        alert('📋 Dün\'ün Durum Özeti:\n\n' + resultText.slice(0, 15).join('\n') +
+            (resultText.length > 15 ? `\n... ve ${resultText.length - 15} araç daha` : ''));
+    }
 
     document.getElementById('durum').addEventListener('change', function () {
         const sistem = document.getElementById('sistem');
