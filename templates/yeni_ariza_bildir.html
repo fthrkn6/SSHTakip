@@ -297,7 +297,7 @@
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Tedarikçi</label>
                                 <select class="form-select" id="tedarikciSelect" name="tedarikci">
-                                    <option value="">-- Önce Sistem Seçin --</option>
+                                    <option value="">-- Seçin --</option>
                                 </select>
                             </div>
                         </div>
@@ -475,8 +475,10 @@
                     <div class="form-card-body">
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Tarih</label>
-                                <input type="date" class="form-control" name="servise_verilis_tarih">
+                                <label class="form-label">Tarih <small class="text-muted">(Tamir Bitiş'ten
+                                        Otomatik)</small></label>
+                                <input type="date" class="form-control" name="servise_verilis_tarih" id="serviseTarih"
+                                    readonly>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Saat</label>
@@ -526,13 +528,19 @@
                     (data.alt_sistemler || []).forEach(function (alt) {
                         altSistemSelect.innerHTML += '<option value="' + alt + '">' + alt + '</option>';
                     });
+
+                    // Tedarikçi otomatik olarak 1. option'u seç (varsa)
+                    var options = tedarikciSelect.querySelectorAll('option');
+                    if (options.length > 1) {  // 0 index -- Seçin -- olduğu için, 1 adet tedarikçi demek index 1
+                        tedarikciSelect.selectedIndex = 1;
+                    }
                 } else {
                     console.log('Seçilen sistem için detay bulunamadı:', sistem);
                 }
             });
         }
     });
-    // Tamir süresi hesaplama
+    // Tamir süresi hesaplama + Servise veriliş tarihini otomatik doldur
     var tamirInputs = ['tamirBasTarih', 'tamirBasSaat', 'tamirBitTarih', 'tamirBitSaat'];
     tamirInputs.forEach(function (id) {
         var el = document.getElementById(id);
@@ -545,13 +553,26 @@
         var bs = document.getElementById('tamirBasSaat').value;
         var ed = document.getElementById('tamirBitTarih').value;
         var es = document.getElementById('tamirBitSaat').value;
+
         if (bd && bs && ed && es) {
             var start = new Date(bd + 'T' + bs);
             var end = new Date(ed + 'T' + es);
+
+            // Bitiş tarihi başlamadan sonra olmalı
+            if (end < start) {
+                alert('⚠️ Bitiş tarihi başlama tarihinden sonra olmalıdır!');
+                document.getElementById('tamirBitTarih').value = '';
+                document.getElementById('tamirBitSaat').value = '';
+                return;
+            }
+
             var diff = Math.max(0, end - start);
             var h = Math.floor(diff / 3600000);
             var m = Math.floor((diff % 3600000) / 60000);
             document.getElementById('tamirSuresi').value = h + ' saat ' + m + ' dakika';
+
+            // Servise veriliş tarihini bitiş tarihine eşitle
+            document.getElementById('serviseTarih').value = ed;
         }
     }
 </script>
