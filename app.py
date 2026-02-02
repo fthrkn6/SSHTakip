@@ -309,7 +309,8 @@ def create_app():
                     except Exception as e:
                         print(f"Sistem yükleme hatası: {e}")
                 
-                # Tramvaylar ve Arıza Sınıfları - Sayfa2'den
+                # Tramvaylar, Modüller ve Arıza Sınıfları - Sayfa2'den
+                modules = []  # default
                 ariza_siniflari = ['Kritik', 'Yüksek', 'Orta', 'Düşük']  # default
                 if os.path.exists(os.path.join(data_dir, 'Veriler.xlsx')):
                     try:
@@ -320,6 +321,13 @@ def create_app():
                             if 'tram' in col.lower():
                                 tramvaylar = df_trams[col].dropna().unique().tolist()
                                 tramvaylar = [str(int(t)) if isinstance(t, (int, float)) else str(t) for t in tramvaylar]
+                                break
+                        
+                        # Modül sütununu bul
+                        for col in df_trams.columns:
+                            if 'modul' in col.lower():
+                                modules = df_trams[col].dropna().unique().tolist()
+                                modules = [str(m).strip() for m in modules]
                                 break
                         
                         # Arıza Sınıfı sütununu bul
@@ -335,7 +343,7 @@ def create_app():
                 
                 return render_template('yeni_ariza_bildir.html', 
                                      sistem_detay=sistem_detay, 
-                                     modules=[],
+                                     modules=modules,
                                      next_fracas_id=f"BEL25-{next_fracas_id:03d}",
                                      tramvaylar=tramvaylar,
                                      sistemler=list(sistemler.keys()),
