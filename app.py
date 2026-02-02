@@ -444,6 +444,46 @@ def create_app():
                     flash(f'❌ Kayıt hatası: {str(e)}', 'danger')
                     return redirect(url_for('yeni_ariza_bildir'))
 
+        @app.route('/api/parts-lookup', methods=['GET'])
+        @login_required
+        def parts_lookup():
+            """Bileşen numarası - Nesne kısa metni arasında lookup yapıyor"""
+            import pandas as pd
+            
+            query = request.args.get('q', '').strip().upper()
+            if not query or len(query) < 2:
+                return jsonify([])
+            
+            # Belgrad dosyasını yükle
+            data_dir = os.path.join(os.path.dirname(__file__), 'data', 'belgrad')
+            part_file = os.path.join(data_dir, 'GÜNCEL BELGRAD TRAMVAY 11.09.2025.XLSX')
+            
+            if not os.path.exists(part_file):
+                return jsonify([])
+            
+            try:
+                df = pd.read_excel(part_file)
+                results = []
+                
+                # Bileşen numarası veya Nesne kısa metni ile ara
+                for idx, row in df.iterrows():
+                    bilesen_no = str(row['Bileşen numarası']).strip().upper() if pd.notna(row['Bileşen numarası']) else ''
+                    nesne_metni = str(row['Nesne kısa metni']).strip().upper() if pd.notna(row['Nesne kısa metni']) else ''
+                    
+                    if query in bilesen_no or query in nesne_metni:
+                        results.append({
+                            'bilesen_no': bilesen_no,
+                            'nesne_metni': nesne_metni
+                        })
+                        
+                        if len(results) >= 10:  # Max 10 sonuç
+                            break
+                
+                return jsonify(results)
+            except Exception as e:
+                print(f"Parts lookup hatası: {e}")
+                return jsonify([])
+
         @app.route('/ekipmanlar')
         @login_required
         def ekipmanlar():

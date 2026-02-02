@@ -1,7 +1,7 @@
 // Ana JavaScript dosyası
 
 // Sayfa yüklendiğinde
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Tooltip'leri başlat
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
@@ -15,9 +15,9 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Auto-hide alerts
-    setTimeout(function() {
+    setTimeout(function () {
         var alerts = document.querySelectorAll('.alert');
-        alerts.forEach(function(alert) {
+        alerts.forEach(function (alert) {
             var bsAlert = new bootstrap.Alert(alert);
             bsAlert.close();
         });
@@ -37,22 +37,22 @@ function timeAgo(dateString) {
     const date = new Date(dateString);
     const now = new Date();
     const seconds = Math.floor((now - date) / 1000);
-    
+
     let interval = seconds / 31536000;
     if (interval > 1) return Math.floor(interval) + " yıl önce";
-    
+
     interval = seconds / 2592000;
     if (interval > 1) return Math.floor(interval) + " ay önce";
-    
+
     interval = seconds / 86400;
     if (interval > 1) return Math.floor(interval) + " gün önce";
-    
+
     interval = seconds / 3600;
     if (interval > 1) return Math.floor(interval) + " saat önce";
-    
+
     interval = seconds / 60;
     if (interval > 1) return Math.floor(interval) + " dakika önce";
-    
+
     return Math.floor(seconds) + " saniye önce";
 }
 
@@ -65,17 +65,17 @@ function submitForm(url, formData, successCallback) {
         },
         body: JSON.stringify(formData)
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            if (successCallback) successCallback(data);
-        } else {
-            showToast('Hata', data.error || 'İşlem başarısız', 'danger');
-        }
-    })
-    .catch(error => {
-        showToast('Hata', 'Sunucu hatası: ' + error, 'danger');
-    });
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (successCallback) successCallback(data);
+            } else {
+                showToast('Hata', data.error || 'İşlem başarısız', 'danger');
+            }
+        })
+        .catch(error => {
+            showToast('Hata', 'Sunucu hatası: ' + error, 'danger');
+        });
 }
 
 // Toast notification
@@ -91,20 +91,20 @@ function showToast(title, message, type = 'info') {
             </div>
         </div>
     `;
-    
+
     let toastContainer = document.querySelector('.toast-container');
     if (!toastContainer) {
         toastContainer = document.createElement('div');
         toastContainer.className = 'toast-container';
         document.body.appendChild(toastContainer);
     }
-    
+
     toastContainer.insertAdjacentHTML('beforeend', toastHtml);
     const toastElement = toastContainer.lastElementChild;
     const toast = new bootstrap.Toast(toastElement);
     toast.show();
-    
-    toastElement.addEventListener('hidden.bs.toast', function() {
+
+    toastElement.addEventListener('hidden.bs.toast', function () {
         toastElement.remove();
     });
 }
@@ -137,19 +137,19 @@ function confirmAction(message, callback) {
 function exportTableToCSV(tableId, filename) {
     const table = document.getElementById(tableId);
     let csv = [];
-    
+
     const rows = table.querySelectorAll('tr');
-    
+
     for (let i = 0; i < rows.length; i++) {
         let row = [], cols = rows[i].querySelectorAll('td, th');
-        
+
         for (let j = 0; j < cols.length; j++) {
             row.push(cols[j].innerText);
         }
-        
+
         csv.push(row.join(','));
     }
-    
+
     downloadCSV(csv.join('\n'), filename);
 }
 
@@ -173,3 +173,98 @@ function downloadCSV(csv, filename) {
 //         handleRealtimeUpdate(data);
 //     };
 // }
+// Parça Kodu - Parça Adı Lookup (Autocomplete)
+document.addEventListener('DOMContentLoaded', function () {
+    const koduInput = document.getElementById('parca_kodu_input');
+    const koduList = document.getElementById('parca_kodu_list');
+    const adiInput = document.getElementById('parca_adi_input');
+    const adiList = document.getElementById('parca_adi_list');
+
+    if (!koduInput) return; // Sayfa bileşen bulmamazsa çık
+
+    // Helper: API'den veri çek
+    async function fetchParts(query) {
+        if (query.length < 2) return [];
+        try {
+            const response = await fetch(`/api/parts-lookup?q=${encodeURIComponent(query)}`);
+            return await response.json();
+        } catch (e) {
+            console.error('Parça lookup hatası:', e);
+            return [];
+        }
+    }
+
+    // Bileşen Numarası input
+    koduInput.addEventListener('input', async function (e) {
+        const query = this.value.trim();
+        koduList.innerHTML = '';
+
+        if (query.length < 2) {
+            koduList.style.display = 'none';
+            return;
+        }
+
+        const parts = await fetchParts(query);
+        if (parts.length === 0) {
+            koduList.style.display = 'none';
+            return;
+        }
+
+        parts.forEach(part => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item list-group-item-action';
+            li.style.cursor = 'pointer';
+            li.innerHTML = `<strong>${part.bilesen_no}</strong> - ${part.nesne_metni}`;
+            li.addEventListener('click', function () {
+                koduInput.value = part.bilesen_no;
+                adiInput.value = part.nesne_metni;
+                koduList.style.display = 'none';
+                adiList.style.display = 'none';
+            });
+            koduList.appendChild(li);
+        });
+
+        koduList.style.display = 'block';
+    });
+
+    // Nesne Kısa Metni input
+    adiInput.addEventListener('input', async function (e) {
+        const query = this.value.trim();
+        adiList.innerHTML = '';
+
+        if (query.length < 2) {
+            adiList.style.display = 'none';
+            return;
+        }
+
+        const parts = await fetchParts(query);
+        if (parts.length === 0) {
+            adiList.style.display = 'none';
+            return;
+        }
+
+        parts.forEach(part => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item list-group-item-action';
+            li.style.cursor = 'pointer';
+            li.innerHTML = `<strong>${part.nesne_metni}</strong> - ${part.bilesen_no}`;
+            li.addEventListener('click', function () {
+                adiInput.value = part.nesne_metni;
+                koduInput.value = part.bilesen_no;
+                adiList.style.display = 'none';
+                koduList.style.display = 'none';
+            });
+            adiList.appendChild(li);
+        });
+
+        adiList.style.display = 'block';
+    });
+
+    // Dış tıklama - dropdown kapatma
+    document.addEventListener('click', function (e) {
+        if (e.target !== koduInput && e.target !== adiInput) {
+            koduList.style.display = 'none';
+            adiList.style.display = 'none';
+        }
+    });
+});

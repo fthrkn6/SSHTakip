@@ -428,12 +428,24 @@
                     <div class="form-card-body">
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Parça Kodu</label>
-                                <input type="text" class="form-control" name="parca_kodu" placeholder="Part Number">
+                                <label class="form-label">Parça Kodu (Bileşen Numarası)</label>
+                                <div class="position-relative">
+                                    <input type="text" class="form-control" id="parca_kodu_input" name="parca_kodu"
+                                        placeholder="Bileşen numarası yazın..." autocomplete="off">
+                                    <ul class="list-group position-absolute w-100" id="parca_kodu_list"
+                                        style="display:none; z-index:1000;">
+                                    </ul>
+                                </div>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Parça Adı</label>
-                                <input type="text" class="form-control" name="parca_adi" placeholder="Parça adı">
+                                <label class="form-label">Parça Adı (Nesne Kısa Metni)</label>
+                                <div class="position-relative">
+                                    <input type="text" class="form-control" id="parca_adi_input" name="parca_adi"
+                                        placeholder="Nesne kısa metni yazın..." autocomplete="off">
+                                    <ul class="list-group position-absolute w-100" id="parca_adi_list"
+                                        style="display:none; z-index:1000;">
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                         <div class="row">
