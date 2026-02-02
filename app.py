@@ -316,36 +316,53 @@ def create_app():
                 
                 if os.path.exists(os.path.join(data_dir, 'Veriler.xlsx')):
                     try:
+                        import unicodedata
+                        
                         df_trams = pd.read_excel(os.path.join(data_dir, 'Veriler.xlsx'), sheet_name='Sayfa2', header=0)
                         print(f"Sayfa2 Sütunları: {df_trams.columns.tolist()}")  # Debug
                         
-                        # tram_id sütununu bul (tram_id olarak geliyorsa)
+                        # Sütun adlarını normalize et (Türkçe karakterleri ASCII'ye çevir)
+                        def normalize_col(col_name):
+                            """Türkçe karakterleri normalize et"""
+                            # Türkçe karakterleri değiştir
+                            replacements = {
+                                'ı': 'i', 'ş': 's', 'ç': 'c', 'ğ': 'g', 'ü': 'u', 'ö': 'o',
+                                'I': 'I', 'Ş': 'S', 'Ç': 'C', 'Ğ': 'G', 'Ü': 'U', 'Ö': 'O'
+                            }
+                            result = col_name.strip().lower()
+                            for tr, en in replacements.items():
+                                result = result.replace(tr, en)
+                            return result
+                        
+                        # tram_id sütununu bul
                         for col in df_trams.columns:
-                            if col.lower() == 'tram_id':
+                            col_norm = normalize_col(col)
+                            if 'tram' in col_norm and 'id' in col_norm:
                                 tramvaylar = df_trams[col].dropna().unique().tolist()
                                 tramvaylar = [str(int(t)) if isinstance(t, (int, float)) else str(t) for t in tramvaylar]
                                 print(f"Tramvaylar: {tramvaylar[:5]}")  # Debug
                                 break
                         
-                        # Modül sütununu bul (Module olarak geliyorsa)
+                        # Modül sütununu bul
                         for col in df_trams.columns:
-                            if col.lower().strip() == 'module':
+                            col_norm = normalize_col(col)
+                            if col_norm == 'module':
                                 modules = [str(m).strip() for m in df_trams[col].dropna().unique().tolist() if str(m).strip()]
                                 print(f"Modüller: {modules}")  # Debug
                                 break
                         
-                        # Arıza Sınıfı sütununu bul (boşluk göz önüne alarak)
+                        # Arıza Sınıfı sütununu bul
                         for col in df_trams.columns:
-                            col_clean = col.strip().lower()
-                            if 'ariza' in col_clean and 'sinif' in col_clean:
+                            col_norm = normalize_col(col)
+                            if 'ariza' in col_norm and 'sinif' in col_norm:
                                 ariza_siniflari = [str(s).strip() for s in df_trams[col].dropna().unique().tolist() if str(s).strip()]
                                 print(f"Arıza Sınıfları bulundu: {ariza_siniflari}")  # Debug
                                 break
                         
                         # Arıza Kaynağı sütununu bul
                         for col in df_trams.columns:
-                            col_clean = col.strip().lower()
-                            if 'ariza' in col_clean and 'kaynak' in col_clean:
+                            col_norm = normalize_col(col)
+                            if 'ariza' in col_norm and 'kaynak' in col_norm:
                                 ariza_kaynaklari = [str(k).strip() for k in df_trams[col].dropna().unique().tolist() if str(k).strip()]
                                 print(f"Arıza Kaynakları bulundu: {ariza_kaynaklari}")  # Debug
                                 break
