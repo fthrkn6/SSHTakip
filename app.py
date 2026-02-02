@@ -309,15 +309,24 @@ def create_app():
                     except Exception as e:
                         print(f"Sistem yükleme hatası: {e}")
                 
-                # Tramvaylar - Sayfa2'den
+                # Tramvaylar ve Arıza Sınıfları - Sayfa2'den
+                ariza_siniflari = ['Kritik', 'Yüksek', 'Orta', 'Düşük']  # default
                 if os.path.exists(os.path.join(data_dir, 'Veriler.xlsx')):
                     try:
                         df_trams = pd.read_excel(os.path.join(data_dir, 'Veriler.xlsx'), sheet_name='Sayfa2', header=0)
+                        
                         # tram_id sütununu bul
                         for col in df_trams.columns:
                             if 'tram' in col.lower():
                                 tramvaylar = df_trams[col].dropna().unique().tolist()
                                 tramvaylar = [str(int(t)) if isinstance(t, (int, float)) else str(t) for t in tramvaylar]
+                                break
+                        
+                        # Arıza Sınıfı sütununu bul
+                        for col in df_trams.columns:
+                            if 'ariza' in col.lower() and 'sinif' in col.lower():
+                                ariza_siniflari = df_trams[col].dropna().unique().tolist()
+                                ariza_siniflari = [str(s).strip() for s in ariza_siniflari]
                                 break
                     except:
                         pass
@@ -330,7 +339,7 @@ def create_app():
                                      next_fracas_id=f"BEL25-{next_fracas_id:03d}",
                                      tramvaylar=tramvaylar,
                                      sistemler=list(sistemler.keys()),
-                                     ariza_siniflari=['Kritik', 'Yüksek', 'Orta', 'Düşük'],
+                                     ariza_siniflari=ariza_siniflari,
                                      ariza_kaynaklari=['Fabrika Hatası', 'Kullanıcı Hatası', 'Yıpranma', 'Bilinmiyor'])
             else:
                 # POST - Excel'e kayıt et
