@@ -362,7 +362,7 @@ def create_app():
                         # Arıza Kaynağı sütununu bul
                         for col in df_trams.columns:
                             col_norm = normalize_col(col)
-                            if 'ariza' in col_norm and 'kaynak' in col_norm:
+                            if 'ariza' in col_norm and 'kaynag' in col_norm:
                                 ariza_kaynaklari = [str(k).strip() for k in df_trams[col].dropna().unique().tolist() if str(k).strip()]
                                 print(f"Arıza Kaynakları bulundu: {ariza_kaynaklari}")  # Debug
                                 break
@@ -413,8 +413,8 @@ def create_app():
                             'Alt Sistem': form_data.get('alt_sistem', ''),
                             'Tedarikçi': form_data.get('tedarikci', ''),
                             'Arıza Sınıfı': form_data.get('ariza_sinifi', ''),
-                            'Arıza Tipi': form_data.get('ariza_tipi', ''),
                             'Arıza Kaynağı': form_data.get('ariza_kaynagi', ''),
+                            'Garanti Kapsamı': form_data.get('garanti_kapsami', ''),
                             'Arıza Tanımı': form_data.get('ariza_tanimi', ''),
                             'Yapılan İşlem': form_data.get('yapilan_islem', ''),
                             'Aksiyon': form_data.get('aksiyon', ''),

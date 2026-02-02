@@ -4,157 +4,191 @@
 
 {% block styles %}
 <style>
-:root {
-    --primary: #4f46e5;
-    --success: #10b981;
-    --warning: #f59e0b;
-    --danger: #ef4444;
-    --info: #06b6d4;
-}
+    :root {
+        --primary: #4f46e5;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --info: #06b6d4;
+    }
 
-.page-header {
-    background: linear-gradient(135deg, var(--primary) 0%, #7c3aed 100%);
-    color: white;
-    padding: 2rem;
-    border-radius: 16px;
-    margin-bottom: 2rem;
-    box-shadow: 0 10px 40px rgba(79, 70, 229, 0.3);
-}
+    .page-header {
+        background: linear-gradient(135deg, var(--primary) 0%, #7c3aed 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 40px rgba(79, 70, 229, 0.3);
+    }
 
-.page-header h2 {
-    margin: 0;
-    font-weight: 700;
-}
+    .page-header h2 {
+        margin: 0;
+        font-weight: 700;
+    }
 
-.page-header .badge {
-    background: rgba(255,255,255,0.2);
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 0.9rem;
-}
+    .page-header .badge {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+    }
 
-.form-card {
-    background: white;
-    border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    margin-bottom: 1.5rem;
-    overflow: hidden;
-}
+    .form-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+    }
 
-.form-card-header {
-    padding: 1rem 1.5rem;
-    font-weight: 600;
-    color: white;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
+    .form-card-header {
+        padding: 1rem 1.5rem;
+        font-weight: 600;
+        color: white;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
 
-.form-card-header i { font-size: 1.2rem; }
+    .form-card-header i {
+        font-size: 1.2rem;
+    }
 
-.form-card-body { padding: 1.5rem; }
+    .form-card-body {
+        padding: 1.5rem;
+    }
 
-.bg-vehicle { background: linear-gradient(135deg, #4f46e5, #7c3aed); }
-.bg-time { background: linear-gradient(135deg, #f59e0b, #f97316); }
-.bg-system { background: linear-gradient(135deg, #06b6d4, #0891b2); }
-.bg-fault { background: linear-gradient(135deg, #ef4444, #dc2626); }
-.bg-action { background: linear-gradient(135deg, #10b981, #059669); }
-.bg-repair { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
-.bg-part { background: linear-gradient(135deg, #ec4899, #db2777); }
+    .bg-vehicle {
+        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    }
 
-.form-label {
-    font-weight: 600;
-    color: #374151;
-    margin-bottom: 6px;
-    font-size: 0.875rem;
-}
+    .bg-time {
+        background: linear-gradient(135deg, #f59e0b, #f97316);
+    }
 
-.form-control, .form-select {
-    border: 2px solid #e5e7eb;
-    border-radius: 10px;
-    padding: 10px 14px;
-    font-size: 0.95rem;
-    transition: all 0.2s;
-}
+    .bg-system {
+        background: linear-gradient(135deg, #06b6d4, #0891b2);
+    }
 
-.form-control:focus, .form-select:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-}
+    .bg-fault {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+    }
 
-.form-control.readonly-field {
-    background: #f3f4f6;
-    color: #6b7280;
-}
+    .bg-action {
+        background: linear-gradient(135deg, #10b981, #059669);
+    }
 
-.required-mark { color: var(--danger); }
+    .bg-repair {
+        background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+    }
 
-.autocomplete-wrapper { position: relative; }
+    .bg-part {
+        background: linear-gradient(135deg, #ec4899, #db2777);
+    }
 
-.autocomplete-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: white;
-    border: 2px solid var(--primary);
-    border-radius: 10px;
-    max-height: 200px;
-    overflow-y: auto;
-    z-index: 1000;
-    display: none;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-}
+    .form-label {
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 6px;
+        font-size: 0.875rem;
+    }
 
-.autocomplete-dropdown.show { display: block; }
+    .form-control,
+    .form-select {
+        border: 2px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-size: 0.95rem;
+        transition: all 0.2s;
+    }
 
-.autocomplete-item {
-    padding: 10px 14px;
-    cursor: pointer;
-    border-bottom: 1px solid #f3f4f6;
-    transition: background 0.2s;
-}
+    .form-control:focus,
+    .form-select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    }
 
-.autocomplete-item:hover {
-    background: #f0f9ff;
-    color: var(--primary);
-}
+    .form-control.readonly-field {
+        background: #f3f4f6;
+        color: #6b7280;
+    }
 
-.autocomplete-item:last-child { border-bottom: none; }
+    .required-mark {
+        color: var(--danger);
+    }
 
-.btn-submit {
-    background: linear-gradient(135deg, var(--success), #059669);
-    border: none;
-    color: white;
-    padding: 14px 40px;
-    border-radius: 30px;
-    font-weight: 600;
-    font-size: 1rem;
-    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.35);
-    transition: all 0.3s;
-}
+    .autocomplete-wrapper {
+        position: relative;
+    }
 
-.btn-submit:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 35px rgba(16, 185, 129, 0.45);
-    color: white;
-}
+    .autocomplete-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 2px solid var(--primary);
+        border-radius: 10px;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    }
 
-.btn-back {
-    background: #6b7280;
-    border: none;
-    color: white;
-    padding: 14px 30px;
-    border-radius: 30px;
-    font-weight: 600;
-    text-decoration: none;
-    transition: all 0.3s;
-}
+    .autocomplete-dropdown.show {
+        display: block;
+    }
 
-.btn-back:hover {
-    background: #4b5563;
-    color: white;
-}
+    .autocomplete-item {
+        padding: 10px 14px;
+        cursor: pointer;
+        border-bottom: 1px solid #f3f4f6;
+        transition: background 0.2s;
+    }
+
+    .autocomplete-item:hover {
+        background: #f0f9ff;
+        color: var(--primary);
+    }
+
+    .autocomplete-item:last-child {
+        border-bottom: none;
+    }
+
+    .btn-submit {
+        background: linear-gradient(135deg, var(--success), #059669);
+        border: none;
+        color: white;
+        padding: 14px 40px;
+        border-radius: 30px;
+        font-weight: 600;
+        font-size: 1rem;
+        box-shadow: 0 8px 25px rgba(16, 185, 129, 0.35);
+        transition: all 0.3s;
+    }
+
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 35px rgba(16, 185, 129, 0.45);
+        color: white;
+    }
+
+    .btn-back {
+        background: #6b7280;
+        border: none;
+        color: white;
+        padding: 14px 30px;
+        border-radius: 30px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.3s;
+    }
+
+    .btn-back:hover {
+        background: #4b5563;
+        color: white;
+    }
 </style>
 {% endblock %}
 
@@ -186,7 +220,8 @@
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">FRACAS ID</label>
-                                <input type="text" class="form-control readonly-field" name="fracas_id" value="{{ next_fracas_id }}" readonly>
+                                <input type="text" class="form-control readonly-field" name="fracas_id"
+                                    value="{{ next_fracas_id }}" readonly>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Araç No <span class="required-mark">*</span></label>
@@ -299,7 +334,8 @@
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Tamir Süresi</label>
-                                <input type="text" class="form-control readonly-field" name="tamir_suresi" id="tamirSuresi" readonly placeholder="Otomatik hesaplanır">
+                                <input type="text" class="form-control readonly-field" name="tamir_suresi"
+                                    id="tamirSuresi" readonly placeholder="Otomatik hesaplanır">
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Personel Sayısı</label>
@@ -329,17 +365,6 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Arıza Tipi</label>
-                                <select class="form-select" name="ariza_tipi">
-                                    <option value="">-- Seçin --</option>
-                                    <option value="Elektrik">⚡ Elektrik</option>
-                                    <option value="Mekanik">🔧 Mekanik</option>
-                                    <option value="Yazılım">💻 Yazılım</option>
-                                    <option value="Hidrolik">💧 Hidrolik</option>
-                                    <option value="Pnömatik">💨 Pnömatik</option>
-                                </select>
-                            </div>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
@@ -362,7 +387,8 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Arıza Tanımı <span class="required-mark">*</span></label>
-                            <textarea class="form-control" name="ariza_tanimi" rows="3" placeholder="Arızayı detaylı açıklayın..." required></textarea>
+                            <textarea class="form-control" name="ariza_tanimi" rows="3"
+                                placeholder="Arızayı detaylı açıklayın..." required></textarea>
                         </div>
                     </div>
                 </div>
@@ -376,7 +402,8 @@
                     <div class="form-card-body">
                         <div class="mb-3">
                             <label class="form-label">İşlem Açıklaması</label>
-                            <textarea class="form-control" name="yapilan_islem" rows="2" placeholder="Yapılan işlemleri açıklayın..."></textarea>
+                            <textarea class="form-control" name="yapilan_islem" rows="2"
+                                placeholder="Yapılan işlemleri açıklayın..."></textarea>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Aksiyon</label>
@@ -420,7 +447,8 @@
                             </div>
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">İşçilik (₺)</label>
-                                <input type="number" class="form-control" name="iscilik_maliyeti" step="0.01" placeholder="0.00">
+                                <input type="number" class="form-control" name="iscilik_maliyeti" step="0.01"
+                                    placeholder="0.00">
                             </div>
                         </div>
                     </div>
@@ -463,56 +491,56 @@
 
 {% block scripts %}
 <script type="text/javascript">
-// Dinamik sistem detayları
-var sistem_detay = {{ sistem_detay | tojson | safe }};
-var modules = {{ modules | tojson | safe }};
-console.log('Araç modülleri:', modules);
-console.log('Sistem detayları:', sistem_detay);
-document.addEventListener('DOMContentLoaded', function() {
-    var sistemSelect = document.getElementById('sistemSelect');
-    var altSistemSelect = document.getElementById('altSistemSelect');
-    var tedarikciSelect = document.getElementById('tedarikciSelect');
-    if (sistemSelect) {
-        sistemSelect.addEventListener('change', function() {
-            var sistem = this.value;
-            altSistemSelect.innerHTML = '<option value="">-- Seçin --</option>';
-            tedarikciSelect.innerHTML = '<option value="">-- Seçin --</option>';
-            if (sistem && sistem_detay[sistem]) {
-                var data = sistem_detay[sistem];
-                console.log('Seçilen sistem:', sistem, data);
-                (data.tedarikciler || []).forEach(function(ted) {
-                    tedarikciSelect.innerHTML += '<option value="' + ted + '">' + ted + '</option>';
-                });
-                (data.alt_sistemler || []).forEach(function(alt) {
-                    altSistemSelect.innerHTML += '<option value="' + alt + '">' + alt + '</option>';
-                });
-            } else {
-                console.log('Seçilen sistem için detay bulunamadı:', sistem);
-            }
-        });
+    // Dinamik sistem detayları
+    var sistem_detay = {{ sistem_detay | tojson | safe }};
+    var modules = {{ modules | tojson | safe }};
+    console.log('Araç modülleri:', modules);
+    console.log('Sistem detayları:', sistem_detay);
+    document.addEventListener('DOMContentLoaded', function () {
+        var sistemSelect = document.getElementById('sistemSelect');
+        var altSistemSelect = document.getElementById('altSistemSelect');
+        var tedarikciSelect = document.getElementById('tedarikciSelect');
+        if (sistemSelect) {
+            sistemSelect.addEventListener('change', function () {
+                var sistem = this.value;
+                altSistemSelect.innerHTML = '<option value="">-- Seçin --</option>';
+                tedarikciSelect.innerHTML = '<option value="">-- Seçin --</option>';
+                if (sistem && sistem_detay[sistem]) {
+                    var data = sistem_detay[sistem];
+                    console.log('Seçilen sistem:', sistem, data);
+                    (data.tedarikciler || []).forEach(function (ted) {
+                        tedarikciSelect.innerHTML += '<option value="' + ted + '">' + ted + '</option>';
+                    });
+                    (data.alt_sistemler || []).forEach(function (alt) {
+                        altSistemSelect.innerHTML += '<option value="' + alt + '">' + alt + '</option>';
+                    });
+                } else {
+                    console.log('Seçilen sistem için detay bulunamadı:', sistem);
+                }
+            });
+        }
+    });
+    // Tamir süresi hesaplama
+    var tamirInputs = ['tamirBasTarih', 'tamirBasSaat', 'tamirBitTarih', 'tamirBitSaat'];
+    tamirInputs.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', hesaplaTamirSuresi);
+        }
+    });
+    function hesaplaTamirSuresi() {
+        var bd = document.getElementById('tamirBasTarih').value;
+        var bs = document.getElementById('tamirBasSaat').value;
+        var ed = document.getElementById('tamirBitTarih').value;
+        var es = document.getElementById('tamirBitSaat').value;
+        if (bd && bs && ed && es) {
+            var start = new Date(bd + 'T' + bs);
+            var end = new Date(ed + 'T' + es);
+            var diff = Math.max(0, end - start);
+            var h = Math.floor(diff / 3600000);
+            var m = Math.floor((diff % 3600000) / 60000);
+            document.getElementById('tamirSuresi').value = h + ' saat ' + m + ' dakika';
+        }
     }
-});
-// Tamir süresi hesaplama
-var tamirInputs = ['tamirBasTarih', 'tamirBasSaat', 'tamirBitTarih', 'tamirBitSaat'];
-tamirInputs.forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) {
-        el.addEventListener('change', hesaplaTamirSuresi);
-    }
-});
-function hesaplaTamirSuresi() {
-    var bd = document.getElementById('tamirBasTarih').value;
-    var bs = document.getElementById('tamirBasSaat').value;
-    var ed = document.getElementById('tamirBitTarih').value;
-    var es = document.getElementById('tamirBitSaat').value;
-    if (bd && bs && ed && es) {
-        var start = new Date(bd + 'T' + bs);
-        var end = new Date(ed + 'T' + es);
-        var diff = Math.max(0, end - start);
-        var h = Math.floor(diff / 3600000);
-        var m = Math.floor((diff % 3600000) / 60000);
-        document.getElementById('tamirSuresi').value = h + ' saat ' + m + ' dakika';
-    }
-}
 </script>
 {% endblock %}
