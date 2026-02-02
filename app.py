@@ -206,13 +206,196 @@ def create_app():
         @app.route('/yeni-ariza-bildir', methods=['GET', 'POST'])
         @login_required
         def yeni_ariza_bildir():
+            import pandas as pd
+            from openpyxl import load_workbook
+            from openpyxl.utils import get_column_letter
+            from datetime import datetime
+            import os
+            
+            project = session.get('current_project', 'belgrad')
+            data_dir = os.path.join(os.path.dirname(__file__), 'data', project)
+            
+            # FRACAS Excel dosyasını bul
+            excel_path = None
+            if os.path.exists(data_dir):
+                for file in os.listdir(data_dir):
+                    if 'FRACAS' in file.upper() and file.endswith('.xlsx'):
+                        excel_path = os.path.join(data_dir, file)
+                        break
+            
             if request.method == 'GET':
-                # Provide empty data structures for template
-                sistem_detay = {}
-                modules = []
-                return render_template('yeni_ariza_bildir.html', sistem_detay=sistem_detay, modules=modules)
+                # Son FRACAS ID'yi bul
+                next_fracas_id = 1
+                if excel_path and os.path.exists(excel_path):
+                    try:
+                        df = pd.read_excel(excel_path, sheet_name='FRACAS', header=3)
+                        # FRACAS ID sütununu bul
+                        fracas_col = None
+                        for col in df.columns:
+                            if 'fracas' in col.lower() and 'id' in col.lower():
+                                fracas_col = col
+                                break
+                        
+                        if fracas_col:
+                            # Sayısal FRACAS ID'leri çıkar
+                            ids = []
+                            for val in df[fracas_col].dropna():
+                                try:
+                                    # "BEL25-001" gibi formatları handle et
+                                    if isinstance(val, str) and '-' in val:
+                                        num = int(val.split('-')[-1])
+                                    else:
+                                        num = int(val)
+                                    ids.append(num)
+                                except:
+                                    pass
+                            
+                            if ids:
+                                next_fracas_id = max(ids) + 1
+                    except Exception as e:
+                        print(f"FRACAS ID okuma hatası: {e}")
+                
+                # Tramvaylar ve sistemler
+                tramvaylar = []
+                sistemler = {}
+                
+                # Veriler.xlsx'den sistemleri yükle
+                veriler_path = None
+                if os.path.exists(data_dir):
+                    for file in os.listdir(data_dir):
+                        if 'veriler' in file.lower() and file.endswith('.xlsx'):
+                            veriler_path = os.path.join(data_dir, file)
+                            break
+                
+                if veriler_path and os.path.exists(veriler_path):
+                    try:
+                        wb = load_workbook(veriler_path)
+                        ws = wb['Sayfa1']
+                        
+                        # Sistem renk tanımları
+                        KIRMIZI = 'FFFF0000'
+                        SARI = 'FFFFFF00'
+                        MAVI = 'FF0070C0'
+                        
+                        # Sütun sütun tarama
+                        for col in range(1, ws.max_column + 1):
+                            sistem_adi = None
+                            
+                            for row in range(1, ws.max_row + 1):
+                                cell = ws.cell(row=row, column=col)
+                                value = cell.value
+                                fill = cell.fill
+                                
+                                color_hex = None
+                                if fill and fill.start_color:
+                                    color_hex = str(fill.start_color.rgb) if fill.start_color.rgb else None
+                                
+                                # Kırmızı = Sistem
+                                if color_hex == KIRMIZI and value:
+                                    sistem_adi = str(value).strip()
+                                    if sistem_adi not in sistemler:
+                                        sistemler[sistem_adi] = {
+                                            'tedarikciler': [],
+                                            'alt_sistemler': []
+                                        }
+                                
+                                # Sarı = Tedarikçi
+                                elif color_hex == SARI and value and sistem_adi:
+                                    sistemler[sistem_adi]['tedarikciler'].append(str(value).strip())
+                                
+                                # Mavi = Alt Sistem
+                                elif color_hex == MAVI and value and sistem_adi:
+                                    sistemler[sistem_adi]['alt_sistemler'].append(str(value).strip())
+                    except Exception as e:
+                        print(f"Sistem yükleme hatası: {e}")
+                
+                # Tramvaylar - Sayfa2'den
+                if os.path.exists(os.path.join(data_dir, 'Veriler.xlsx')):
+                    try:
+                        df_trams = pd.read_excel(os.path.join(data_dir, 'Veriler.xlsx'), sheet_name='Sayfa2', header=0)
+                        # tram_id sütununu bul
+                        for col in df_trams.columns:
+                            if 'tram' in col.lower():
+                                tramvaylar = df_trams[col].dropna().unique().tolist()
+                                tramvaylar = [str(int(t)) if isinstance(t, (int, float)) else str(t) for t in tramvaylar]
+                                break
+                    except:
+                        pass
+                
+                sistem_detay = {k: {'tedarikciler': list(set(v['tedarikciler'])), 'alt_sistemler': list(set(v['alt_sistemler']))} for k, v in sistemler.items()}
+                
+                return render_template('yeni_ariza_bildir.html', 
+                                     sistem_detay=sistem_detay, 
+                                     modules=[],
+                                     next_fracas_id=f"BEL25-{next_fracas_id:03d}",
+                                     tramvaylar=tramvaylar,
+                                     sistemler=list(sistemler.keys()),
+                                     ariza_siniflari=['Kritik', 'Yüksek', 'Orta', 'Düşük'],
+                                     ariza_kaynaklari=['Fabrika Hatası', 'Kullanıcı Hatası', 'Yıpranma', 'Bilinmiyor'])
             else:
-                return redirect(url_for('dashboard'))
+                # POST - Excel'e kayıt et
+                try:
+                    form_data = request.form.to_dict()
+                    
+                    if excel_path and os.path.exists(excel_path):
+                        wb = load_workbook(excel_path)
+                        ws = wb['FRACAS']
+                        
+                        # Header satırını bul (4. satır)
+                        headers = {}
+                        for col_idx, cell in enumerate(ws[4], 1):
+                            if cell.value:
+                                headers[str(cell.value).strip()] = col_idx
+                        
+                        # Son dolu satırı bul
+                        last_row = ws.max_row
+                        while last_row > 4 and not ws.cell(last_row, 1).value:
+                            last_row -= 1
+                        
+                        next_row = last_row + 1
+                        
+                        # Form verilerini Excel'e eşle
+                        mapping = {
+                            'FRACAS ID': form_data.get('fracas_id', ''),
+                            'Araç No': form_data.get('arac_numarasi', ''),
+                            'Araç Modül': form_data.get('arac_module', ''),
+                            'Kilometre': form_data.get('arac_km', ''),
+                            'Tarih': form_data.get('hata_tarih', ''),
+                            'Saat': form_data.get('hata_saat', ''),
+                            'Sistem': form_data.get('sistem', ''),
+                            'Alt Sistem': form_data.get('alt_sistem', ''),
+                            'Tedarikçi': form_data.get('tedarikci', ''),
+                            'Arıza Sınıfı': form_data.get('ariza_sinifi', ''),
+                            'Arıza Tipi': form_data.get('ariza_tipi', ''),
+                            'Arıza Kaynağı': form_data.get('ariza_kaynagi', ''),
+                            'Arıza Tanımı': form_data.get('ariza_tanimi', ''),
+                            'Yapılan İşlem': form_data.get('yapilan_islem', ''),
+                            'Aksiyon': form_data.get('aksiyon', ''),
+                            'Parça Kodu': form_data.get('parca_kodu', ''),
+                            'Parça Adı': form_data.get('parca_adi', ''),
+                            'Seri No': form_data.get('seri_numarasi', ''),
+                            'Adet': form_data.get('adet', ''),
+                            'İşçilik': form_data.get('iscilik_maliyeti', ''),
+                            'Tamir Başlama': form_data.get('tamir_baslama_tarih', ''),
+                            'Tamir Bitiş': form_data.get('tamir_bitis_tarih', ''),
+                        }
+                        
+                        # Eşleşen sütunlara veri yaz
+                        for header_name, value in mapping.items():
+                            for excel_header, col_idx in headers.items():
+                                if header_name.lower() in excel_header.lower() or excel_header.lower() in header_name.lower():
+                                    ws.cell(row=next_row, column=col_idx, value=value)
+                                    break
+                        
+                        wb.save(excel_path)
+                        flash(f'✅ Arıza başarıyla kaydedildi: {form_data.get("fracas_id")}', 'success')
+                    else:
+                        flash('❌ FRACAS dosyası bulunamadı', 'danger')
+                    
+                    return redirect(url_for('yeni_ariza_bildir'))
+                except Exception as e:
+                    flash(f'❌ Kayıt hatası: {str(e)}', 'danger')
+                    return redirect(url_for('yeni_ariza_bildir'))
 
         @app.route('/ekipmanlar')
         @login_required
