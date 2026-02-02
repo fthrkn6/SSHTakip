@@ -1,0 +1,487 @@
+{
+  "1531": {
+    "2026-01-26": {
+      "status": "isletme_disi",
+      "notes": "",
+      "updated_at": "2026-01-26 18:29",
+      "updated_by": "admin"
+    },
+    "2026-01-25": {
+      "status": "isletme_disi",
+      "notes": "",
+      "updated_at": "2026-01-26 18:28",
+      "updated_by": "admin"
+    },
+    "2026-01-27": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin"
+    },
+    "2026-01-28": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-28 15:39",
+      "updated_by": "admin"
+    },
+    "2026-01-29": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-28 15:39",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-28"
+    }
+  },
+  "1555": {
+    "2026-01-26": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-26 18:29",
+      "updated_by": "admin"
+    },
+    "2026-01-25": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-26 18:28",
+      "updated_by": "admin"
+    },
+    "2026-01-27": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin"
+    },
+    "2026-01-28": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-27"
+    },
+    "2026-01-29": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-28"
+    }
+  },
+  "1532": {
+    "2026-01-26": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-26 18:29",
+      "updated_by": "admin"
+    },
+    "2026-01-25": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-26 18:28",
+      "updated_by": "admin"
+    },
+    "2026-01-27": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 13:31",
+      "updated_by": "admin"
+    },
+    "2026-01-28": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 13:31",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-27"
+    },
+    "2026-01-29": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 13:31",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-28"
+    }
+  },
+  "1533": {
+    "2026-01-26": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-26 18:29",
+      "updated_by": "admin"
+    },
+    "2026-01-25": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-26 18:28",
+      "updated_by": "admin"
+    },
+    "2026-01-27": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin"
+    },
+    "2026-01-28": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-27"
+    },
+    "2026-01-29": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-28"
+    }
+  },
+  "1534": {
+    "2026-01-26": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-26 18:29",
+      "updated_by": "admin"
+    },
+    "2026-01-25": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-26 18:28",
+      "updated_by": "admin"
+    },
+    "2026-01-27": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin"
+    },
+    "2026-01-28": {
+      "status": "servis_disi",
+      "notes": "",
+      "updated_at": "2026-01-28 15:31",
+      "updated_by": "admin"
+    },
+    "2026-01-29": {
+      "status": "servis_disi",
+      "notes": "",
+      "updated_at": "2026-01-28 15:31",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-28"
+    }
+  },
+  "1535": {
+    "2026-01-26": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-26 18:29",
+      "updated_by": "admin"
+    },
+    "2026-01-25": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-26 18:28",
+      "updated_by": "admin"
+    },
+    "2026-01-27": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin"
+    },
+    "2026-01-28": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-27"
+    },
+    "2026-01-29": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-28"
+    }
+  },
+  "1536": {
+    "2026-01-26": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-26 18:29",
+      "updated_by": "admin"
+    },
+    "2026-01-25": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-26 18:28",
+      "updated_by": "admin"
+    },
+    "2026-01-27": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin"
+    },
+    "2026-01-28": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-27"
+    },
+    "2026-01-29": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-28"
+    }
+  },
+  "1537": {
+    "2026-01-26": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-26 18:29",
+      "updated_by": "admin"
+    },
+    "2026-01-25": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-26 18:28",
+      "updated_by": "admin"
+    },
+    "2026-01-27": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin"
+    },
+    "2026-01-28": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-27"
+    },
+    "2026-01-29": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-28"
+    }
+  },
+  "1538": {
+    "2026-01-26": {
+      "status": "servis_disi",
+      "notes": "",
+      "updated_at": "2026-01-26 18:29",
+      "updated_by": "admin"
+    },
+    "2026-01-25": {
+      "status": "servis_disi",
+      "notes": "",
+      "updated_at": "2026-01-26 18:28",
+      "updated_by": "admin"
+    },
+    "2026-01-27": {
+      "status": "servis_disi",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin"
+    },
+    "2026-01-28": {
+      "status": "servis_disi",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-27"
+    },
+    "2026-01-29": {
+      "status": "servis_disi",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-28"
+    }
+  },
+  "1539": {
+    "2026-01-25": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-26 18:28",
+      "updated_by": "admin"
+    },
+    "2026-01-26": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-26 18:29",
+      "updated_by": "admin"
+    },
+    "2026-01-27": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin"
+    },
+    "2026-01-28": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-27"
+    },
+    "2026-01-29": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-28"
+    }
+  },
+  "1540": {
+    "2026-01-27": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin"
+    },
+    "2026-01-28": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-27"
+    },
+    "2026-01-29": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-28"
+    }
+  },
+  "1541": {},
+  "1542": {
+    "2026-01-28": {
+      "status": "isletme_disi",
+      "notes": "",
+      "updated_at": "2026-01-28 15:31",
+      "updated_by": "admin"
+    },
+    "2026-01-29": {
+      "status": "isletme_disi",
+      "notes": "",
+      "updated_at": "2026-01-28 15:31",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-28"
+    }
+  },
+  "1543": {
+    "2026-01-27": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 13:31",
+      "updated_by": "admin"
+    },
+    "2026-01-28": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 13:31",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-27"
+    },
+    "2026-01-29": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 13:31",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-28"
+    }
+  },
+  "1544": {},
+  "1545": {},
+  "1546": {},
+  "1547": {
+    "2026-01-27": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin"
+    },
+    "2026-01-28": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-27"
+    },
+    "2026-01-29": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-27 09:52",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-28"
+    }
+  },
+  "1548": {},
+  "1549": {},
+  "1550": {},
+  "1551": {
+    "2026-01-28": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-28 15:43",
+      "updated_by": "admin"
+    },
+    "2026-01-29": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-28 15:43",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-28"
+    }
+  },
+  "1552": {},
+  "1553": {},
+  "1554": {
+    "2026-01-28": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-28 15:43",
+      "updated_by": "admin"
+    },
+    "2026-01-29": {
+      "status": "servis",
+      "notes": "",
+      "updated_at": "2026-01-28 15:43",
+      "updated_by": "admin",
+      "auto_copied": true,
+      "copied_from": "2026-01-28"
+    }
+  }
+}

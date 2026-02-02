@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block title %}Ekip Atama - {{ is_emri.work_order_number }} - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('is_emirleri') }}">İş Emirleri</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('is_emri_detay', id=is_emri.id) }}">{{ is_emri.work_order_number }}</a></li>
+            <li class="breadcrumb-item active">Ekip Atama</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- İş Emri Özeti -->
+        <div class="col-lg-4 mb-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-clipboard me-2"></i>İş Emri Bilgileri</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless">
+                        <tr>
+                            <td class="text-muted">İş Emri No:</td>
+                            <td><strong>{{ is_emri.work_order_number }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Başlık:</td>
+                            <td>{{ is_emri.title }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Ekipman:</td>
+                            <td>{{ is_emri.equipment.name if is_emri.equipment else '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Öncelik:</td>
+                            <td>
+                                {% if is_emri.priority == 'kritik' %}
+                                <span class="badge bg-danger">Kritik</span>
+                                {% elif is_emri.priority == 'yuksek' %}
+                                <span class="badge bg-warning">Yüksek</span>
+                                {% elif is_emri.priority == 'normal' %}
+                                <span class="badge bg-info">Normal</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Düşük</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Tür:</td>
+                            <td>{{ is_emri.work_type }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Önerilen Teknisyen -->
+            {% if best_match %}
+            <div class="card mt-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-star me-2"></i>Önerilen Teknisyen</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="rounded-circle bg-primary text-white p-3 me-3">
+                            <i class="fas fa-user fa-lg"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-0">{{ best_match.user.name }}</h5>
+                            <small class="text-muted">{{ best_match.user.role }}</small>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <small>Beceri Uyumu</small>
+                            <small>{{ best_match.skill_score }}/40</small>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-success" style="width: {{ (best_match.skill_score / 40 * 100)|round }}%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <small>Uygunluk</small>
+                            <small>{{ best_match.availability_score }}/35</small>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-info" style="width: {{ (best_match.availability_score / 35 * 100)|round }}%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <small>Konum</small>
+                            <small>{{ best_match.location_score }}/25</small>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-warning" style="width: {{ (best_match.location_score / 25 * 100)|round }}%"></div>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    <div class="text-center">
+                        <h4 class="text-success mb-0">{{ best_match.total_score }}/100</h4>
+                        <small class="text-muted">Toplam Uygunluk Puanı</small>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Mevcut Atamalar -->
+            {% if mevcut_atamalar %}
+            <div class="card mt-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-users me-2"></i>Mevcut Ekip</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for atama in mevcut_atamalar %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ atama.user.name }}</strong>
+                            <br>
+                            <small class="text-muted">
+                                {% if atama.role_in_team == 'lead' %}
+                                <span class="badge bg-warning">Ekip Lideri</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Üye</span>
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-primary">{{ atama.total_score }}/100</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Teknisyen Seçimi -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-user-plus me-2"></i>Ekip Üyesi Ata</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px;"></th>
+                                        <th>Teknisyen</th>
+                                        <th>Rol</th>
+                                        <th>Beceriler</th>
+                                        <th>Durum</th>
+                                        <th>Planlanan Saat</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for teknisyen in teknisyenler %}
+                                    {% set is_assigned = mevcut_atamalar|selectattr('user_id', 'equalto', teknisyen.id)|list|length > 0 %}
+                                    <tr class="{{ 'table-success' if is_assigned else '' }}">
+                                        <td>
+                                            <input type="checkbox" name="user_ids" value="{{ teknisyen.id }}" 
+                                                   class="form-check-input" {{ 'disabled' if is_assigned }}
+                                                   {{ 'checked' if is_assigned }}>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="rounded-circle bg-secondary text-white p-2 me-2">
+                                                    <i class="fas fa-user"></i>
+                                                </div>
+                                                <div>
+                                                    <strong>{{ teknisyen.name }}</strong>
+                                                    {% if best_match and best_match.user.id == teknisyen.id %}
+                                                    <span class="badge bg-success ms-1">Önerilen</span>
+                                                    {% endif %}
+                                                    <br>
+                                                    <small class="text-muted">{{ teknisyen.email }}</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <select name="role_{{ teknisyen.id }}" class="form-select form-select-sm" 
+                                                    {{ 'disabled' if is_assigned }}>
+                                                <option value="member">Üye</option>
+                                                <option value="lead">Ekip Lideri</option>
+                                                <option value="support">Destek</option>
+                                            </select>
+                                        </td>
+                                        <td>
+                                            {% if teknisyen.get_skills_list() %}
+                                            {% for skill in teknisyen.get_skills_list()[:3] %}
+                                            <span class="badge bg-light text-dark me-1">{{ skill }}</span>
+                                            {% endfor %}
+                                            {% if teknisyen.get_skills_list()|length > 3 %}
+                                            <span class="badge bg-secondary">+{{ teknisyen.get_skills_list()|length - 3 }}</span>
+                                            {% endif %}
+                                            {% else %}
+                                            <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% set status = teknisyen.get_availability_status() %}
+                                            {% if status == 'available' %}
+                                            <span class="badge bg-success">Müsait</span>
+                                            {% elif status == 'busy' %}
+                                            <span class="badge bg-warning">Meşgul</span>
+                                            {% else %}
+                                            <span class="badge bg-danger">Müsait Değil</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <input type="number" name="hours_{{ teknisyen.id }}" 
+                                                   class="form-control form-control-sm" style="width: 80px;"
+                                                   min="0" step="0.5" placeholder="0" 
+                                                   {{ 'disabled' if is_assigned }}>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{{ url_for('is_emri_detay', id=is_emri.id) }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Geri
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-user-plus me-2"></i>Seçili Teknisyenleri Ata
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

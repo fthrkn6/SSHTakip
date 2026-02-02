@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+
+{% block title %}Arıza Yönetimi{% endblock %}
+{% block page_title %}Arıza Yönetimi{% endblock %}
+
+{% block content %}
+<!-- İstatistik Kartları -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <h3>{{ stats.total }}</h3>
+                <small>Toplam Arıza</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body text-center">
+                <h3>{{ stats.active }}</h3>
+                <small>Aktif Arıza</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <h3>{{ stats.resolved }}</h3>
+                <small>Çözülmüş</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning">
+            <div class="card-body text-center">
+                <h3>{{ stats.critical }}</h3>
+                <small>Kritik Arıza</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtreler -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-3">
+                <select name="arac" class="form-select">
+                    <option value="all">Tüm Araçlar</option>
+                    {% for arac in araclar %}
+                    <option value="{{ arac.id }}" {% if filters.arac == arac.id|string %}selected{% endif %}>
+                        {{ arac.equipment_code }} - {{ arac.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select name="status" class="form-select">
+                    <option value="all">Tüm Durumlar</option>
+                    <option value="active" {% if filters.status == 'active' %}selected{% endif %}>Aktif Arızalar</option>
+                    <option value="resolved" {% if filters.status == 'resolved' %}selected{% endif %}>Çözülmüş</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-filter"></i> Filtrele
+                </button>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="{{ url_for('failure.add') }}" class="btn btn-danger">
+                    <i class="bi bi-exclamation-triangle"></i> Yeni Arıza Bildir
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Arıza Tablosu -->
+<div class="card">
+    <div class="card-body">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Arıza Kodu</th>
+                    <th>Araç</th>
+                    <th>Açıklama</th>
+                    <th>Arıza Türü</th>
+                    <th>Önem</th>
+                    <th>Tarih</th>
+                    <th>Durum</th>
+                    <th>İşlem</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ariza in arizalar %}
+                <tr class="{% if not ariza.resolved and ariza.severity == 'critical' %}table-danger{% endif %}">
+                    <td><strong>{{ ariza.failure_code }}</strong></td>
+                    <td>{{ ariza.equipment.equipment_code if ariza.equipment else '-' }}</td>
+                    <td>{{ ariza.description[:40] }}...</td>
+                    <td>{{ ariza.failure_type }}</td>
+                    <td>
+                        {% if ariza.severity == 'critical' %}
+                            <span class="badge bg-danger">Kritik</span>
+                        {% elif ariza.severity == 'major' %}
+                            <span class="badge bg-warning">Önemli</span>
+                        {% elif ariza.severity == 'minor' %}
+                            <span class="badge bg-info">Düşük</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ ariza.severity }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ ariza.failure_date.strftime('%d.%m.%Y %H:%M') }}</td>
+                    <td>
+                        {% if ariza.resolved %}
+                            <span class="badge bg-success">Çözüldü</span>
+                        {% else %}
+                            <span class="badge bg-danger">Aktif</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('failure.detail', id=ariza.id) }}" 
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="text-center text-muted">Arıza kaydı bulunamadı</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

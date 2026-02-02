@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block title %}Teknik Dokümanlar - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-file-alt me-2"></i>Teknik Doküman Kütüphanesi</h2>
+            <p class="text-muted mb-0">Bakım kılavuzları, teknik şemalar ve prosedürler</p>
+        </div>
+        <a href="{{ url_for('dokuman_ekle') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Yeni Doküman
+        </a>
+    </div>
+
+    <!-- İstatistik Kartları -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="mb-0">Toplam Doküman</h6>
+                            <h2 class="mb-0">{{ stats.toplam }}</h2>
+                        </div>
+                        <i class="fas fa-folder fa-3x opacity-25"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="mb-0">Kılavuzlar</h6>
+                            <h2 class="mb-0">{{ stats.kilavuz }}</h2>
+                        </div>
+                        <i class="fas fa-book fa-3x opacity-25"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="mb-0">Şemalar</h6>
+                            <h2 class="mb-0">{{ stats.sema }}</h2>
+                        </div>
+                        <i class="fas fa-sitemap fa-3x opacity-25"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="mb-0">Prosedürler</h6>
+                            <h2 class="mb-0">{{ stats.prosedur }}</h2>
+                        </div>
+                        <i class="fas fa-clipboard-list fa-3x opacity-25"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtreler -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Doküman Türü</label>
+                    <select name="type" class="form-select">
+                        <option value="all">Tümü</option>
+                        <option value="manual" {{ 'selected' if doc_type == 'manual' }}>Bakım Kılavuzu</option>
+                        <option value="schematic" {{ 'selected' if doc_type == 'schematic' }}>Teknik Şema</option>
+                        <option value="procedure" {{ 'selected' if doc_type == 'procedure' }}>Prosedür</option>
+                        <option value="drawing" {{ 'selected' if doc_type == 'drawing' }}>Çizim</option>
+                        <option value="spec" {{ 'selected' if doc_type == 'spec' }}>Teknik Şartname</option>
+                        <option value="checklist" {{ 'selected' if doc_type == 'checklist' }}>Kontrol Listesi</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Kategori</label>
+                    <select name="category" class="form-select">
+                        <option value="all">Tümü</option>
+                        <option value="mechanical" {{ 'selected' if category == 'mechanical' }}>Mekanik</option>
+                        <option value="electrical" {{ 'selected' if category == 'electrical' }}>Elektrik</option>
+                        <option value="electronic" {{ 'selected' if category == 'electronic' }}>Elektronik</option>
+                        <option value="pneumatic" {{ 'selected' if category == 'pneumatic' }}>Pnömatik</option>
+                        <option value="hvac" {{ 'selected' if category == 'hvac' }}>HVAC</option>
+                        <option value="safety" {{ 'selected' if category == 'safety' }}>Güvenlik</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Ekipman</label>
+                    <select name="equipment_id" class="form-select">
+                        <option value="">Tüm Ekipmanlar</option>
+                        {% for ekipman in ekipmanlar %}
+                        <option value="{{ ekipman.id }}">{{ ekipman.equipment_code }} - {{ ekipman.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-1"></i> Filtrele
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Doküman Listesi -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-list me-2"></i>Doküman Listesi</h5>
+        </div>
+        <div class="card-body">
+            {% if dokumanlar %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Kod</th>
+                            <th>Başlık</th>
+                            <th>Tür</th>
+                            <th>Kategori</th>
+                            <th>Ekipman</th>
+                            <th>Versiyon</th>
+                            <th>Boyut</th>
+                            <th>Görüntüleme</th>
+                            <th>İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for dok in dokumanlar %}
+                        <tr>
+                            <td><code>{{ dok.document_code }}</code></td>
+                            <td>
+                                <a href="{{ url_for('dokuman_detay', id=dok.id) }}">
+                                    {% if dok.file_type == 'pdf' %}
+                                    <i class="fas fa-file-pdf text-danger me-2"></i>
+                                    {% elif dok.file_type in ['doc', 'docx'] %}
+                                    <i class="fas fa-file-word text-primary me-2"></i>
+                                    {% elif dok.file_type in ['xls', 'xlsx'] %}
+                                    <i class="fas fa-file-excel text-success me-2"></i>
+                                    {% elif dok.file_type == 'dwg' %}
+                                    <i class="fas fa-drafting-compass text-info me-2"></i>
+                                    {% elif dok.file_type in ['jpg', 'png', 'jpeg'] %}
+                                    <i class="fas fa-file-image text-warning me-2"></i>
+                                    {% else %}
+                                    <i class="fas fa-file me-2"></i>
+                                    {% endif %}
+                                    {{ dok.title }}
+                                </a>
+                            </td>
+                            <td>
+                                {% if dok.document_type == 'manual' %}
+                                <span class="badge bg-success">Kılavuz</span>
+                                {% elif dok.document_type == 'schematic' %}
+                                <span class="badge bg-info">Şema</span>
+                                {% elif dok.document_type == 'procedure' %}
+                                <span class="badge bg-warning">Prosedür</span>
+                                {% elif dok.document_type == 'drawing' %}
+                                <span class="badge bg-secondary">Çizim</span>
+                                {% elif dok.document_type == 'spec' %}
+                                <span class="badge bg-primary">Şartname</span>
+                                {% elif dok.document_type == 'checklist' %}
+                                <span class="badge bg-dark">Kontrol</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ dok.category or '-' }}</td>
+                            <td>
+                                {% if dok.equipment %}
+                                <small>{{ dok.equipment.equipment_code }}</small>
+                                {% else %}
+                                <span class="text-muted">Genel</span>
+                                {% endif %}
+                            </td>
+                            <td><span class="badge bg-light text-dark">v{{ dok.version }}</span></td>
+                            <td>
+                                {% if dok.file_size %}
+                                {{ (dok.file_size / 1024)|round(1) }} KB
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>
+                                <i class="fas fa-eye text-muted"></i> {{ dok.view_count }}
+                                <i class="fas fa-download text-muted ms-2"></i> {{ dok.download_count }}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('dokuman_detay', id=dok.id) }}" class="btn btn-outline-primary" title="Görüntüle">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{{ url_for('dokuman_indir', id=dok.id) }}" class="btn btn-outline-success" title="İndir">
+                                        <i class="fas fa-download"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-file-alt fa-4x text-muted mb-3"></i>
+                <h5>Henüz doküman eklenmemiş</h5>
+                <p class="text-muted">Teknik dokümanları sisteme yükleyerek başlayın.</p>
+                <a href="{{ url_for('dokuman_ekle') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>İlk Dokümanı Ekle
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

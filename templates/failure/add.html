@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block title %}Yeni Arıza Bildir{% endblock %}
+{% block page_title %}Yeni Arıza Bildir{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h5><i class="bi bi-exclamation-triangle"></i> Arıza Bildirim Formu</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Araç *</label>
+                            <select name="arac_id" class="form-select" required>
+                                <option value="">Araç Seçin</option>
+                                {% for arac in araclar %}
+                                <option value="{{ arac.id }}">
+                                    {{ arac.equipment_code }} - {{ arac.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Arıza Tarihi *</label>
+                            <input type="datetime-local" name="failure_date" 
+                                   class="form-control" required 
+                                   value="{{ now.strftime('%Y-%m-%dT%H:%M') if now else '' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Arıza Türü *</label>
+                            <select name="failure_type" class="form-select" required>
+                                <option value="">Seçin</option>
+                                {% for key, value in ariza_turleri %}
+                                <option value="{{ key }}">{{ value }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Önem Derecesi *</label>
+                            <select name="severity" class="form-select" required>
+                                <option value="">Seçin</option>
+                                <option value="critical">Kritik - Araç çalışamaz</option>
+                                <option value="major">Önemli - Kısıtlı çalışabilir</option>
+                                <option value="minor">Düşük - Çalışmayı etkilemez</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Arıza Açıklaması *</label>
+                        <textarea name="description" class="form-control" rows="4" 
+                                  required placeholder="Arızayı detaylı olarak açıklayın..."></textarea>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('failure.list') }}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> İptal
+                        </a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-exclamation-triangle"></i> Arıza Bildir
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

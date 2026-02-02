@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+
+{% block title %}Yeni İş Emri - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-2">
+            <li class="breadcrumb-item"><a href="{{ url_for('is_emirleri') }}">İş Emirleri</a></li>
+            <li class="breadcrumb-item active">Yeni İş Emri</li>
+        </ol>
+    </nav>
+    <h1 class="page-title">Yeni İş Emri Oluştur</h1>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body p-4">
+                <form method="POST">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <label class="form-label">Tramvay <span class="text-danger">*</span></label>
+                            <select name="tramvay_id" class="form-select" required>
+                                <option value="">Seçiniz</option>
+                                {% for tramvay in tramvaylar %}
+                                <option value="{{ tramvay }}">{{ tramvay }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">İş Tipi <span class="text-danger">*</span></label>
+                            <select name="work_type" class="form-select" required>
+                                <option value="">Seçiniz</option>
+                                <option value="ariza_onarim">Arıza Onarım</option>
+                                <option value="periyodik_bakim">Periyodik Bakım</option>
+                                <option value="koruyucu_bakim">Koruyucu Bakım</option>
+                                <option value="revizyon">Revizyon</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label">İş Emri Başlığı <span class="text-danger">*</span></label>
+                            <input type="text" name="title" class="form-control" placeholder="İşin kısa açıklaması" required>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label">Açıklama</label>
+                            <textarea name="description" class="form-control" rows="4" placeholder="Yapılacak işin detaylı açıklaması..."></textarea>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Öncelik <span class="text-danger">*</span></label>
+                            <select name="priority" class="form-select" required>
+                                <option value="normal">Normal</option>
+                                <option value="acil">Acil</option>
+                                <option value="yuksek">Yüksek</option>
+                                <option value="dusuk">Düşük</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Atanan Teknisyen</label>
+                            <select name="assigned_to" class="form-select">
+                                <option value="">Henüz atanmadı</option>
+                                {% for teknisyen in teknisyenler %}
+                                <option value="{{ teknisyen.id }}">{{ teknisyen.full_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Planlanan Başlangıç</label>
+                            <input type="datetime-local" name="planned_start" class="form-control">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Planlanan Bitiş</label>
+                            <input type="datetime-local" name="planned_end" class="form-control">
+                        </div>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-2"></i>İş Emri Oluştur
+                        </button>
+                        <a href="{{ url_for('is_emirleri') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-lg me-2"></i>İptal
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card bg-light border-0">
+            <div class="card-body">
+                <h6 class="fw-bold mb-3"><i class="bi bi-info-circle me-2"></i>İş Tipleri</h6>
+                <ul class="small text-muted mb-0">
+                    <li class="mb-2"><strong>Arıza Onarım:</strong> Beklenmedik arızaların giderilmesi</li>
+                    <li class="mb-2"><strong>Periyodik Bakım:</strong> Planlı zamana/km'ye dayalı bakım</li>
+                    <li class="mb-2"><strong>Koruyucu Bakım:</strong> Önleyici bakım faaliyetleri</li>
+                    <li><strong>Revizyon:</strong> Kapsamlı onarım ve yenileme</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

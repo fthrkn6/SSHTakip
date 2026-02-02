@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+
+{% block title %}İş Emirleri - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">İş Emirleri</h1>
+        <p class="page-subtitle">İş emri yönetimi ve takibi</p>
+    </div>
+    <a href="{{ url_for('is_emri_ekle') }}" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-2"></i>Yeni İş Emri
+    </a>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i class="bi bi-clipboard-data"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ stats.toplam }}</h3>
+                <p>Toplam</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon secondary">
+                <i class="bi bi-hourglass"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ stats.beklemede }}</h3>
+                <p>Beklemede</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i class="bi bi-arrow-repeat"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ stats.devam_ediyor }}</h3>
+                <p>Devam Ediyor</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ stats.tamamlandi }}</h3>
+                <p>Tamamlandı</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Durum</label>
+                <select name="durum" class="form-select" onchange="this.form.submit()">
+                    <option value="all" {{ 'selected' if durum == 'all' }}>Tümü</option>
+                    <option value="beklemede" {{ 'selected' if durum == 'beklemede' }}>Beklemede</option>
+                    <option value="devam_ediyor" {{ 'selected' if durum == 'devam_ediyor' }}>Devam Ediyor</option>
+                    <option value="tamamlandi" {{ 'selected' if durum == 'tamamlandi' }}>Tamamlandı</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">İş Tipi</label>
+                <select name="tip" class="form-select" onchange="this.form.submit()">
+                    <option value="all" {{ 'selected' if tip == 'all' }}>Tümü</option>
+                    <option value="ariza_onarim" {{ 'selected' if tip == 'ariza_onarim' }}>Arıza Onarım</option>
+                    <option value="periyodik_bakim" {{ 'selected' if tip == 'periyodik_bakim' }}>Periyodik Bakım</option>
+                    <option value="koruyucu_bakim" {{ 'selected' if tip == 'koruyucu_bakim' }}>Koruyucu Bakım</option>
+                    <option value="revizyon" {{ 'selected' if tip == 'revizyon' }}>Revizyon</option>
+                </select>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <a href="{{ url_for('is_emirleri') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-counterclockwise me-2"></i>Sıfırla
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Work Order List -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>İş Emri Kodu</th>
+                        <th>Ekipman</th>
+                        <th>Başlık</th>
+                        <th>Tip</th>
+                        <th>Öncelik</th>
+                        <th>Tarih</th>
+                        <th>Durum</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for emir in emirler %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('is_emri_detay', id=emir.id) }}" class="text-decoration-none fw-bold">
+                                {{ emir.order_code }}
+                            </a>
+                        </td>
+                        <td>
+                            {% if emir.equipment %}
+                            <a href="{{ url_for('ekipman_detay', id=emir.equipment.id) }}" class="text-decoration-none">
+                                {{ emir.equipment.equipment_code }}
+                            </a>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>{{ emir.title[:35] }}{% if emir.title|length > 35 %}...{% endif %}</td>
+                        <td>{{ emir.get_work_type_display() }}</td>
+                        <td>
+                            {% set badge = emir.get_priority_badge() %}
+                            <span class="badge bg-{{ badge[0] }}">{{ badge[1] }}</span>
+                        </td>
+                        <td>{{ emir.created_at.strftime('%d.%m.%Y') }}</td>
+                        <td>
+                            {% set status = emir.get_status_badge() %}
+                            <span class="badge bg-{{ status[0] }}">{{ status[1] }}</span>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('is_emri_detay', id=emir.id) }}" class="btn btn-sm btn-light">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5">
+                            <i class="bi bi-clipboard text-muted" style="font-size: 48px;"></i>
+                            <p class="text-muted mt-3">İş emri bulunamadı</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

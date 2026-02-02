@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Yeni Doküman Ekle - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-file-upload me-2"></i>Yeni Teknik Doküman Yükle
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data">
+                        <div class="row">
+                            <div class="col-md-8 mb-3">
+                                <label class="form-label">Doküman Başlığı *</label>
+                                <input type="text" name="title" class="form-control" required
+                                       placeholder="Örn: Citadis X05 Bogie Bakım Kılavuzu">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Versiyon</label>
+                                <input type="text" name="version" class="form-control" value="1.0"
+                                       placeholder="Örn: 1.0">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Doküman Türü *</label>
+                                <select name="document_type" class="form-select" required>
+                                    <option value="">Seçiniz</option>
+                                    <option value="manual">Bakım Kılavuzu</option>
+                                    <option value="schematic">Teknik Şema</option>
+                                    <option value="procedure">Prosedür</option>
+                                    <option value="drawing">Teknik Çizim (DWG)</option>
+                                    <option value="spec">Teknik Şartname</option>
+                                    <option value="checklist">Kontrol Listesi</option>
+                                    <option value="datasheet">Veri Sayfası</option>
+                                    <option value="certificate">Sertifika</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Kategori *</label>
+                                <select name="category" class="form-select" required>
+                                    <option value="">Seçiniz</option>
+                                    <option value="mechanical">Mekanik</option>
+                                    <option value="electrical">Elektrik</option>
+                                    <option value="electronic">Elektronik</option>
+                                    <option value="pneumatic">Pnömatik</option>
+                                    <option value="hydraulic">Hidrolik</option>
+                                    <option value="hvac">HVAC (Klima)</option>
+                                    <option value="safety">Güvenlik</option>
+                                    <option value="doors">Kapı Sistemleri</option>
+                                    <option value="bogie">Bogie / Alt Takım</option>
+                                    <option value="traction">Traksiyon</option>
+                                    <option value="braking">Fren Sistemleri</option>
+                                    <option value="communication">Haberleşme</option>
+                                    <option value="general">Genel</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Dil</label>
+                                <select name="language" class="form-select">
+                                    <option value="tr">Türkçe</option>
+                                    <option value="en">İngilizce</option>
+                                    <option value="fr">Fransızca</option>
+                                    <option value="ar">Arapça</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">İlgili Ekipman</label>
+                                <select name="equipment_id" class="form-select">
+                                    <option value="">Genel Doküman (Ekipmana bağlı değil)</option>
+                                    {% for ekipman in ekipmanlar %}
+                                    <option value="{{ ekipman.id }}">
+                                        {{ ekipman.equipment_code }} - {{ ekipman.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Yazar / Kaynak</label>
+                                <input type="text" name="author" class="form-control"
+                                       placeholder="Örn: Alstom, TRANSTU, İç Kaynak">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Açıklama</label>
+                            <textarea name="description" class="form-control" rows="3"
+                                      placeholder="Doküman içeriği hakkında kısa açıklama..."></textarea>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label">Dosya Yükle *</label>
+                            <div class="dropzone p-4 border border-2 border-dashed rounded text-center">
+                                <input type="file" name="file" id="fileInput" class="d-none" required
+                                       accept=".pdf,.doc,.docx,.xls,.xlsx,.dwg,.jpg,.jpeg,.png">
+                                <div id="dropArea">
+                                    <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                                    <h5>Dosyayı buraya sürükleyin veya tıklayın</h5>
+                                    <p class="text-muted small mb-0">
+                                        Desteklenen formatlar: PDF, DOC, DOCX, XLS, XLSX, DWG, JPG, PNG
+                                    </p>
+                                    <p class="text-muted small">Maksimum dosya boyutu: 50 MB</p>
+                                </div>
+                                <div id="filePreview" class="d-none">
+                                    <i class="fas fa-file fa-3x text-success mb-2"></i>
+                                    <p class="mb-0 fw-bold" id="fileName"></p>
+                                    <p class="text-muted small" id="fileSize"></p>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearFile()">
+                                        <i class="fas fa-times me-1"></i>Kaldır
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('dokuman_listesi') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>İptal
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-upload me-2"></i>Dokümanı Yükle
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const fileInput = document.getElementById('fileInput');
+const dropArea = document.getElementById('dropArea');
+const filePreview = document.getElementById('filePreview');
+const fileName = document.getElementById('fileName');
+const fileSize = document.getElementById('fileSize');
+
+// Click to upload
+document.querySelector('.dropzone').addEventListener('click', () => fileInput.click());
+
+// File selection handler
+fileInput.addEventListener('change', function() {
+    if (this.files.length > 0) {
+        showFilePreview(this.files[0]);
+    }
+});
+
+// Drag & drop handlers
+const dropzone = document.querySelector('.dropzone');
+
+dropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.classList.add('border-primary', 'bg-light');
+});
+
+dropzone.addEventListener('dragleave', () => {
+    dropzone.classList.remove('border-primary', 'bg-light');
+});
+
+dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('border-primary', 'bg-light');
+    
+    if (e.dataTransfer.files.length > 0) {
+        fileInput.files = e.dataTransfer.files;
+        showFilePreview(e.dataTransfer.files[0]);
+    }
+});
+
+function showFilePreview(file) {
+    dropArea.classList.add('d-none');
+    filePreview.classList.remove('d-none');
+    fileName.textContent = file.name;
+    fileSize.textContent = formatFileSize(file.size);
+}
+
+function clearFile() {
+    fileInput.value = '';
+    dropArea.classList.remove('d-none');
+    filePreview.classList.add('d-none');
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+</script>
+{% endblock %}

@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block title %}Arıza Bildir - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-2">
+            <li class="breadcrumb-item"><a href="{{ url_for('ariza_listesi') }}">Arızalar</a></li>
+            <li class="breadcrumb-item active">Yeni Arıza</li>
+        </ol>
+    </nav>
+    <h1 class="page-title">Arıza Bildir</h1>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body p-4">
+                <form method="POST">
+                    <div class="row g-4">
+                        <div class="col-12">
+                            <label class="form-label">Tramvay <span class="text-danger">*</span></label>
+                            <select name="tramvay_id" class="form-select" required>
+                                <option value="">Seçiniz</option>
+                                {% for tramvay in tramvaylar %}
+                                <option value="{{ tramvay }}">{{ tramvay }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label">Arıza Başlığı <span class="text-danger">*</span></label>
+                            <input type="text" name="title" class="form-control" placeholder="Kısa ve açıklayıcı bir başlık" required>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label">Arıza Açıklaması <span class="text-danger">*</span></label>
+                            <textarea name="description" class="form-control" rows="4" placeholder="Arızanın detaylı açıklaması..." required></textarea>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Öncelik Seviyesi <span class="text-danger">*</span></label>
+                            <select name="severity" class="form-select" required>
+                                <option value="">Seçiniz</option>
+                                <option value="kritik">🔴 Kritik - Servis durmalı</option>
+                                <option value="yuksek">🟠 Yüksek - Acil müdahale</option>
+                                <option value="orta">🟡 Orta - Normal süreçte</option>
+                                <option value="dusuk">🟢 Düşük - Planlanabilir</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Arıza Tipi <span class="text-danger">*</span></label>
+                            <select name="failure_type" class="form-select" required>
+                                <option value="">Seçiniz</option>
+                                <option value="mekanik">Mekanik</option>
+                                <option value="elektrik">Elektrik</option>
+                                <option value="elektronik">Elektronik</option>
+                                <option value="pnomatik">Pnömatik</option>
+                                <option value="hidrolik">Hidrolik</option>
+                                <option value="yazilim">Yazılım</option>
+                                <option value="hvac">HVAC (Klima)</option>
+                                <option value="kapi">Kapı Sistemi</option>
+                                <option value="fren">Fren Sistemi</option>
+                                <option value="diger">Diğer</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-exclamation-triangle me-2"></i>Arıza Bildir
+                        </button>
+                        <a href="{{ url_for('ariza_listesi') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-lg me-2"></i>İptal
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card bg-danger text-white border-0">
+            <div class="card-body">
+                <h6 class="fw-bold mb-3"><i class="bi bi-exclamation-triangle me-2"></i>Önemli</h6>
+                <p class="small mb-0">
+                    Kritik arızalarda (servis durması gereken durumlar) hemen iş emri oluşturulacak ve ilgili ekip bilgilendirilecektir.
+                </p>
+            </div>
+        </div>
+        
+        <div class="card bg-light border-0 mt-3">
+            <div class="card-body">
+                <h6 class="fw-bold mb-3"><i class="bi bi-info-circle me-2"></i>Öncelik Seviyeleri</h6>
+                <ul class="small text-muted mb-0">
+                    <li class="mb-2"><strong class="text-danger">Kritik:</strong> Tramvay hareket edemez, yolcu güvenliği riski</li>
+                    <li class="mb-2"><strong class="text-warning">Yüksek:</strong> Fonksiyon kaybı, acil müdahale gerekli</li>
+                    <li class="mb-2"><strong class="text-info">Orta:</strong> Performans düşüklüğü, normal süreçte çözülebilir</li>
+                    <li><strong class="text-success">Düşük:</strong> Kozmetik veya planlanabilir sorunlar</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

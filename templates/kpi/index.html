@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block title %}KPI Dashboard - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="mb-3">
+                <i class="bi bi-speedometer2"></i> KPI Dashboard
+                <small class="text-muted">(EN 15341 Uyumlu)</small>
+            </h1>
+            <p class="text-muted">{{ project_name }} - Performans Göstergeleri</p>
+        </div>
+    </div>
+
+    <!-- KPI Kartları -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon primary">
+                    <i class="bi bi-clock-history"></i>
+                </div>
+                <div class="stat-content">
+                    <h3>{{ kpi.mtbf|int }} km</h3>
+                    <p>MTBF</p>
+                    <small class="text-muted">Arızalar Arası Ortalama Mesafe</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon warning">
+                    <i class="bi bi-tools"></i>
+                </div>
+                <div class="stat-content">
+                    <h3>{{ kpi.mttr }} saat</h3>
+                    <p>MTTR</p>
+                    <small class="text-muted">Ortalama Tamir Süresi</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon success">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+                <div class="stat-content">
+                    <h3>{{ kpi.availability }}%</h3>
+                    <p>Kullanılabilirlik</p>
+                    <small class="text-muted">Availability Rate</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon info">
+                    <i class="bi bi-shield-check"></i>
+                </div>
+                <div class="stat-content">
+                    <h3>{{ kpi.reliability }}%</h3>
+                    <p>Güvenilirlik</p>
+                    <small class="text-muted">Reliability Rate</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- İkinci Satır KPI'lar -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon danger">
+                    <i class="bi bi-exclamation-triangle"></i>
+                </div>
+                <div class="stat-content">
+                    <h3>{{ kpi.failure_count }}</h3>
+                    <p>Toplam Arıza</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon primary">
+                    <i class="bi bi-train-front"></i>
+                </div>
+                <div class="stat-content">
+                    <h3>{{ kpi.vehicle_count }}</h3>
+                    <p>Araç Sayısı</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon warning">
+                    <i class="bi bi-hourglass-split"></i>
+                </div>
+                <div class="stat-content">
+                    <h3>{{ kpi.total_downtime|int }} saat</h3>
+                    <p>Toplam Duruş Süresi</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon success">
+                    <i class="bi bi-activity"></i>
+                </div>
+                <div class="stat-content">
+                    <h3>{{ db_stats.active_equipment }}</h3>
+                    <p>Aktif Ekipman</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Arıza Kategorileri -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-pie-chart"></i> Arıza Kategorileri</h5>
+                </div>
+                <div class="card-body">
+                    {% if kpi.failure_by_category %}
+                    <canvas id="categoryChart" height="250"></canvas>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> Kategori verisi bulunamadı.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- En Çok Arıza Yapan Araçlar -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-bar-chart"></i> En Çok Arıza Yapan Araçlar</h5>
+                </div>
+                <div class="card-body">
+                    {% if kpi.top_failing_vehicles %}
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Araç</th>
+                                <th>Arıza Sayısı</th>
+                                <th>Grafik</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% set max_count = kpi.top_failing_vehicles[0].count if kpi.top_failing_vehicles else 1 %}
+                            {% for item in kpi.top_failing_vehicles %}
+                            <tr>
+                                <td><strong>{{ item.vehicle }}</strong></td>
+                                <td>{{ item.count }}</td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar bg-danger" style="width: {{ (item.count / max_count * 100)|int }}%">
+                                            {{ item.count }}
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> Araç verisi bulunamadı.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aylık Trend -->
+    {% if kpi.monthly_trend %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-graph-up"></i> Aylık Arıza Trendi</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="trendChart" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+{% if kpi.failure_by_category %}
+// Kategori Pasta Grafiği
+const categoryData = {{ kpi.failure_by_category | tojson }};
+const categoryLabels = Object.keys(categoryData);
+const categoryValues = Object.values(categoryData);
+
+new Chart(document.getElementById('categoryChart'), {
+    type: 'doughnut',
+    data: {
+        labels: categoryLabels,
+        datasets: [{
+            data: categoryValues,
+            backgroundColor: [
+                '#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
+                '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'right'
+            }
+        }
+    }
+});
+{% endif %}
+
+{% if kpi.monthly_trend %}
+// Aylık Trend Grafiği
+const trendData = {{ kpi.monthly_trend | tojson }};
+const trendLabels = trendData.map(d => d.month);
+const trendValues = trendData.map(d => d.count);
+
+new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+        labels: trendLabels,
+        datasets: [{
+            label: 'Arıza Sayısı',
+            data: trendValues,
+            borderColor: '#2563eb',
+            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+            fill: true,
+            tension: 0.3
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                display: false
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+{% endif %}
+</script>
+{% endblock %}

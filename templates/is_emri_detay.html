@@ -1,0 +1,187 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ is_emri.order_code }} - İş Emri Detay{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-2">
+                <li class="breadcrumb-item"><a href="{{ url_for('is_emirleri') }}">İş Emirleri</a></li>
+                <li class="breadcrumb-item active">{{ is_emri.order_code }}</li>
+            </ol>
+        </nav>
+        <h1 class="page-title">{{ is_emri.title }}</h1>
+    </div>
+    {% set status = is_emri.get_status_badge() %}
+    <span class="badge bg-{{ status[0] }} px-4 py-2 fs-6">{{ status[1] }}</span>
+</div>
+
+<div class="row g-4">
+    <!-- Main Info -->
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-info-circle me-2"></i>İş Emri Bilgileri
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <label class="text-muted small">İş Emri Kodu</label>
+                        <p class="fw-bold mb-0">{{ is_emri.order_code }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted small">Ekipman</label>
+                        <p class="mb-0">
+                            {% if is_emri.equipment %}
+                            <a href="{{ url_for('ekipman_detay', id=is_emri.equipment.id) }}">
+                                {{ is_emri.equipment.equipment_code }} - {{ is_emri.equipment.name }}
+                            </a>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted small">İş Tipi</label>
+                        <p class="fw-medium mb-0">{{ is_emri.get_work_type_display() }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted small">Öncelik</label>
+                        <p class="mb-0">
+                            {% set badge = is_emri.get_priority_badge() %}
+                            <span class="badge bg-{{ badge[0] }}">{{ badge[1] }}</span>
+                        </p>
+                    </div>
+                    <div class="col-12">
+                        <label class="text-muted small">Açıklama</label>
+                        <p class="mb-0">{{ is_emri.description or 'Açıklama girilmemiş' }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Zaman Bilgileri -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-clock me-2"></i>Zaman Bilgileri
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <label class="text-muted small">Planlanan Başlangıç</label>
+                        <p class="fw-medium mb-0">{{ is_emri.planned_start.strftime('%d.%m.%Y %H:%M') if is_emri.planned_start else '-' }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted small">Planlanan Bitiş</label>
+                        <p class="fw-medium mb-0">{{ is_emri.planned_end.strftime('%d.%m.%Y %H:%M') if is_emri.planned_end else '-' }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted small">Gerçek Başlangıç</label>
+                        <p class="fw-medium mb-0">{{ is_emri.actual_start.strftime('%d.%m.%Y %H:%M') if is_emri.actual_start else '-' }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted small">Gerçek Bitiş</label>
+                        <p class="fw-medium mb-0">{{ is_emri.actual_end.strftime('%d.%m.%Y %H:%M') if is_emri.actual_end else '-' }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Update Status -->
+        {% if is_emri.status != 'tamamlandi' %}
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-arrow-repeat me-2"></i>Durumu Güncelle
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('is_emri_guncelle', id=is_emri.id) }}">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Yeni Durum</label>
+                            <select name="status" class="form-select" required>
+                                <option value="beklemede" {{ 'selected' if is_emri.status == 'beklemede' }}>Beklemede</option>
+                                <option value="devam_ediyor" {{ 'selected' if is_emri.status == 'devam_ediyor' }}>Devam Ediyor</option>
+                                <option value="tamamlandi">Tamamlandı</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Tamamlama Notları</label>
+                            <textarea name="completion_notes" class="form-control" rows="3" placeholder="Yapılan işlemler hakkında notlar..."></textarea>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-2"></i>Güncelle
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <div class="card border-success">
+            <div class="card-header bg-success text-white">
+                <i class="bi bi-check-circle me-2"></i>İş Emri Tamamlandı
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="text-muted small">Tamamlanma Tarihi</label>
+                        <p class="fw-medium">{{ is_emri.completed_date.strftime('%d.%m.%Y %H:%M') if is_emri.completed_date else '-' }}</p>
+                    </div>
+                    {% if is_emri.completion_notes %}
+                    <div class="col-12">
+                        <label class="text-muted small">Tamamlama Notları</label>
+                        <p class="mb-0">{{ is_emri.completion_notes }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-people me-2"></i>Atama Bilgileri
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="text-muted small">Oluşturan</label>
+                    <p class="fw-medium mb-0">{{ is_emri.creator.full_name if is_emri.creator else '-' }}</p>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted small">Atanan Teknisyen</label>
+                    <p class="fw-medium mb-0">{{ is_emri.assignee.full_name if is_emri.assignee else 'Henüz atanmadı' }}</p>
+                </div>
+                <div>
+                    <label class="text-muted small">Oluşturma Tarihi</label>
+                    <p class="fw-medium mb-0">{{ is_emri.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
+                </div>
+            </div>
+        </div>
+        
+        {% if is_emri.failure %}
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-exclamation-triangle me-2 text-danger"></i>İlgili Arıza
+            </div>
+            <div class="card-body">
+                <a href="{{ url_for('ariza_detay', id=is_emri.failure.id) }}" class="text-decoration-none">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ is_emri.failure.failure_code }}</strong>
+                            <br><small class="text-muted">{{ is_emri.failure.title or is_emri.failure.description[:40] }}</small>
+                        </div>
+                        {% set badge = is_emri.failure.get_status_badge() %}
+                        <span class="badge bg-{{ badge[0] }}">{{ badge[1] }}</span>
+                    </div>
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

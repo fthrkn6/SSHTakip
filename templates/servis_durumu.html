@@ -1,0 +1,414 @@
+{% extends "base.html" %}
+
+{% block title %}Servis Durumu - SSH Takip{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Modern Card Styling */
+    .stat-card {
+        transition: all 0.3s ease;
+        border-radius: 12px !important;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+    }
+
+    .card-body {
+        padding: 1.5rem !important;
+    }
+
+    .page-header {
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #f0f0f0;
+    }
+
+    .page-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 0.5rem;
+    }
+
+    .page-subtitle {
+        font-size: 0.95rem;
+        color: #6b7280;
+        margin: 0;
+    }
+
+    /* Status Table */
+    .status-table {
+        font-size: 0.65rem;
+    }
+
+    .status-cell {
+        padding: 3px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        min-width: 45px;
+        border-radius: 4px;
+    }
+
+    .status-cell:hover {
+        transform: scale(1.05);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .status-service {
+        background-color: #10b981 !important;
+        border: 1px solid #059669;
+        color: white;
+        font-weight: 600;
+    }
+
+    .status-out {
+        background-color: #ef4444 !important;
+        border: 1px solid #dc2626;
+        color: white;
+        font-weight: 600;
+    }
+
+    .status-operational {
+        background-color: #f59e0b !important;
+        border: 1px solid #d97706;
+        color: white;
+        font-weight: 600;
+    }
+
+    .status-empty {
+        background-color: #f3f4f6;
+        border: 1px solid #e5e7eb;
+        color: #9ca3af;
+    }
+
+    .tram-row {
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .date-header {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        font-weight: bold;
+        padding: 8px 4px;
+        text-align: center;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        font-size: 0.7rem;
+        border-radius: 4px;
+    }
+
+    .tram-id-cell {
+        background-color: #f9fafb;
+        font-weight: bold;
+        position: sticky;
+        left: 0;
+        z-index: 5;
+        min-width: 60px;
+        font-size: 0.75rem;
+        padding: 6px;
+        border-right: 2px solid #e5e7eb;
+    }
+
+    /* Form Styling */
+    .form-label {
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 0.75rem;
+        font-size: 0.9rem;
+    }
+
+    .form-control,
+    .form-select {
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        padding: 0.65rem 0.75rem;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        border: none;
+        border-radius: 8px;
+        padding: 0.65rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title"><i class="bi bi-toggle-on me-2"></i>Servis Durumu</h1>
+    <p class="page-subtitle">Tramvay servis durumlarını yönet ve haftalık takvimini görüntüle</p>
+</div>
+
+<!-- İstatistikler - Modern Dashboard - 5 Kartlı -->
+<div class="d-flex gap-1 mb-3">
+    <div style="flex: 1;">
+        <div class="card stat-card shadow-sm"
+            style="border: none; border-left: 4px solid #10b981; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); padding: 0.5rem; height: 100%;">
+            <div class="d-flex justify-content-between align-items-center gap-2">
+                <div>
+                    <h6 class="mb-0 text-muted" style="font-size: 0.75rem; font-weight: 600;">Serviste</h6>
+                    <h3 class="mb-0" style="font-size: 1.5rem; font-weight: 700; color: #10b981;">{{ stats.get('Servis',
+                        0) or stats.Servis or '0' }}</h3>
+                </div>
+                <i class="bi bi-check-circle text-success" style="font-size: 1.1rem;"></i>
+            </div>
+        </div>
+    </div>
+    <div style="flex: 1;">
+        <div class="card stat-card shadow-sm"
+            style="border: none; border-left: 4px solid #ef4444; background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); padding: 0.5rem; height: 100%;">
+            <div class="d-flex justify-content-between align-items-center gap-2">
+                <div>
+                    <h6 class="mb-0 text-muted" style="font-size: 0.75rem; font-weight: 600;">Servis Dışı</h6>
+                    <h3 class="mb-0" style="font-size: 1.5rem; font-weight: 700; color: #ef4444;">{{ stats.get('Servis
+                        Dışı', 0) or stats['Servis Dışı'] or '0' }}</h3>
+                </div>
+                <i class="bi bi-x-circle text-danger" style="font-size: 1.1rem;"></i>
+            </div>
+        </div>
+    </div>
+    <div style="flex: 1;">
+        <div class="card stat-card shadow-sm"
+            style="border: none; border-left: 4px solid #f59e0b; background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); padding: 0.5rem; height: 100%;">
+            <div class="d-flex justify-content-between align-items-center gap-2">
+                <div>
+                    <h6 class="mb-0 text-muted" style="font-size: 0.75rem; font-weight: 600;">İşletme</h6>
+                    <h3 class="mb-0" style="font-size: 1.5rem; font-weight: 700; color: #f59e0b;">{{ stats.get('İşletme
+                        Kaynaklı Servis Dışı', 0) or stats['İşletme Kaynaklı Servis Dışı'] or '0' }}</h3>
+                </div>
+                <i class="bi bi-exclamation-circle text-warning" style="font-size: 1.1rem;"></i>
+            </div>
+        </div>
+    </div>
+    <div style="flex: 1;">
+        <div class="card stat-card shadow-sm"
+            style="border: none; border-left: 4px solid #6366f1; background: linear-gradient(135deg, #f0f4ff 0%, #e0e7ff 100%); padding: 0.5rem; height: 100%;">
+            <div class="d-flex justify-content-between align-items-center gap-2">
+                <div>
+                    <h6 class="mb-0 text-muted" style="font-size: 0.75rem; font-weight: 600;">Toplam</h6>
+                    <h3 class="mb-0" style="font-size: 1.5rem; font-weight: 700; color: #6366f1;">{{ tramvaylar|length
+                        }}</h3>
+                </div>
+                <i class="bi bi-bus-front text-primary" style="font-size: 1.1rem;"></i>
+            </div>
+        </div>
+    </div>
+    <div style="flex: 1;">
+        <div class="card stat-card shadow-sm"
+            style="border: none; border-top: 4px solid #3b82f6; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); padding: 0.5rem; height: 100%;">
+            <div class="d-flex justify-content-between align-items-center gap-2">
+                <div>
+                    <h6 class="mb-0 text-muted" style="font-size: 0.75rem; font-weight: 600;">Availability</h6>
+                    <h3 class="mb-0" style="font-size: 1.5rem; font-weight: 800; color: #3b82f6;">{{
+                        stats.get('erisebilirlik', '0%') }}</h3>
+                </div>
+                <i class="bi bi-speedometer2 text-info" style="font-size: 1.1rem;"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Form -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Yeni Durum Girişi</h5>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="/servis-durumu">
+            <div class="row">
+                <div class="col-md-3">
+                    <label class="form-label">Tarih</label>
+                    <input type="date" class="form-control" name="tarih" value="{{ today }}" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Tramvay ID</label>
+                    <select class="form-select" name="tramvay_id" id="tramvay_id" required>
+                        <option value="">Seçiniz</option>
+                        {% for tram in tram_ids %}<option value="{{ tram }}">{{ tram }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Durum</label>
+                    <select class="form-select" name="durum" id="durum" required>
+                        <option value="">Seçiniz</option>
+                        <option value="Servis">Servis</option>
+                        <option value="Servis Dışı">Servis Dışı</option>
+                        <option value="İşletme Kaynaklı Servis Dışı">İşletme Kaynaklı Servis Dışı</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Sistem</label>
+                    <select class="form-select" name="sistem" id="sistem" disabled>
+                        <option value="">Seçiniz</option>
+                        {% for sistem_adi in sistemler.keys() %}<option value="{{ sistem_adi }}">{{ sistem_adi }}
+                        </option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Alt Sistem</label>
+                    <select class="form-select" name="alt_sistem" id="alt_sistem" disabled>
+                        <option value="">Seçiniz</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Açıklama (Opsiyonel)</label>
+                    <input type="text" class="form-control" name="aciklama" id="aciklama"
+                        placeholder="Detay girebilirsiniz...">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-success mt-3"><i class="bi bi-check-circle me-2"></i>Kaydet</button>
+        </form>
+    </div>
+</div>
+
+<!-- 7 Günlük Tablo -->
+<div class="card shadow-sm">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-calendar-week me-2"></i>Haftalık Servis Durumu</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-bordered status-table mb-0">
+                <thead>
+                    <tr>
+                        <th class="date-header tram-id-cell">Araç</th>{% for date in dates %}<th class="date-header">{{
+                            date[-2:] }}/{{ date[5:7] }}</th>{% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tram_id in tram_ids %}<tr class="tram-row">
+                        <td class="tram-id-cell"><strong>{{ tram_id }}</strong></td>
+                        {% for date in dates %}{%- set si = status_matrix.get(tram_id, {}).get(date) %}
+                        {%- if si and si[0] == 'Servis' %}<td class="status-cell status-service"><i
+                                class="bi bi-check-lg" style="font-size: 1rem; color: white; font-weight: bold;"></i>
+                        </td>
+                        {%- elif si and si[0] == 'Servis Dışı' %}<td class="status-cell status-out"><i
+                                class="bi bi-x-lg" style="font-size: 1rem; color: white; font-weight: bold;"></i></td>
+                        {%- elif si and si[0] == 'İşletme Kaynaklı Servis Dışı' %}<td class="status-cell"
+                            style="background-color: #ff9800 !important; border: 1px solid #e68900;"><i
+                                class="bi bi-exclamation-triangle-fill"
+                                style="font-size: 1rem; color: white; font-weight: bold;"></i></td>
+                        {%- else %}<td class="status-cell status-empty">-</td>
+                        {%- endif %}
+                        {%- endfor %}
+                    </tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer" style="padding: 0.75rem;">
+        <div class="row text-center">
+            <div class="col-3"><span class="badge bg-success" style="padding: 4px 8px;"><i
+                        class="bi bi-check-lg me-1"></i>Servis</span></div>
+            <div class="col-3"><span class="badge bg-danger" style="padding: 4px 8px;"><i
+                        class="bi bi-x-lg me-1"></i>Servis Dışı</span></div>
+            <div class="col-3"><span class="badge" style="background: #ff9800; padding: 4px 8px; color: white;"><i
+                        class="bi bi-exclamation-triangle-fill me-1"></i>İşletme Kaynaklı</span></div>
+            <div class="col-3"><span class="badge bg-secondary" style="padding: 4px 8px;">- Veri Yok</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- Son Güncellemeler -->
+<div class="card shadow-sm">
+    <div class="card-header" data-bs-toggle="collapse" data-bs-target="#updateHistoryCollapse" style="cursor: pointer;">
+        <h5 class="mb-0 d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-clock-history me-2"></i>Son Güncellemeler</span>
+            <i class="bi bi-chevron-down" id="collapseIcon"></i>
+        </h5>
+    </div>
+    <div class="collapse" id="updateHistoryCollapse">
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0" style="font-size: 0.8rem;">
+                <thead class="table-light">
+                    <tr>
+                        <th style="padding: 0.4rem;">Tarih</th>
+                        <th style="padding: 0.4rem;">Tramvay</th>
+                        <th style="padding: 0.4rem;">Durum</th>
+                        <th style="padding: 0.4rem;">Sistem</th>
+                        <th style="padding: 0.4rem;">Açıklama</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-2">Henüz giriş yapılmadı</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const sistemler_data = {{ sistemler_json | safe }};
+
+    document.getElementById('durum').addEventListener('change', function () {
+        const sistem = document.getElementById('sistem');
+        if (this.value === 'Servis Dışı') {
+            sistem.disabled = false;
+        } else {
+            sistem.disabled = true;
+            sistem.value = '';
+            document.getElementById('alt_sistem').disabled = true;
+            document.getElementById('alt_sistem').value = '';
+        }
+    });
+
+    // Sistem seçildiğinde Alt Sistemleri doldur
+    document.getElementById('sistem').addEventListener('change', function () {
+        const alt_sistem_select = document.getElementById('alt_sistem');
+        const selected_sistem = this.value;
+
+        // Dropdown'ı temizle
+        alt_sistem_select.innerHTML = '<option value="">Seçiniz</option>';
+
+        if (selected_sistem && sistemler_data[selected_sistem]) {
+            const alt_sistemler = sistemler_data[selected_sistem].alt_sistemler;
+            if (alt_sistemler && alt_sistemler.length > 0) {
+                alt_sistemler.forEach(alt_sistem => {
+                    const option = document.createElement('option');
+                    option.value = alt_sistem;
+                    option.textContent = alt_sistem;
+                    alt_sistem_select.appendChild(option);
+                });
+                alt_sistem_select.disabled = false;
+            } else {
+                alt_sistem_select.disabled = true;
+            }
+        } else {
+            alt_sistem_select.disabled = true;
+        }
+    });
+
+    const collapseIcon = document.getElementById('collapseIcon');
+    if (collapseIcon) {
+        document.getElementById('updateHistoryCollapse').addEventListener('show.bs.collapse', function () {
+            collapseIcon.classList.remove('bi-chevron-down');
+            collapseIcon.classList.add('bi-chevron-up');
+        });
+        document.getElementById('updateHistoryCollapse').addEventListener('hide.bs.collapse', function () {
+            collapseIcon.classList.remove('bi-chevron-up');
+            collapseIcon.classList.add('bi-chevron-down');
+        });
+    }
+</script>
+{% endblock %}

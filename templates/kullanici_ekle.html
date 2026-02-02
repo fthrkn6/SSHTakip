@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block title %}Kullanıcı Ekle - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-2">
+            <li class="breadcrumb-item"><a href="{{ url_for('kullanicilar') }}">Kullanıcılar</a></li>
+            <li class="breadcrumb-item active">Yeni Kullanıcı</li>
+        </ol>
+    </nav>
+    <h1 class="page-title">Yeni Kullanıcı Ekle</h1>
+</div>
+
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-body p-4">
+                <form method="POST">
+                    <div class="row g-4">
+                        <div class="col-12">
+                            <label class="form-label">Kullanıcı Adı <span class="text-danger">*</span></label>
+                            <input type="text" name="username" class="form-control" placeholder="Kullanıcı adı" required>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label">Ad Soyad <span class="text-danger">*</span></label>
+                            <input type="text" name="full_name" class="form-control" placeholder="Ad Soyad" required>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label">E-posta <span class="text-danger">*</span></label>
+                            <input type="email" name="email" class="form-control" placeholder="E-posta adresi" required>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label">Şifre <span class="text-danger">*</span></label>
+                            <input type="password" name="password" class="form-control" placeholder="Şifre" required>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Rol <span class="text-danger">*</span></label>
+                            <select name="role" class="form-select" required>
+                                <option value="user">Kullanıcı</option>
+                                <option value="teknisyen">Teknisyen</option>
+                                <option value="muhendis">Mühendis</option>
+                                <option value="admin">Yönetici</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Departman</label>
+                            <select name="department" class="form-select">
+                                <option value="">Seçiniz</option>
+                                <option value="Bakım">Bakım</option>
+                                <option value="Operasyon">Operasyon</option>
+                                <option value="Mühendislik">Mühendislik</option>
+                                <option value="IT">IT</option>
+                                <option value="Yönetim">Yönetim</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-2"></i>Kaydet
+                        </button>
+                        <a href="{{ url_for('kullanicilar') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-lg me-2"></i>İptal
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

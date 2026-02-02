@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}Yedek Parça - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">Yedek Parça Envanteri</h1>
+        <p class="page-subtitle">Stok takibi ve yönetimi</p>
+    </div>
+    <a href="{{ url_for('yedek_parca_ekle') }}" class="btn btn-success">
+        <i class="bi bi-plus-lg me-2"></i>Yeni Parça
+    </a>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i class="bi bi-box-seam"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ stats.toplam }}</h3>
+                <p>Toplam Parça Çeşidi</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="stat-card">
+            <div class="stat-icon danger">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ stats.kritik_stok }}</h3>
+                <p>Kritik Stok</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Parts List -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Parça Kodu</th>
+                        <th>Parça Adı</th>
+                        <th>Kategori</th>
+                        <th>Mevcut Stok</th>
+                        <th>Min. Stok</th>
+                        <th>Birim Fiyat</th>
+                        <th>Konum</th>
+                        <th>Durum</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for parca in parcalar %}
+                    <tr class="{{ 'table-warning' if parca.is_low_stock() else '' }}">
+                        <td><strong>{{ parca.part_code }}</strong></td>
+                        <td>{{ parca.part_name }}</td>
+                        <td>{{ parca.category or '-' }}</td>
+                        <td>
+                            <span class="{% if parca.current_quantity == 0 %}text-danger fw-bold{% elif parca.is_low_stock() %}text-warning fw-bold{% endif %}">
+                                {{ parca.current_quantity }}
+                            </span>
+                        </td>
+                        <td>{{ parca.min_quantity }}</td>
+                        <td>{{ "%.2f"|format(parca.unit_price) }} TND</td>
+                        <td>{{ parca.location or '-' }}</td>
+                        <td>
+                            {% set stock = parca.get_stock_status() %}
+                            <span class="badge bg-{{ stock[0] }}">{{ stock[1] }}</span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5">
+                            <i class="bi bi-box text-muted" style="font-size: 48px;"></i>
+                            <p class="text-muted mt-3">Yedek parça bulunamadı</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

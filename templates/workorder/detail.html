@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}{{ work_order.work_order_number }} - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col-12">
+            <a href="{{ url_for('workorder.index') }}" class="btn btn-secondary mb-3">
+                <i class="bi bi-arrow-left"></i> Geri
+            </a>
+            <h1>İş Emri: {{ work_order.work_order_number }}</h1>
+            <h4>{{ work_order.title }}</h4>
+        </div>
+    </div>
+
+    <!-- Durum Kartları -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Durum</h6>
+                    {% if work_order.status == 'pending' %}
+                        <h3 class="text-secondary"><i class="bi bi-clock"></i> Beklemede</h3>
+                    {% elif work_order.status == 'scheduled' %}
+                        <h3 class="text-primary"><i class="bi bi-calendar"></i> Planlandı</h3>
+                    {% elif work_order.status == 'in_progress' %}
+                        <h3 class="text-warning"><i class="bi bi-tools"></i> Devam Ediyor</h3>
+                    {% elif work_order.status == 'completed' %}
+                        <h3 class="text-success"><i class="bi bi-check-circle"></i> Tamamlandı</h3>
+                    {% else %}
+                        <h3>{{ work_order.status }}</h3>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Öncelik</h6>
+                    {% if work_order.priority == 'critical' %}
+                        <h3 class="text-danger">Kritik</h3>
+                    {% elif work_order.priority == 'high' %}
+                        <h3 class="text-warning">Yüksek</h3>
+                    {% elif work_order.priority == 'medium' %}
+                        <h3 class="text-info">Orta</h3>
+                    {% else %}
+                        <h3 class="text-secondary">Düşük</h3>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Planlanan Tarih</h6>
+                    <h4>{{ work_order.scheduled_start.strftime('%d.%m.%Y') if work_order.scheduled_start else 'Planlanmadı' }}</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Atanan Teknisyen</h6>
+                    <h5>{{ work_order.assigned_user.full_name if work_order.assigned_user else 'Atanmadı' }}</h5>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- İş Emri Detayları -->
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5><i class="bi bi-info-circle"></i> İş Emri Bilgileri</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th width="40%">İş Emri No:</th>
+                            <td><strong>{{ work_order.work_order_number }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th>Ekipman:</th>
+                            <td><a href="{{ url_for('equipment.detail', equipment_id=work_order.equipment.id) }}">{{ work_order.equipment.name }}</a></td>
+                        </tr>
+                        <tr>
+                            <th>İş Tipi:</th>
+                            <td>
+                                {% if work_order.work_type == 'preventive' %}
+                                    Önleyici Bakım
+                                {% elif work_order.work_type == 'corrective' %}
+                                    Düzeltici Bakım
+                                {% elif work_order.work_type == 'inspection' %}
+                                    Kontrol
+                                {% else %}
+                                    {{ work_order.work_type }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Oluşturan:</th>
+                            <td>{{ work_order.creator.full_name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Oluşturulma:</th>
+                            <td>{{ work_order.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                        </tr>
+                        {% if work_order.actual_start %}
+                        <tr>
+                            <th>Başlangıç:</th>
+                            <td>{{ work_order.actual_start.strftime('%d.%m.%Y %H:%M') }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if work_order.actual_end %}
+                        <tr>
+                            <th>Bitiş:</th>
+                            <td>{{ work_order.actual_end.strftime('%d.%m.%Y %H:%M') }}</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+
+                    {% if work_order.description %}
+                    <hr>
+                    <h6>Açıklama:</h6>
+                    <p>{{ work_order.description }}</p>
+                    {% endif %}
+
+                    {% if work_order.completion_notes %}
+                    <hr>
+                    <h6>Tamamlanma Notları:</h6>
+                    <p>{{ work_order.completion_notes }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Durum Güncelleme -->
+            {% if work_order.status != 'completed' and (current_user.role in ['admin', 'manager'] or work_order.assigned_to == current_user.id) %}
+            <div class="card mb-3">
+                <div class="card-header bg-primary text-white">
+                    <h5><i class="bi bi-arrow-repeat"></i> Durum Güncelle</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('workorder.update_status', work_order_id=work_order.id) }}">
+                        <div class="mb-3">
+                            <label for="status" class="form-label">Yeni Durum</label>
+                            <select class="form-select" id="status" name="status" required>
+                                <option value="pending" {% if work_order.status == 'pending' %}selected{% endif %}>Beklemede</option>
+                                <option value="scheduled" {% if work_order.status == 'scheduled' %}selected{% endif %}>Planlandı</option>
+                                <option value="in_progress" {% if work_order.status == 'in_progress' %}selected{% endif %}>Devam Ediyor</option>
+                                <option value="completed">Tamamlandı</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="completion_notes" class="form-label">Notlar (Tamamlanıyorsa zorunlu)</label>
+                            <textarea class="form-control" id="completion_notes" name="completion_notes" rows="3"></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="actual_cost" class="form-label">Gerçekleşen Maliyet (TRY)</label>
+                            <input type="number" step="0.01" class="form-control" id="actual_cost" name="actual_cost">
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> Güncelle
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Bakım Kayıtları -->
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5><i class="bi bi-journal-text"></i> Bakım Kayıtları</h5>
+                </div>
+                <div class="card-body">
+                    {% if work_order.maintenance_logs.count() > 0 %}
+                    <div class="list-group">
+                        {% for log in work_order.maintenance_logs %}
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ log.log_date.strftime('%d.%m.%Y %H:%M') }}</h6>
+                                <small>{{ log.technician.full_name }}</small>
+                            </div>
+                            <p class="mb-1">{{ log.action_taken }}</p>
+                            {% if log.duration_hours %}
+                            <small class="text-muted">Süre: {{ log.duration_hours }} saat</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Henüz bakım kaydı eklenmemiş.</p>
+                    {% endif %}
+
+                    {% if work_order.status in ['in_progress', 'scheduled'] and (current_user.role in ['admin', 'manager'] or work_order.assigned_to == current_user.id) %}
+                    <hr>
+                    <a href="{{ url_for('maintenance.add_log', work_order_id=work_order.id) }}" class="btn btn-success btn-sm">
+                        <i class="bi bi-plus-circle"></i> Bakım Kaydı Ekle
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Maliyet Bilgileri -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5><i class="bi bi-cash"></i> Maliyet</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th>Tahmini Maliyet:</th>
+                            <td>{{ "%.2f TRY"|format(work_order.estimated_cost) if work_order.estimated_cost else '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Gerçekleşen Maliyet:</th>
+                            <td>{{ "%.2f TRY"|format(work_order.actual_cost) if work_order.actual_cost else '-' }}</td>
+                        </tr>
+                        {% if work_order.labor_hours %}
+                        <tr>
+                            <th>İşçilik Saati:</th>
+                            <td>{{ work_order.labor_hours }} saat</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,518 @@
+{% extends 'base.html' %}
+
+{% block title %}Yeni Arıza Bildir{% endblock %}
+
+{% block styles %}
+<style>
+:root {
+    --primary: #4f46e5;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --info: #06b6d4;
+}
+
+.page-header {
+    background: linear-gradient(135deg, var(--primary) 0%, #7c3aed 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: 16px;
+    margin-bottom: 2rem;
+    box-shadow: 0 10px 40px rgba(79, 70, 229, 0.3);
+}
+
+.page-header h2 {
+    margin: 0;
+    font-weight: 700;
+}
+
+.page-header .badge {
+    background: rgba(255,255,255,0.2);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+}
+
+.form-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+}
+
+.form-card-header {
+    padding: 1rem 1.5rem;
+    font-weight: 600;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.form-card-header i { font-size: 1.2rem; }
+
+.form-card-body { padding: 1.5rem; }
+
+.bg-vehicle { background: linear-gradient(135deg, #4f46e5, #7c3aed); }
+.bg-time { background: linear-gradient(135deg, #f59e0b, #f97316); }
+.bg-system { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+.bg-fault { background: linear-gradient(135deg, #ef4444, #dc2626); }
+.bg-action { background: linear-gradient(135deg, #10b981, #059669); }
+.bg-repair { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+.bg-part { background: linear-gradient(135deg, #ec4899, #db2777); }
+
+.form-label {
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 6px;
+    font-size: 0.875rem;
+}
+
+.form-control, .form-select {
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.form-control.readonly-field {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.required-mark { color: var(--danger); }
+
+.autocomplete-wrapper { position: relative; }
+
+.autocomplete-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 2px solid var(--primary);
+    border-radius: 10px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+}
+
+.autocomplete-dropdown.show { display: block; }
+
+.autocomplete-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid #f3f4f6;
+    transition: background 0.2s;
+}
+
+.autocomplete-item:hover {
+    background: #f0f9ff;
+    color: var(--primary);
+}
+
+.autocomplete-item:last-child { border-bottom: none; }
+
+.btn-submit {
+    background: linear-gradient(135deg, var(--success), #059669);
+    border: none;
+    color: white;
+    padding: 14px 40px;
+    border-radius: 30px;
+    font-weight: 600;
+    font-size: 1rem;
+    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.35);
+    transition: all 0.3s;
+}
+
+.btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 35px rgba(16, 185, 129, 0.45);
+    color: white;
+}
+
+.btn-back {
+    background: #6b7280;
+    border: none;
+    color: white;
+    padding: 14px 30px;
+    border-radius: 30px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s;
+}
+
+.btn-back:hover {
+    background: #4b5563;
+    color: white;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="page-header d-flex justify-content-between align-items-center flex-wrap">
+        <div>
+            <h2><i class="fas fa-plus-circle me-2"></i>Yeni Arıza Bildir</h2>
+            <p class="mb-0 mt-2 opacity-75">FRACAS sistemine yeni arıza kaydı ekleyin</p>
+        </div>
+        <span class="badge mt-2">
+            <i class="fas fa-map-marker-alt me-1"></i>
+            {{ project_name | upper }}
+        </span>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data">
+        <div class="row">
+            <!-- Sol Kolon -->
+            <div class="col-lg-6">
+                <!-- Araç Bilgileri -->
+                <div class="form-card">
+                    <div class="form-card-header bg-vehicle">
+                        <i class="fas fa-subway"></i>
+                        Araç Bilgileri
+                    </div>
+                    <div class="form-card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">FRACAS ID</label>
+                                <input type="text" class="form-control readonly-field" name="fracas_id" value="{{ next_fracas_id }}" readonly>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Araç No <span class="required-mark">*</span></label>
+                                <select class="form-select" name="arac_numarasi" required>
+                                    <option value="">-- Araç Seçin --</option>
+                                    {% for tram in tramvaylar %}
+                                    <option value="{{ tram }}">{{ tram }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Araç Modül</label>
+                                <select class="form-select" name="arac_module">
+                                    <option value="">-- Modül Seçin --</option>
+                                    {% for mod in modules %}
+                                    <option value="{{ mod }}">{{ mod }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Kilometre</label>
+                                <input type="number" class="form-control" name="arac_km" placeholder="Araç km">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hata Zamanı -->
+                <div class="form-card">
+                    <div class="form-card-header bg-time">
+                        <i class="fas fa-clock"></i>
+                        Hata Zamanı
+                    </div>
+                    <div class="form-card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Tarih <span class="required-mark">*</span></label>
+                                <input type="date" class="form-control" name="hata_tarih" value="{{ today }}" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Saat <span class="required-mark">*</span></label>
+                                <input type="time" class="form-control" name="hata_saat" required>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sistem Bilgileri -->
+                <div class="form-card">
+                    <div class="form-card-header bg-system">
+                        <i class="fas fa-cogs"></i>
+                        Sistem Bilgileri
+                    </div>
+                    <div class="form-card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Sistem <span class="required-mark">*</span></label>
+                            <select class="form-select" id="sistemSelect" name="sistem" required>
+                                <option value="">-- Sistem Seçin --</option>
+                                {% for sistem_adi in sistemler %}
+                                <option value="{{ sistem_adi }}">{{ sistem_adi }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Alt Sistem</label>
+                                <select class="form-select" id="altSistemSelect" name="alt_sistem">
+                                    <option value="">-- Önce Sistem Seçin --</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Tedarikçi</label>
+                                <select class="form-select" id="tedarikciSelect" name="tedarikci">
+                                    <option value="">-- Önce Sistem Seçin --</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tamir Zamanları -->
+                <div class="form-card">
+                    <div class="form-card-header bg-repair">
+                        <i class="fas fa-tools"></i>
+                        Tamir Zamanları
+                    </div>
+                    <div class="form-card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Başlama Tarihi</label>
+                                <input type="date" class="form-control" name="tamir_baslama_tarih" id="tamirBasTarih">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Başlama Saati</label>
+                                <input type="time" class="form-control" name="tamir_baslama_saat" id="tamirBasSaat">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Bitiş Tarihi</label>
+                                <input type="date" class="form-control" name="tamir_bitis_tarih" id="tamirBitTarih">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Bitiş Saati</label>
+                                <input type="time" class="form-control" name="tamir_bitis_saat" id="tamirBitSaat">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Tamir Süresi</label>
+                                <input type="text" class="form-control readonly-field" name="tamir_suresi" id="tamirSuresi" readonly placeholder="Otomatik hesaplanır">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Personel Sayısı</label>
+                                <input type="number" class="form-control" name="personel_sayisi" min="1" value="1">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sağ Kolon -->
+            <div class="col-lg-6">
+                <!-- Arıza Detayları -->
+                <div class="form-card">
+                    <div class="form-card-header bg-fault">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Arıza Detayları
+                    </div>
+                    <div class="form-card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Arıza Sınıfı <span class="required-mark">*</span></label>
+                                <select class="form-select" name="ariza_sinifi" required>
+                                    <option value="">-- Seçin --</option>
+                                    {% for sinif in ariza_siniflari %}
+                                    <option value="{{ sinif }}">{{ sinif }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Arıza Tipi</label>
+                                <select class="form-select" name="ariza_tipi">
+                                    <option value="">-- Seçin --</option>
+                                    <option value="Elektrik">⚡ Elektrik</option>
+                                    <option value="Mekanik">🔧 Mekanik</option>
+                                    <option value="Yazılım">💻 Yazılım</option>
+                                    <option value="Hidrolik">💧 Hidrolik</option>
+                                    <option value="Pnömatik">💨 Pnömatik</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Arıza Kaynağı</label>
+                                <select class="form-select" name="ariza_kaynagi">
+                                    <option value="">-- Seçin --</option>
+                                    {% for kaynak in ariza_kaynaklari %}
+                                    <option value="{{ kaynak }}">{{ kaynak }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Garanti Kapsamı</label>
+                                <select class="form-select" name="garanti_kapsami">
+                                    <option value="">-- Seçin --</option>
+                                    <option value="Evet">✅ Garanti İçi</option>
+                                    <option value="Hayır">❌ Garanti Dışı</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Arıza Tanımı <span class="required-mark">*</span></label>
+                            <textarea class="form-control" name="ariza_tanimi" rows="3" placeholder="Arızayı detaylı açıklayın..." required></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Yapılan İşlem -->
+                <div class="form-card">
+                    <div class="form-card-header bg-action">
+                        <i class="fas fa-wrench"></i>
+                        Yapılan İşlem
+                    </div>
+                    <div class="form-card-body">
+                        <div class="mb-3">
+                            <label class="form-label">İşlem Açıklaması</label>
+                            <textarea class="form-control" name="yapilan_islem" rows="2" placeholder="Yapılan işlemleri açıklayın..."></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Aksiyon</label>
+                            <select class="form-select" name="aksiyon">
+                                <option value="">-- Seçin --</option>
+                                <option value="Tamir">🔧 Tamir Edildi</option>
+                                <option value="Değişim">🔄 Parça Değiştirildi</option>
+                                <option value="Ayar">⚙️ Ayar Yapıldı</option>
+                                <option value="Reset">🔃 Reset Atıldı</option>
+                                <option value="Beklemede">⏳ Parça Bekleniyor</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Parça Bilgileri -->
+                <div class="form-card">
+                    <div class="form-card-header bg-part">
+                        <i class="fas fa-puzzle-piece"></i>
+                        Parça Bilgileri
+                    </div>
+                    <div class="form-card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Parça Kodu</label>
+                                <input type="text" class="form-control" name="parca_kodu" placeholder="Part Number">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Parça Adı</label>
+                                <input type="text" class="form-control" name="parca_adi" placeholder="Parça adı">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Seri No</label>
+                                <input type="text" class="form-control" name="seri_numarasi" placeholder="S/N">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Adet</label>
+                                <input type="number" class="form-control" name="adet" min="1" value="1">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">İşçilik (₺)</label>
+                                <input type="number" class="form-control" name="iscilik_maliyeti" step="0.01" placeholder="0.00">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Servise Veriliş -->
+                <div class="form-card">
+                    <div class="form-card-header bg-vehicle">
+                        <i class="fas fa-check-circle"></i>
+                        Servise Veriliş
+                    </div>
+                    <div class="form-card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Tarih</label>
+                                <input type="date" class="form-control" name="servise_verilis_tarih">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Saat</label>
+                                <input type="time" class="form-control" name="servise_verilis_saat">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Butonlar -->
+        <div class="text-center py-4">
+            <a href="{{ url_for('fracas.index') }}" class="btn-back me-3">
+                <i class="fas fa-arrow-left me-2"></i>Geri Dön
+            </a>
+            <button type="submit" class="btn-submit">
+                <i class="fas fa-save me-2"></i>Kaydet
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="text/javascript">
+// Dinamik sistem detayları
+var sistem_detay = {{ sistem_detay | tojson | safe }};
+var modules = {{ modules | tojson | safe }};
+console.log('Araç modülleri:', modules);
+console.log('Sistem detayları:', sistem_detay);
+document.addEventListener('DOMContentLoaded', function() {
+    var sistemSelect = document.getElementById('sistemSelect');
+    var altSistemSelect = document.getElementById('altSistemSelect');
+    var tedarikciSelect = document.getElementById('tedarikciSelect');
+    if (sistemSelect) {
+        sistemSelect.addEventListener('change', function() {
+            var sistem = this.value;
+            altSistemSelect.innerHTML = '<option value="">-- Seçin --</option>';
+            tedarikciSelect.innerHTML = '<option value="">-- Seçin --</option>';
+            if (sistem && sistem_detay[sistem]) {
+                var data = sistem_detay[sistem];
+                console.log('Seçilen sistem:', sistem, data);
+                (data.tedarikciler || []).forEach(function(ted) {
+                    tedarikciSelect.innerHTML += '<option value="' + ted + '">' + ted + '</option>';
+                });
+                (data.alt_sistemler || []).forEach(function(alt) {
+                    altSistemSelect.innerHTML += '<option value="' + alt + '">' + alt + '</option>';
+                });
+            } else {
+                console.log('Seçilen sistem için detay bulunamadı:', sistem);
+            }
+        });
+    }
+});
+// Tamir süresi hesaplama
+var tamirInputs = ['tamirBasTarih', 'tamirBasSaat', 'tamirBitTarih', 'tamirBitSaat'];
+tamirInputs.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) {
+        el.addEventListener('change', hesaplaTamirSuresi);
+    }
+});
+function hesaplaTamirSuresi() {
+    var bd = document.getElementById('tamirBasTarih').value;
+    var bs = document.getElementById('tamirBasSaat').value;
+    var ed = document.getElementById('tamirBitTarih').value;
+    var es = document.getElementById('tamirBitSaat').value;
+    if (bd && bs && ed && es) {
+        var start = new Date(bd + 'T' + bs);
+        var end = new Date(ed + 'T' + es);
+        var diff = Math.max(0, end - start);
+        var h = Math.floor(diff / 3600000);
+        var m = Math.floor((diff % 3600000) / 60000);
+        document.getElementById('tamirSuresi').value = h + ' saat ' + m + ' dakika';
+    }
+}
+</script>
+{% endblock %}

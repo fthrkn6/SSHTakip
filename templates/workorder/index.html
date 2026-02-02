@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}İş Emirleri - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="mb-3">
+                <i class="bi bi-clipboard-check"></i> İş Emirleri
+            </h1>
+        </div>
+    </div>
+
+    <!-- Filtreler -->
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Durum</label>
+                            <select name="status" class="form-select">
+                                <option value="all">Tümü</option>
+                                <option value="pending" {% if request.args.get('status') == 'pending' %}selected{% endif %}>Beklemede</option>
+                                <option value="scheduled" {% if request.args.get('status') == 'scheduled' %}selected{% endif %}>Planlandı</option>
+                                <option value="in_progress" {% if request.args.get('status') == 'in_progress' %}selected{% endif %}>Devam Ediyor</option>
+                                <option value="completed" {% if request.args.get('status') == 'completed' %}selected{% endif %}>Tamamlandı</option>
+                                <option value="cancelled" {% if request.args.get('status') == 'cancelled' %}selected{% endif %}>İptal</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Öncelik</label>
+                            <select name="priority" class="form-select">
+                                <option value="all">Tümü</option>
+                                <option value="critical" {% if request.args.get('priority') == 'critical' %}selected{% endif %}>Kritik</option>
+                                <option value="high" {% if request.args.get('priority') == 'high' %}selected{% endif %}>Yüksek</option>
+                                <option value="medium" {% if request.args.get('priority') == 'medium' %}selected{% endif %}>Orta</option>
+                                <option value="low" {% if request.args.get('priority') == 'low' %}selected{% endif %}>Düşük</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary me-2">
+                                <i class="bi bi-funnel"></i> Filtrele
+                            </button>
+                            <a href="{{ url_for('workorder.index') }}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Temizle
+                            </a>
+                        </div>
+                        {% if current_user.role in ['admin', 'manager', 'operator'] %}
+                        <div class="col-md-3 d-flex align-items-end justify-content-end">
+                            <a href="{{ url_for('workorder.create') }}" class="btn btn-success">
+                                <i class="bi bi-plus-circle"></i> Yeni İş Emri
+                            </a>
+                        </div>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- İş Emirleri Listesi -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>İş Emri Listesi</h5>
+                </div>
+                <div class="card-body">
+                    {% if work_orders.items %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>İş Emri No</th>
+                                    <th>Başlık</th>
+                                    <th>Ekipman</th>
+                                    <th>Tip</th>
+                                    <th>Öncelik</th>
+                                    <th>Durum</th>
+                                    <th>Atanan</th>
+                                    <th>Planlanan Tarih</th>
+                                    <th>İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for wo in work_orders.items %}
+                                <tr>
+                                    <td><strong>{{ wo.work_order_number }}</strong></td>
+                                    <td>{{ wo.title }}</td>
+                                    <td>{{ wo.equipment.name }}</td>
+                                    <td>
+                                        {% if wo.work_type == 'preventive' %}
+                                            <span class="badge bg-success">Önleyici</span>
+                                        {% elif wo.work_type == 'corrective' %}
+                                            <span class="badge bg-warning">Düzeltici</span>
+                                        {% elif wo.work_type == 'inspection' %}
+                                            <span class="badge bg-info">Kontrol</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ wo.work_type }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if wo.priority == 'critical' %}
+                                            <span class="badge bg-danger badge-critical">Kritik</span>
+                                        {% elif wo.priority == 'high' %}
+                                            <span class="badge bg-orange">Yüksek</span>
+                                        {% elif wo.priority == 'medium' %}
+                                            <span class="badge bg-info">Orta</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Düşük</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if wo.status == 'pending' %}
+                                            <span class="badge bg-secondary">Beklemede</span>
+                                        {% elif wo.status == 'scheduled' %}
+                                            <span class="badge bg-primary">Planlandı</span>
+                                        {% elif wo.status == 'in_progress' %}
+                                            <span class="badge bg-warning">Devam Ediyor</span>
+                                        {% elif wo.status == 'completed' %}
+                                            <span class="badge bg-success">Tamamlandı</span>
+                                        {% else %}
+                                            <span class="badge bg-dark">{{ wo.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ wo.assigned_user.full_name if wo.assigned_user else 'Atanmadı' }}</td>
+                                    <td>{{ wo.scheduled_start.strftime('%d.%m.%Y') if wo.scheduled_start else '-' }}</td>
+                                    <td>
+                                        <a href="{{ url_for('workorder.detail', work_order_id=wo.id) }}" class="btn btn-sm btn-primary" title="Detaylar">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if work_orders.pages > 1 %}
+                    <nav aria-label="Sayfa navigasyonu">
+                        <ul class="pagination justify-content-center">
+                            {% if work_orders.has_prev %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('workorder.index', page=work_orders.prev_num, status=request.args.get('status', 'all'), priority=request.args.get('priority', 'all')) }}">Önceki</a>
+                            </li>
+                            {% endif %}
+                            
+                            {% for page in work_orders.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                                {% if page %}
+                                    <li class="page-item {% if page == work_orders.page %}active{% endif %}">
+                                        <a class="page-link" href="{{ url_for('workorder.index', page=page, status=request.args.get('status', 'all'), priority=request.args.get('priority', 'all')) }}">{{ page }}</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if work_orders.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('workorder.index', page=work_orders.next_num, status=request.args.get('status', 'all'), priority=request.args.get('priority', 'all')) }}">Sonraki</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> İş emri bulunamadı.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

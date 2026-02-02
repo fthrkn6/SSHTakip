@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header fade-in">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1><i class="bi bi-speedometer2"></i> Dashboard</h1>
+                <p class="text-muted mb-0">Bakım Yönetim Sistemi Genel Görünümü</p>
+            </div>
+            <div>
+                <span class="badge bg-success"><i class="bi bi-circle-fill me-1"></i>Sistem Aktif</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Özet Kartlar -->
+    <div class="row mb-4">
+        <div class="col-md-3 fade-in" style="animation-delay: 0.1s;">
+            <div class="card stat-card" style="border-left: 4px solid #10B981;">
+                <div class="card-body">
+                    <div class="stat-icon text-success">
+                        <i class="bi bi-check-circle"></i>
+                    </div>
+                    <h6 class="text-muted text-uppercase mb-2" style="font-size: 0.75rem; letter-spacing: 0.05em;">Operasyonel</h6>
+                    <h3 style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">{{ equipment_summary.get('operational', 0) }}</h3>
+                    <small class="text-muted">Aktif Ekipman</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 fade-in" style="animation-delay: 0.2s;">
+            <div class="card stat-card" style="border-left: 4px solid #F59E0B;">
+                <div class="card-body">
+                    <div class="stat-icon text-warning">
+                        <i class="bi bi-wrench"></i>
+                    </div>
+                    <h6 class="text-muted text-uppercase mb-2" style="font-size: 0.75rem; letter-spacing: 0.05em;">Bakımda</h6>
+                    <h3 style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">{{ equipment_summary.get('maintenance', 0) }}</h3>
+                    <small class="text-muted">Bakım Görmekte</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 fade-in" style="animation-delay: 0.3s;">
+            <div class="card stat-card" style="border-left: 4px solid #EF4444;">
+                <div class="card-body">
+                    <div class="stat-icon text-danger">
+                        <i class="bi bi-exclamation-triangle"></i>
+                    </div>
+                    <h6 class="text-muted text-uppercase mb-2" style="font-size: 0.75rem; letter-spacing: 0.05em;">Arızalı</h6>
+                    <h3 style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ equipment_summary.get('repair', 0) }}</h3>
+                    <small class="text-muted">Onarım Bekliyor</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 fade-in" style="animation-delay: 0.4s;">
+            <div class="card stat-card" style="border-left: 4px solid #06B6D4;">
+                <div class="card-body">
+                    <div class="stat-icon text-info">
+                        <i class="bi bi-clipboard-check"></i>
+                    </div>
+                    <h6 class="text-muted text-uppercase mb-2" style="font-size: 0.75rem; letter-spacing: 0.05em;">Açık İş Emirleri</h6>
+                    <h3 style="background: linear-gradient(135deg, #06B6D4 0%, #0891B2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ wo_summary.get('pending', 0) + wo_summary.get('scheduled', 0) + wo_summary.get('in_progress', 0) }}</h3>
+                    <small class="text-muted">Aktif İşler</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Kartları -->
+    {% if latest_kpi %}
+    <div class="row mb-4">
+        <div class="col-md-3 fade-in" style="animation-delay: 0.5s;">
+            <div class="card kpi-card">
+                <div class="card-body text-center">
+                    <i class="bi bi-clock-history text-primary" style="font-size: 2rem;"></i>
+                    <h6 class="text-muted mt-2 text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.05em;">MTBF</h6>
+                    <h3 class="mb-0">{{ "%.1f"|format(latest_kpi.mtbf) if latest_kpi.mtbf else 'N/A' }}</h3>
+                    <small class="text-muted">saat</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 fade-in" style="animation-delay: 0.6s;">
+            <div class="card kpi-card">
+                <div class="card-body text-center">
+                    <i class="bi bi-tools text-warning" style="font-size: 2rem;"></i>
+                    <h6 class="text-muted mt-2 text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.05em;">MTTR</h6>
+                    <h3 class="mb-0">{{ "%.1f"|format(latest_kpi.mttr) if latest_kpi.mttr else 'N/A' }}</h3>
+                    <small class="text-muted">saat</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 fade-in" style="animation-delay: 0.7s;">
+            <div class="card kpi-card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Kullanılabilirlik</h6>
+                    <h3>{{ "%.1f%%"|format(latest_kpi.availability) if latest_kpi.availability else 'N/A' }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Güvenilirlik</h6>
+                    <h3>{{ "%.1f%%"|format(latest_kpi.reliability) if latest_kpi.reliability else 'N/A' }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <!-- Kritik İş Emirleri -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5><i class="bi bi-exclamation-triangle"></i> Kritik Öncelikli İş Emirleri</h5>
+                </div>
+                <div class="card-body">
+                    {% if critical_work_orders %}
+                    <div class="list-group">
+                        {% for wo in critical_work_orders %}
+                        <a href="{{ url_for('workorder.detail', work_order_id=wo.id) }}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ wo.work_order_number }}</h6>
+                                <small>{{ wo.scheduled_start.strftime('%d.%m.%Y') if wo.scheduled_start else 'Planlanmadı' }}</small>
+                            </div>
+                            <p class="mb-1">{{ wo.title }}</p>
+                            <small class="text-muted">{{ wo.equipment.name }}</small>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Kritik öncelikli açık iş emri yok.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Yaklaşan Bakımlar -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5><i class="bi bi-calendar3"></i> Yaklaşan Bakımlar (7 Gün)</h5>
+                </div>
+                <div class="card-body">
+                    {% if upcoming_maintenance %}
+                    <div class="list-group">
+                        {% for wo in upcoming_maintenance %}
+                        <a href="{{ url_for('workorder.detail', work_order_id=wo.id) }}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ wo.equipment.name }}</h6>
+                                <small>{{ wo.scheduled_start.strftime('%d.%m.%Y') }}</small>
+                            </div>
+                            <p class="mb-1">{{ wo.title }}</p>
+                            <span class="badge bg-{{ 'warning' if wo.priority == 'high' else 'secondary' }}">{{ wo.priority }}</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">7 gün içinde planlanan bakım yok.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

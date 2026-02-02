@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+
+{% block title %}Bakım Planları - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">Bakım Planları</h1>
+        <p class="page-subtitle">Periyodik ve koruyucu bakım planlaması</p>
+    </div>
+    <a href="{{ url_for('bakim_plani_ekle') }}" class="btn btn-warning">
+        <i class="bi bi-plus-lg me-2"></i>Yeni Bakım Planı
+    </a>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i class="bi bi-calendar-check"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ stats.toplam }}</h3>
+                <p>Aktif Plan</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon danger">
+                <i class="bi bi-exclamation-circle"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ stats.geciken }}</h3>
+                <p>Geciken</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i class="bi bi-clock-history"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ stats.bu_hafta }}</h3>
+                <p>Bu Hafta</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Plan List -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Plan Kodu</th>
+                        <th>Ekipman</th>
+                        <th>Bakım Adı</th>
+                        <th>Tip</th>
+                        <th>Periyot</th>
+                        <th>Sonraki Tarih</th>
+                        <th>Durum</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for plan in planlar %}
+                    <tr class="{{ 'table-danger' if plan.is_overdue() else '' }}">
+                        <td><strong>{{ plan.plan_code }}</strong></td>
+                        <td>
+                            {% if plan.equipment %}
+                            <a href="{{ url_for('ekipman_detay', id=plan.equipment.id) }}" class="text-decoration-none">
+                                {{ plan.equipment.equipment_code }}
+                            </a>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>{{ plan.name }}</td>
+                        <td>{{ plan.maintenance_type }}</td>
+                        <td>{{ plan.frequency_days }} gün</td>
+                        <td>
+                            <span class="{% if plan.is_overdue() %}text-danger fw-bold{% endif %}">
+                                {{ plan.next_due_date.strftime('%d.%m.%Y') if plan.next_due_date else '-' }}
+                            </span>
+                            {% if plan.days_until_due() is not none %}
+                                {% if plan.is_overdue() %}
+                                    <br><small class="text-danger">{{ plan.days_until_due()|abs }} gün gecikmiş</small>
+                                {% else %}
+                                    <br><small class="text-muted">{{ plan.days_until_due() }} gün kaldı</small>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if plan.is_overdue() %}
+                                <span class="badge bg-danger">Gecikmiş</span>
+                            {% elif plan.is_active %}
+                                <span class="badge bg-success">Aktif</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Pasif</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5">
+                            <i class="bi bi-calendar text-muted" style="font-size: 48px;"></i>
+                            <p class="text-muted mt-3">Bakım planı bulunamadı</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

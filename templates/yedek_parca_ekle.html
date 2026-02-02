@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block title %}Yedek Parça Ekle - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-2">
+            <li class="breadcrumb-item"><a href="{{ url_for('yedek_parca') }}">Yedek Parça</a></li>
+            <li class="breadcrumb-item active">Yeni Parça</li>
+        </ol>
+    </nav>
+    <h1 class="page-title">Yeni Yedek Parça Ekle</h1>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body p-4">
+                <form method="POST">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <label class="form-label">Parça Kodu <span class="text-danger">*</span></label>
+                            <input type="text" name="part_code" class="form-control" placeholder="Örn: YP-100" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Parça Adı <span class="text-danger">*</span></label>
+                            <input type="text" name="part_name" class="form-control" placeholder="Parça adı" required>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Kategori</label>
+                            <select name="category" class="form-select">
+                                <option value="">Seçiniz</option>
+                                <option value="fren">Fren Sistemi</option>
+                                <option value="hvac">HVAC</option>
+                                <option value="kapi">Kapı Sistemi</option>
+                                <option value="elektrik">Elektrik</option>
+                                <option value="traksiyon">Traksiyon</option>
+                                <option value="boji">Boji</option>
+                                <option value="genel">Genel</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Tedarikçi</label>
+                            <input type="text" name="supplier" class="form-control" placeholder="Tedarikçi firma">
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <label class="form-label">Mevcut Stok <span class="text-danger">*</span></label>
+                            <input type="number" name="current_quantity" class="form-control" value="0" min="0" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Minimum Stok</label>
+                            <input type="number" name="min_quantity" class="form-control" value="5" min="0">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Birim Fiyat (TND)</label>
+                            <input type="number" name="unit_price" class="form-control" value="0" min="0" step="0.01">
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label">Depo Konumu</label>
+                            <input type="text" name="location" class="form-control" placeholder="Örn: Ana Depo - Raf A3">
+                        </div>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check-lg me-2"></i>Kaydet
+                        </button>
+                        <a href="{{ url_for('yedek_parca') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-lg me-2"></i>İptal
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

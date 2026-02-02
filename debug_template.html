@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Debug - Jinja2 Render Test</title>
+</head>
+
+<body>
+    <h1>Jinja2 Template Render Debug</h1>
+    <p>Template'de Jinja2'nin doğru render edilip edilmediğini kontrol etmek için, Flask uygulamasını başlat ve kaynak
+        kodunu görüntüle (Inspect -> Sources)</p>
+
+    <div id="debug"></div>
+
+    <script>
+        // Bu sayfada test etmek için, Flask template'ten aktarılan JSON'u kontrol edelim
+        // Eğer sistemler_data undefined ise Jinja2 hata yaptı demek
+
+        // Template'den aktarılan veri olsa burada görünecek (tarayıcı console'unda test et)
+        try {
+            // Deneme - eğer render edildiyse sistemler_data tanımlı olacak
+            const test = typeof sistemler_data;
+            document.getElementById('debug').innerHTML = `
+                <p><strong>sistemler_data durumu:</strong> ${test}</p>
+                <p>Eğer 'undefined' ise, Jinja2 template'de render problemi var.</p>
+            `;
+        } catch (e) {
+            document.getElementById('debug').innerHTML = `<p>Hata: ${e.message}</p>`;
+        }
+    </script>
+</body>
+
+</html>

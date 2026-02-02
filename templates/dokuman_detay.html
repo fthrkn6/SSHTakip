@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block title %}{{ dokuman.title }} - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dokuman_listesi') }}">Dokümanlar</a></li>
+            <li class="breadcrumb-item active">{{ dokuman.document_code }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        {% if dokuman.file_type == 'pdf' %}
+                        <i class="fas fa-file-pdf text-danger me-2"></i>
+                        {% elif dokuman.file_type in ['doc', 'docx'] %}
+                        <i class="fas fa-file-word text-primary me-2"></i>
+                        {% elif dokuman.file_type in ['xls', 'xlsx'] %}
+                        <i class="fas fa-file-excel text-success me-2"></i>
+                        {% elif dokuman.file_type == 'dwg' %}
+                        <i class="fas fa-drafting-compass text-info me-2"></i>
+                        {% elif dokuman.file_type in ['jpg', 'png', 'jpeg'] %}
+                        <i class="fas fa-file-image text-warning me-2"></i>
+                        {% else %}
+                        <i class="fas fa-file me-2"></i>
+                        {% endif %}
+                        {{ dokuman.title }}
+                    </h4>
+                    <a href="{{ url_for('dokuman_indir', id=dokuman.id) }}" class="btn btn-success">
+                        <i class="fas fa-download me-2"></i>İndir
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if dokuman.description %}
+                    <div class="mb-4">
+                        <h6>Açıklama</h6>
+                        <p>{{ dokuman.description }}</p>
+                    </div>
+                    {% endif %}
+
+                    {% if dokuman.file_type == 'pdf' %}
+                    <div class="ratio ratio-4x3 border rounded">
+                        <iframe src="{{ url_for('dokuman_indir', id=dokuman.id) }}#toolbar=0" 
+                                frameborder="0"></iframe>
+                    </div>
+                    {% elif dokuman.file_type in ['jpg', 'jpeg', 'png'] %}
+                    <div class="text-center">
+                        <img src="{{ url_for('dokuman_indir', id=dokuman.id) }}" 
+                             class="img-fluid rounded" style="max-height: 600px;">
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5 bg-light rounded">
+                        <i class="fas fa-file fa-5x text-muted mb-3"></i>
+                        <h5>Önizleme mevcut değil</h5>
+                        <p class="text-muted">Bu dosya türü için önizleme desteklenmiyor.</p>
+                        <a href="{{ url_for('dokuman_indir', id=dokuman.id) }}" class="btn btn-primary">
+                            <i class="fas fa-download me-2"></i>Dosyayı İndir
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Doküman Bilgileri -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Doküman Bilgileri</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless">
+                        <tr>
+                            <td class="text-muted">Doküman Kodu:</td>
+                            <td><code>{{ dokuman.document_code }}</code></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Versiyon:</td>
+                            <td><span class="badge bg-primary">v{{ dokuman.version }}</span></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Tür:</td>
+                            <td>
+                                {% if dokuman.document_type == 'manual' %}
+                                <span class="badge bg-success">Bakım Kılavuzu</span>
+                                {% elif dokuman.document_type == 'schematic' %}
+                                <span class="badge bg-info">Teknik Şema</span>
+                                {% elif dokuman.document_type == 'procedure' %}
+                                <span class="badge bg-warning">Prosedür</span>
+                                {% elif dokuman.document_type == 'drawing' %}
+                                <span class="badge bg-secondary">Teknik Çizim</span>
+                                {% elif dokuman.document_type == 'spec' %}
+                                <span class="badge bg-primary">Şartname</span>
+                                {% elif dokuman.document_type == 'checklist' %}
+                                <span class="badge bg-dark">Kontrol Listesi</span>
+                                {% else %}
+                                <span class="badge bg-light text-dark">{{ dokuman.document_type }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Kategori:</td>
+                            <td>{{ dokuman.category or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Dosya Adı:</td>
+                            <td>{{ dokuman.file_name }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Dosya Boyutu:</td>
+                            <td>
+                                {% if dokuman.file_size %}
+                                {{ (dokuman.file_size / 1024)|round(1) }} KB
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Dil:</td>
+                            <td>
+                                {% if dokuman.language == 'tr' %}🇹🇷 Türkçe
+                                {% elif dokuman.language == 'en' %}🇬🇧 İngilizce
+                                {% elif dokuman.language == 'fr' %}🇫🇷 Fransızca
+                                {% elif dokuman.language == 'ar' %}🇹🇳 Arapça
+                                {% else %}{{ dokuman.language }}{% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Yazar:</td>
+                            <td>{{ dokuman.author or '-' }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- İlgili Ekipman -->
+            {% if dokuman.equipment %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-cog me-2"></i>İlgili Ekipman</h5>
+                </div>
+                <div class="card-body">
+                    <a href="{{ url_for('ekipman_detay', id=dokuman.equipment.id) }}" class="text-decoration-none">
+                        <div class="d-flex align-items-center">
+                            <div class="rounded-circle bg-primary text-white p-3 me-3">
+                                <i class="fas fa-train"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-0">{{ dokuman.equipment.name }}</h6>
+                                <small class="text-muted">{{ dokuman.equipment.equipment_code }}</small>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- İstatistikler -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Erişim İstatistikleri</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <h3 class="text-primary">{{ dokuman.view_count }}</h3>
+                            <small class="text-muted">Görüntülenme</small>
+                        </div>
+                        <div class="col-6">
+                            <h3 class="text-success">{{ dokuman.download_count }}</h3>
+                            <small class="text-muted">İndirme</small>
+                        </div>
+                    </div>
+                    <hr>
+                    <small class="text-muted">
+                        <i class="fas fa-clock me-1"></i>
+                        Oluşturulma: {{ dokuman.created_at.strftime('%d.%m.%Y %H:%M') if dokuman.created_at else '-' }}
+                    </small>
+                    {% if dokuman.last_accessed %}
+                    <br>
+                    <small class="text-muted">
+                        <i class="fas fa-eye me-1"></i>
+                        Son Erişim: {{ dokuman.last_accessed.strftime('%d.%m.%Y %H:%M') }}
+                    </small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

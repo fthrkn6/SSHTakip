@@ -1,0 +1,630 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - SSH Takip{% endblock %}
+
+{% block extra_css %}
+<style>
+    .kpi-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 16px;
+        padding: 24px;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    .kpi-card.green { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+    .kpi-card.blue { background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%); }
+    .kpi-card.orange { background: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%); }
+    .kpi-card.red { background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%); }
+    .kpi-card.purple { background: linear-gradient(135deg, #8e2de2 0%, #4a00e0 100%); }
+    
+    .kpi-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 100%;
+        height: 100%;
+        background: rgba(255,255,255,0.1);
+        border-radius: 50%;
+    }
+    
+    .kpi-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    .kpi-label {
+        font-size: 0.85rem;
+        opacity: 0.9;
+        margin-top: 8px;
+    }
+    .kpi-icon {
+        position: absolute;
+        right: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 4rem;
+        opacity: 0.2;
+    }
+    .kpi-trend {
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.75rem;
+        background: rgba(255,255,255,0.2);
+        padding: 4px 10px;
+        border-radius: 20px;
+        margin-top: 12px;
+    }
+    .kpi-trend i { margin-right: 4px; }
+    
+    .progress-ring {
+        width: 120px;
+        height: 120px;
+        position: relative;
+    }
+    .progress-ring svg {
+        transform: rotate(-90deg);
+    }
+    .progress-ring .bg {
+        fill: none;
+        stroke: rgba(0,0,0,0.1);
+        stroke-width: 8;
+    }
+    .progress-ring .progress {
+        fill: none;
+        stroke-width: 8;
+        stroke-linecap: round;
+        transition: stroke-dashoffset 0.5s ease;
+    }
+    .progress-ring .value {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    
+    .metric-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border: 1px solid #eee;
+    }
+    .metric-card h6 {
+        color: #666;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 10px;
+    }
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1a1a2e;
+    }
+    .metric-unit {
+        font-size: 0.9rem;
+        color: #888;
+    }
+    
+    .fleet-status-bar {
+        display: flex;
+        height: 12px;
+        border-radius: 6px;
+        overflow: hidden;
+        background: #eee;
+    }
+    .fleet-status-bar .segment {
+        transition: width 0.5s ease;
+    }
+    .fleet-status-bar .aktif { background: #10b981; }
+    .fleet-status-bar .bakim { background: #f59e0b; }
+    .fleet-status-bar .ariza { background: #ef4444; }
+    
+    /* Arıza item gizleme */
+    .ariza-item.hidden {
+        display: none !important;
+    }
+    
+    /* Tramvay kartı seçim stili */
+    .tramvay-card.selected {
+        box-shadow: 0 0 0 3px #3b82f6, 0 4px 15px rgba(59, 130, 246, 0.4);
+        transform: scale(1.05);
+        z-index: 10;
+    }
+    .tramvay-card:hover {
+        transform: scale(1.02);
+        transition: all 0.2s ease;
+    }
+    .tramvay-card.selected:hover {
+        transform: scale(1.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1 class="page-title">Dashboard 
+            {% if project_name %}<span class="badge bg-secondary fs-6">{{ project_name }}</span>{% endif %}
+        </h1>
+        <p class="page-subtitle">Tramvay Filosu - Anlık Performans Görünümü 
+            {% if excel_data %}<span class="badge bg-info">Excel Verisi</span>{% endif %}
+        </p>
+    </div>
+    <div class="text-muted">
+        <i class="bi bi-clock me-1"></i>
+        <span id="current-time">{{ now().strftime('%d.%m.%Y %H:%M') if now is defined else '' }}</span>
+    </div>
+</div>
+
+<!-- KPI Cards - Professional Design -->
+<div class="row g-4 mb-4">
+    <div class="col-12 col-lg-3 col-md-6">
+        <div class="kpi-card green">
+            <i class="bi bi-speedometer2 kpi-icon"></i>
+            <div class="kpi-value">{{ kpi.fleet_availability if kpi else 95 }}%</div>
+            <div class="kpi-label">Filo Kullanılabilirlik Oranı</div>
+            <div class="kpi-trend">
+                <i class="bi bi-arrow-up"></i> Hedef: %95
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-3 col-md-6">
+        <div class="kpi-card blue">
+            <i class="bi bi-check-circle kpi-icon"></i>
+            <div class="kpi-value">{{ kpi.failure_resolution_rate if kpi else 100 }}%</div>
+            <div class="kpi-label">Arıza Çözüm Oranı</div>
+            <div class="kpi-trend">
+                <i class="bi bi-graph-up"></i> Son 30 Gün
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-3 col-md-6">
+        <div class="kpi-card orange">
+            <i class="bi bi-clipboard-check kpi-icon"></i>
+            <div class="kpi-value">{{ kpi.wo_completion_rate if kpi else 100 }}%</div>
+            <div class="kpi-label">İş Emri Tamamlama</div>
+            <div class="kpi-trend">
+                <i class="bi bi-calendar3"></i> Bu Ay
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-3 col-md-6">
+        <div class="kpi-card purple">
+            <i class="bi bi-shield-check kpi-icon"></i>
+            <div class="kpi-value">{{ kpi.preventive_ratio if kpi else 0 }}%</div>
+            <div class="kpi-label">Önleyici Bakım Oranı</div>
+            <div class="kpi-trend">
+                <i class="bi bi-bullseye"></i> Hedef: %70
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Fleet Overview with Progress Bar -->
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0 fw-bold">Filo Durumu</h6>
+                    <span class="text-muted">Toplam: {{ stats.total_tramvay }} Tramvay</span>
+                </div>
+                <div class="fleet-status-bar mb-3">
+                    {% set aktif_pct = (stats.aktif_servis / stats.total_tramvay * 100) if stats.total_tramvay > 0 else 0 %}
+                    {% set bakim_pct = (stats.bakimda / stats.total_tramvay * 100) if stats.total_tramvay > 0 else 0 %}
+                    {% set ariza_pct = (stats.arizali / stats.total_tramvay * 100) if stats.total_tramvay > 0 else 0 %}
+                    <div class="segment aktif" style="width: {{ aktif_pct }}%"></div>
+                    <div class="segment bakim" style="width: {{ bakim_pct }}%"></div>
+                    <div class="segment ariza" style="width: {{ ariza_pct }}%"></div>
+                </div>
+                <div class="d-flex justify-content-between flex-wrap gap-3">
+                    <div class="d-flex align-items-center">
+                        <span class="rounded-circle me-2" style="width:12px;height:12px;background:#10b981;"></span>
+                        <span class="me-1 fw-bold">{{ stats.aktif_servis }}</span>
+                        <span class="text-muted">Aktif Serviste</span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <span class="rounded-circle me-2" style="width:12px;height:12px;background:#f59e0b;"></span>
+                        <span class="me-1 fw-bold">{{ stats.bakimda }}</span>
+                        <span class="text-muted">Planlı Bakımda</span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <span class="rounded-circle me-2" style="width:12px;height:12px;background:#ef4444;"></span>
+                        <span class="me-1 fw-bold">{{ stats.arizali }}</span>
+                        <span class="text-muted">Arızalı</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Metrics Row -->
+<div class="row g-4 mb-4">
+    <div class="col-6 col-lg-2">
+        <div class="metric-card">
+            <h6>Açık Arıza</h6>
+            <div class="metric-value text-danger">{{ stats.aktif_ariza }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-2">
+        <div class="metric-card">
+            <h6>Bekleyen İş</h6>
+            <div class="metric-value text-warning">{{ stats.bekleyen_is_emri }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-2">
+        <div class="metric-card">
+            <h6>Devam Eden</h6>
+            <div class="metric-value text-primary">{{ stats.devam_eden_is_emri }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-2">
+        <div class="metric-card">
+            <h6>Bugün Biten</h6>
+            <div class="metric-value text-success">{{ stats.bugun_tamamlanan }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-2">
+        <div class="metric-card">
+            <h6>Kritik Arıza</h6>
+            <div class="metric-value text-danger">{{ kpi.critical_failures if kpi else 0 }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-2">
+        <div class="metric-card">
+            <h6>Aylık Maliyet</h6>
+            <div class="metric-value" style="font-size:1.2rem">{{ "%.0f"|format(kpi.total_cost if kpi else 0) }}<span class="metric-unit"> TND</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- Tramvay Fleet & Alerts Row -->
+<div class="row g-4">
+    <!-- Tramvay Fleet -->
+    <div class="col-12 col-xl-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-train-front me-2"></i>Tramvay Filosu - Anlık Durum</span>
+                <a href="{{ url_for('fracas.index') }}" class="btn btn-sm btn-outline-primary">FRACAS Analiz</a>
+            </div>
+            <div class="card-body">
+                <div class="tramvay-grid">
+                    {% for tramvay in tramvaylar %}
+                    {% if excel_data %}
+                    <div class="tramvay-card {{ tramvay.status }}" style="text-decoration: none; cursor: pointer;" data-vehicle="{{ tramvay.code }}" onclick="filterArizalar('{{ tramvay.code }}')">
+                        <div class="tramvay-icon">
+                            <i class="bi bi-train-front-fill"></i>
+                        </div>
+                        <h6>{{ tramvay.code|replace('TRN-', '') }}</h6>
+                        <small>{{ tramvay.name }}</small>
+                        <div class="mt-2">
+                            {% if tramvay.status == 'aktif' %}
+                                <span class="badge bg-success">Aktif</span>
+                            {% elif tramvay.status == 'bakim' %}
+                                <span class="badge bg-warning">Bakımda</span>
+                            {% else %}
+                                <span class="badge bg-danger">Arızalı</span>
+                            {% endif %}
+                        </div>
+                        <div class="mt-1">
+                            <small class="text-muted">{{ tramvay.total_failures }} arıza ({{ tramvay.open_failures }} açık)</small>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="tramvay-card {{ tramvay.status }}" style="text-decoration: none; cursor: pointer;" data-vehicle="{{ tramvay.equipment_code }}" data-id="{{ tramvay.id }}" onclick="filterArizalar('{{ tramvay.equipment_code }}')">
+                        <div class="tramvay-icon">
+                            <i class="bi bi-train-front-fill"></i>
+                        </div>
+                        <h6>{{ tramvay.equipment_code|replace('TRN-', '') }}</h6>
+                        <small>{{ tramvay.location[:15] if tramvay.location else '' }}{% if tramvay.location and tramvay.location|length > 15 %}...{% endif %}</small>
+                        <div class="mt-2">
+                            {% set badge = tramvay.get_status_badge() %}
+                            <span class="badge bg-{{ badge[0] }}">{{ badge[1] }}</span>
+                        </div>
+                        <div class="mt-1">
+                            <small class="text-muted">{{ "%.0f"|format(tramvay.total_km) }} km</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- System Alerts & Active Failures -->
+    <div class="col-12 col-xl-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-bell me-2 text-danger"></i>Açık Arızalar</span>
+                <div>
+                    <span id="filtered-vehicle-badge" class="badge bg-primary me-1" style="display: none;"></span>
+                    <span id="ariza-count" class="badge bg-danger">{{ son_arizalar|length if son_arizalar else 0 }}</span>
+                    <button id="clear-filter-btn" class="btn btn-sm btn-outline-secondary ms-1" style="display: none;" onclick="clearFilter()"><i class="bi bi-x"></i></button>
+                </div>
+            </div>
+            <div id="ariza-container" class="card-body" style="max-height: 400px; overflow-y: auto;">
+                {% if son_arizalar %}
+                    {% for ariza in son_arizalar %}
+                    <div class="ariza-item d-flex align-items-start p-3 mb-2 rounded-3" style="background: #fef2f2;" data-vehicle="{% if excel_data %}{{ ariza.vehicle }}{% else %}{{ ariza.equipment.equipment_code if ariza.equipment else '' }}{% endif %}">
+                        <div class="me-3">
+                            <span class="badge bg-danger">Açık</span>
+                        </div>
+                        <div class="flex-grow-1">
+                            {% if excel_data %}
+                            <h6 class="mb-1 text-dark">{{ ariza.failure_code }}</h6>
+                            <small class="text-muted">
+                                <i class="bi bi-train-front me-1"></i>Tramvay {{ ariza.vehicle|replace('TRN-', '') }}
+                            </small>
+                            <br>
+                            <small class="text-muted">{{ ariza.location if ariza.location and ariza.location != '-' else ariza.description[:40] if ariza.description else '' }}</small>
+                            {% else %}
+                            <h6 class="mb-1 text-dark">{{ ariza.title or ariza.failure_code }}</h6>
+                            <small class="text-muted">
+                                <i class="bi bi-train-front me-1"></i>{{ (ariza.equipment.equipment_code if ariza.equipment else 'N/A')|replace('TRN-', '') }}
+                            </small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-check-circle text-success" style="font-size: 48px;"></i>
+                        <p class="text-muted mt-3">Tüm sistemler normal - Açık arıza yok</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upcoming Maintenance & Work Orders -->
+<div class="row g-4 mt-2">
+    <!-- Upcoming Maintenance -->
+    <div class="col-12 col-xl-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-calendar3 me-2 text-warning"></i>Yaklaşan Bakımlar</span>
+                <a href="{{ url_for('bakim_planlari') }}" class="btn btn-sm btn-outline-warning">Tümünü Gör</a>
+            </div>
+            <div class="card-body">
+                {% if yaklasan_bakimlar %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Ekipman</th>
+                                <th>Bakım</th>
+                                <th>Tarih</th>
+                                <th>Durum</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for plan in yaklasan_bakimlar %}
+                            <tr class="{% if plan.is_overdue() %}table-danger{% endif %}">
+                                <td>
+                                    <strong>{{ (plan.equipment.equipment_code if plan.equipment else 'N/A')|replace('TRN-', '') }}</strong>
+                                </td>
+                                <td>{{ plan.name[:25] }}{% if plan.name|length > 25 %}...{% endif %}</td>
+                                <td>
+                                    <span class="{% if plan.is_overdue() %}text-danger fw-bold{% endif %}">
+                                        {{ plan.next_due_date.strftime('%d.%m.%Y') }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if plan.is_overdue() %}
+                                        <span class="badge bg-danger"><i class="bi bi-exclamation-triangle me-1"></i>Gecikmiş</span>
+                                    {% elif plan.days_until_due() <= 3 %}
+                                        <span class="badge bg-warning">{{ plan.days_until_due() }} gün</span>
+                                    {% else %}
+                                        <span class="badge bg-info">{{ plan.days_until_due() }} gün</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-calendar-check text-success" style="font-size: 40px;"></i>
+                    <p class="text-muted mt-3">Yaklaşan bakım bulunmuyor</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Work Orders -->
+    <div class="col-12 col-xl-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-clipboard-check me-2 text-primary"></i>Son İş Emirleri</span>
+                <a href="{{ url_for('is_emri_ekle') }}" class="btn btn-sm btn-primary">
+                    <i class="bi bi-plus"></i> Yeni
+                </a>
+            </div>
+            <div class="card-body">
+                {% if son_is_emirleri %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Kod</th>
+                                <th>Başlık</th>
+                                <th>Tip</th>
+                                <th>Durum</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for emir in son_is_emirleri %}
+                            <tr style="cursor: pointer;" onclick="window.location='{{ url_for('is_emri_detay', id=emir.id) }}'">
+                                <td><strong>{{ emir.order_code }}</strong></td>
+                                <td>{{ emir.title[:20] }}{% if emir.title|length > 20 %}...{% endif %}</td>
+                                <td><small>{{ emir.get_work_type_display() }}</small></td>
+                                <td>
+                                    {% set badge = emir.get_status_badge() %}
+                                    <span class="badge bg-{{ badge[0] }}">{{ badge[1] }}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-clipboard text-muted" style="font-size: 40px;"></i>
+                    <p class="text-muted mt-3">Henüz iş emri bulunmuyor</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions - Modernized -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card bg-light border-0">
+            <div class="card-body">
+                <h6 class="mb-3 text-muted"><i class="bi bi-lightning-charge me-2"></i>Hızlı İşlemler</h6>
+                <div class="row g-3">
+                    <div class="col-6 col-md-3">
+                        <a href="{{ url_for('ariza_ekle') }}" class="btn btn-danger w-100 py-3 d-flex flex-column align-items-center">
+                            <i class="bi bi-exclamation-triangle mb-2" style="font-size: 28px;"></i>
+                            <span>Arıza Bildir</span>
+                        </a>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <a href="{{ url_for('is_emri_ekle') }}" class="btn btn-primary w-100 py-3 d-flex flex-column align-items-center">
+                            <i class="bi bi-clipboard-plus mb-2" style="font-size: 28px;"></i>
+                            <span>İş Emri Oluştur</span>
+                        </a>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <a href="{{ url_for('bakim_plani_ekle') }}" class="btn btn-warning w-100 py-3 d-flex flex-column align-items-center">
+                            <i class="bi bi-calendar-plus mb-2" style="font-size: 28px;"></i>
+                            <span>Bakım Planla</span>
+                        </a>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <a href="{{ url_for('fracas.index') }}" class="btn btn-success w-100 py-3 d-flex flex-column align-items-center">
+                            <i class="bi bi-graph-up mb-2" style="font-size: 28px;"></i>
+                            <span>FRACAS Analiz</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Update time every second
+function updateTime() {
+    const now = new Date();
+    const formatted = now.toLocaleDateString('tr-TR') + ' ' + now.toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'});
+    document.getElementById('current-time').textContent = formatted;
+}
+setInterval(updateTime, 1000);
+updateTime();
+
+// Tramvay seçimi ve arıza filtreleme
+let selectedVehicle = null;
+
+function filterArizalar(vehicleCode) {
+    // Tüm tramvay kartlarından selected sınıfını kaldır
+    document.querySelectorAll('.tramvay-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    
+    // Seçili tramvay kartına selected sınıfı ekle
+    const selectedCard = document.querySelector(`.tramvay-card[data-vehicle="${vehicleCode}"]`);
+    if (selectedCard) {
+        selectedCard.classList.add('selected');
+    }
+    
+    selectedVehicle = vehicleCode;
+    
+    // Normalize edilmiş vehicle code (TRN- olmadan)
+    const normalizedCode = vehicleCode.replace('TRN-', '').trim();
+    
+    // Arızaları filtrele
+    const arizaItems = document.querySelectorAll('.ariza-item');
+    let visibleCount = 0;
+    
+    arizaItems.forEach(item => {
+        const itemVehicle = item.getAttribute('data-vehicle') || '';
+        const normalizedItemVehicle = itemVehicle.replace('TRN-', '').trim();
+        
+        // Normalize edilmiş karşılaştırma
+        if (normalizedItemVehicle === normalizedCode || 
+            normalizedItemVehicle.includes(normalizedCode) || 
+            normalizedCode.includes(normalizedItemVehicle) ||
+            itemVehicle === vehicleCode) {
+            item.classList.remove('hidden');
+            visibleCount++;
+        } else {
+            item.classList.add('hidden');
+        }
+    });
+    
+    // Badge'leri güncelle
+    document.getElementById('ariza-count').textContent = visibleCount;
+    document.getElementById('filtered-vehicle-badge').textContent = normalizedCode;
+    document.getElementById('filtered-vehicle-badge').style.display = 'inline';
+    document.getElementById('clear-filter-btn').style.display = 'inline';
+    
+    // Eğer hiç arıza yoksa mesaj göster
+    const container = document.getElementById('ariza-container');
+    let noDataMsg = container.querySelector('.no-data-msg');
+    
+    if (visibleCount === 0) {
+        if (!noDataMsg) {
+            noDataMsg = document.createElement('div');
+            noDataMsg.className = 'no-data-msg text-center py-4';
+            noDataMsg.innerHTML = '<i class="bi bi-check-circle text-success" style="font-size: 48px;"></i><p class="text-muted mt-3">Bu araçta açık arıza yok</p>';
+            container.appendChild(noDataMsg);
+        }
+        noDataMsg.style.display = 'block';
+    } else if (noDataMsg) {
+        noDataMsg.style.display = 'none';
+    }
+}
+
+function clearFilter() {
+    selectedVehicle = null;
+    
+    // Tramvay kartlarından selected sınıfını kaldır
+    document.querySelectorAll('.tramvay-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    
+    // Tüm arızaları göster
+    const arizaItems = document.querySelectorAll('.ariza-item');
+    arizaItems.forEach(item => {
+        item.classList.remove('hidden');
+    });
+    
+    // Badge'leri güncelle
+    document.getElementById('ariza-count').textContent = arizaItems.length;
+    document.getElementById('filtered-vehicle-badge').style.display = 'none';
+    document.getElementById('clear-filter-btn').style.display = 'none';
+    
+    // No data mesajını gizle
+    const noDataMsg = document.querySelector('.no-data-msg');
+    if (noDataMsg) {
+        noDataMsg.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}

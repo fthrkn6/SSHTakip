@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Profil - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="bi bi-person-circle"></i> Kullanıcı Profili</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <p><strong>Kullanıcı Adı:</strong> {{ current_user.username }}</p>
+                            <p><strong>Tam Ad:</strong> {{ current_user.full_name or '-' }}</p>
+                            <p><strong>E-posta:</strong> {{ current_user.email }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Rol:</strong> 
+                                {% if current_user.role == 'admin' %}
+                                    <span class="badge bg-danger">Yönetici</span>
+                                {% elif current_user.role == 'manager' %}
+                                    <span class="badge bg-primary">Müdür</span>
+                                {% elif current_user.role == 'technician' %}
+                                    <span class="badge bg-success">Teknisyen</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ current_user.role }}</span>
+                                {% endif %}
+                            </p>
+                            <p><strong>Departman:</strong> {{ current_user.department or '-' }}</p>
+                            <p><strong>Telefon:</strong> {{ current_user.phone or '-' }}</p>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <h5>Şifre Değiştir</h5>
+                    <form method="POST" action="{{ url_for('auth.change_password') }}">
+                        <div class="mb-3">
+                            <label for="old_password" class="form-label">Mevcut Şifre</label>
+                            <input type="password" class="form-control" id="old_password" name="old_password" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="new_password" class="form-label">Yeni Şifre</label>
+                            <input type="password" class="form-control" id="new_password" name="new_password" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="confirm_password" class="form-label">Yeni Şifre (Tekrar)</label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-key"></i> Şifre Değiştir
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

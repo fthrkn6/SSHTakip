@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ ariza.failure_code }} - Arıza Detay{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-2">
+                <li class="breadcrumb-item"><a href="{{ url_for('ariza_listesi') }}">Arızalar</a></li>
+                <li class="breadcrumb-item active">{{ ariza.failure_code }}</li>
+            </ol>
+        </nav>
+        <h1 class="page-title">{{ ariza.title or ariza.failure_code }}</h1>
+    </div>
+    {% if ariza.status != 'cozuldu' %}
+    <a href="{{ url_for('is_emri_ekle') }}?failure_id={{ ariza.id }}&equipment_id={{ ariza.equipment_id }}" class="btn btn-primary">
+        <i class="bi bi-clipboard-plus me-2"></i>İş Emri Oluştur
+    </a>
+    {% endif %}
+</div>
+
+<div class="row g-4">
+    <!-- Main Info -->
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-info-circle me-2"></i>Arıza Bilgileri</span>
+                {% set status = ariza.get_status_badge() %}
+                <span class="badge bg-{{ status[0] }} px-3 py-2">{{ status[1] }}</span>
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <label class="text-muted small">Arıza Kodu</label>
+                        <p class="fw-bold mb-0">{{ ariza.failure_code }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted small">Ekipman</label>
+                        <p class="mb-0">
+                            {% if ariza.equipment %}
+                            <a href="{{ url_for('ekipman_detay', id=ariza.equipment.id) }}">
+                                {{ ariza.equipment.equipment_code }} - {{ ariza.equipment.name }}
+                            </a>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted small">Öncelik</label>
+                        <p class="mb-0">
+                            {% set badge = ariza.get_severity_badge() %}
+                            <span class="badge bg-{{ badge[0] }}">{{ badge[1] }}</span>
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted small">Arıza Tipi</label>
+                        <p class="fw-medium mb-0">{{ ariza.failure_type or '-' }}</p>
+                    </div>
+                    <div class="col-12">
+                        <label class="text-muted small">Açıklama</label>
+                        <p class="mb-0">{{ ariza.description or 'Açıklama girilmemiş' }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Resolution Section -->
+        {% if ariza.status != 'cozuldu' %}
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-check-circle me-2"></i>Durumu Güncelle
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('ariza_guncelle', id=ariza.id) }}">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Yeni Durum</label>
+                            <select name="status" class="form-select" required>
+                                <option value="acik" {{ 'selected' if ariza.status == 'acik' }}>Açık</option>
+                                <option value="devam_ediyor" {{ 'selected' if ariza.status == 'devam_ediyor' }}>Devam Ediyor</option>
+                                <option value="cozuldu">Çözüldü</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Çözüm Notları</label>
+                            <textarea name="resolution_notes" class="form-control" rows="3" placeholder="Yapılan işlemler ve çözüm hakkında notlar..."></textarea>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-check-lg me-2"></i>Güncelle
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <div class="card border-success">
+            <div class="card-header bg-success text-white">
+                <i class="bi bi-check-circle me-2"></i>Arıza Çözüldü
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="text-muted small">Çözüm Tarihi</label>
+                        <p class="fw-medium">{{ ariza.resolved_date.strftime('%d.%m.%Y %H:%M') if ariza.resolved_date else '-' }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="text-muted small">Çözen Kişi</label>
+                        <p class="fw-medium">{{ ariza.resolver.full_name if ariza.resolver else '-' }}</p>
+                    </div>
+                    {% if ariza.resolution_notes %}
+                    <div class="col-12">
+                        <label class="text-muted small">Çözüm Notları</label>
+                        <p class="mb-0">{{ ariza.resolution_notes }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-clock-history me-2"></i>Zaman Çizelgesi
+            </div>
+            <div class="card-body">
+                <div class="d-flex mb-3">
+                    <div class="me-3">
+                        <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                            <i class="bi bi-plus text-white"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="mb-0 fw-medium">Arıza Bildirildi</p>
+                        <small class="text-muted">{{ ariza.created_at.strftime('%d.%m.%Y %H:%M') }}</small>
+                        {% if ariza.reporter %}
+                        <br><small class="text-muted">{{ ariza.reporter.full_name }}</small>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if ariza.status in ['devam_ediyor', 'cozuldu'] %}
+                <div class="d-flex mb-3">
+                    <div class="me-3">
+                        <div class="bg-warning rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                            <i class="bi bi-arrow-repeat text-white"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="mb-0 fw-medium">Üzerinde Çalışılıyor</p>
+                        <small class="text-muted">Müdahale başladı</small>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if ariza.status == 'cozuldu' %}
+                <div class="d-flex">
+                    <div class="me-3">
+                        <div class="bg-success rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                            <i class="bi bi-check text-white"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="mb-0 fw-medium">Çözüldü</p>
+                        <small class="text-muted">{{ ariza.resolved_date.strftime('%d.%m.%Y %H:%M') if ariza.resolved_date else '' }}</small>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Related Work Orders -->
+        {% if ariza.work_orders %}
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-clipboard-check me-2"></i>İlgili İş Emirleri
+            </div>
+            <div class="card-body p-0">
+                {% for emir in ariza.work_orders %}
+                <a href="{{ url_for('is_emri_detay', id=emir.id) }}" class="d-block p-3 border-bottom text-decoration-none">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ emir.order_code }}</strong>
+                            <br><small class="text-muted">{{ emir.title[:30] }}</small>
+                        </div>
+                        {% set badge = emir.get_status_badge() %}
+                        <span class="badge bg-{{ badge[0] }}">{{ badge[1] }}</span>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

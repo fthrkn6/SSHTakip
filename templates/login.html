@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giriş - Bozankaya SSH Takip</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #1e3a5f 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Animated background */
+        .bg-animation {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            overflow: hidden;
+            z-index: 0;
+        }
+        
+        .bg-animation .train {
+            position: absolute;
+            bottom: 10%;
+            animation: trainMove 20s linear infinite;
+            opacity: 0.1;
+            font-size: 80px;
+        }
+        
+        @keyframes trainMove {
+            0% { left: -100px; }
+            100% { left: 100%; }
+        }
+        
+        .bg-animation .circle {
+            position: absolute;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(6, 182, 212, 0.1));
+        }
+        
+        .circle-1 { width: 400px; height: 400px; top: -200px; left: -200px; }
+        .circle-2 { width: 300px; height: 300px; bottom: -150px; right: -150px; }
+        .circle-3 { width: 200px; height: 200px; top: 50%; right: 10%; }
+        
+        .login-container {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 440px;
+            padding: 20px;
+        }
+        
+        .login-card {
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+        }
+        
+        .login-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        
+        .login-logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #2563eb, #06b6d4);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            box-shadow: 0 10px 30px rgba(37, 99, 235, 0.3);
+        }
+        
+        .login-logo i {
+            font-size: 40px;
+            color: white;
+        }
+        
+        .login-header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 8px;
+        }
+        
+        .login-header p {
+            color: #64748b;
+            font-size: 14px;
+            margin: 0;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            font-weight: 500;
+            font-size: 14px;
+            color: #1e293b;
+            margin-bottom: 8px;
+        }
+        
+        .input-group-icon {
+            position: relative;
+        }
+        
+        .input-group-icon i {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            font-size: 18px;
+            z-index: 10;
+        }
+        
+        .input-group-icon input {
+            padding-left: 48px;
+        }
+        
+        .form-control {
+            height: 52px;
+            border-radius: 12px;
+            border: 2px solid #e2e8f0;
+            font-size: 15px;
+            transition: all 0.2s ease;
+        }
+        
+        .form-control:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+        }
+        
+        .form-control::placeholder {
+            color: #94a3b8;
+        }
+        
+        .btn-login {
+            width: 100%;
+            height: 52px;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 16px;
+            color: white;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn-login:hover {
+            background: linear-gradient(135deg, #1d4ed8, #1e40af);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3);
+        }
+        
+        .btn-login:active {
+            transform: translateY(0);
+        }
+        
+        .form-check {
+            margin-bottom: 24px;
+        }
+        
+        .form-check-label {
+            font-size: 14px;
+            color: #64748b;
+        }
+        
+        .form-check-input:checked {
+            background-color: #2563eb;
+            border-color: #2563eb;
+        }
+        
+        .login-footer {
+            margin-top: 24px;
+            text-align: center;
+            padding-top: 24px;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .login-footer p {
+            font-size: 13px;
+            color: #64748b;
+            margin: 0;
+        }
+        
+        .alert {
+            border-radius: 12px;
+            border: none;
+            margin-bottom: 20px;
+            padding: 14px 16px;
+            font-size: 14px;
+        }
+        
+        .alert-danger {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+        
+        /* Features */
+        .features {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 24px;
+        }
+        
+        .feature-item {
+            text-align: center;
+            padding: 12px 8px;
+            background: #f8fafc;
+            border-radius: 10px;
+        }
+        
+        .feature-item i {
+            font-size: 20px;
+            color: #2563eb;
+            margin-bottom: 6px;
+        }
+        
+        .feature-item span {
+            display: block;
+            font-size: 11px;
+            color: #64748b;
+        }
+    </style>
+</head>
+<body>
+    <!-- Background Animation -->
+    <div class="bg-animation">
+        <div class="circle circle-1"></div>
+        <div class="circle circle-2"></div>
+        <div class="circle circle-3"></div>
+        <div class="train">🚋</div>
+    </div>
+    
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="login-logo">
+                    <i class="bi bi-train-front-fill"></i>
+                </div>
+                <h1>Bozankaya SSH Takip</h1>
+                <p>Tramvay Bakım Yönetim Sistemi</p>
+            </div>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else category }}">
+                            <i class="bi bi-{% if category == 'error' %}exclamation-circle{% else %}info-circle{% endif %} me-2"></i>
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <form method="POST">
+                <div class="form-group">
+                    <label class="form-label">Proje Seçin</label>
+                    <div class="input-group-icon">
+                        <i class="bi bi-folder2-open"></i>
+                        <select name="project" class="form-control" style="padding-left: 48px;" required>
+                            <option value="">-- Proje Seçin --</option>
+                            <option value="belgrad">🇷🇸 Belgrad</option>
+                            <option value="iasi">🇷🇴 Iași</option>
+                            <option value="timisoara">🇷🇴 Timișoara</option>
+                            <option value="kayseri">🇹🇷 Kayseri</option>
+                            <option value="kocaeli">🇹🇷 Kocaeli</option>
+                            <option value="gebze">🇹🇷 Gebze</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Kullanıcı Adı</label>
+                    <div class="input-group-icon">
+                        <i class="bi bi-person"></i>
+                        <input type="text" name="username" class="form-control" placeholder="Kullanıcı adınızı girin" required autofocus>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Şifre</label>
+                    <div class="input-group-icon">
+                        <i class="bi bi-lock"></i>
+                        <input type="password" name="password" class="form-control" placeholder="Şifrenizi girin" required>
+                    </div>
+                </div>
+                
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="remember" id="remember">
+                    <label class="form-check-label" for="remember">Beni hatırla</label>
+                </div>
+                
+                <button type="submit" class="btn btn-login">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                    Giriş Yap
+                </button>
+            </form>
+            
+            <div class="features">
+                <div class="feature-item">
+                    <i class="bi bi-shield-check"></i>
+                    <span>Güvenli</span>
+                </div>
+                <div class="feature-item">
+                    <i class="bi bi-speedometer2"></i>
+                    <span>Hızlı</span>
+                </div>
+                <div class="feature-item">
+                    <i class="bi bi-graph-up"></i>
+                    <span>Modern</span>
+                </div>
+            </div>
+            
+            <div class="login-footer">
+                <p>© 2025 Bozankaya - Powered by Fatih Erkin</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

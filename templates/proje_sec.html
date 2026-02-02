@@ -1,0 +1,179 @@
+{% extends 'base.html' %}
+
+{% block title %}Proje Seç - SSH Takip{% endblock %}
+
+{% block extra_css %}
+<style>
+    .project-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 24px;
+    }
+
+    .project-card {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+        cursor: pointer;
+        position: relative;
+    }
+
+    .project-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        border-color: var(--primary-color);
+    }
+
+    .project-card.active {
+        border-color: var(--success-color);
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(16, 185, 129, 0.02));
+    }
+
+    .project-card.active::after {
+        content: '✓ Aktif';
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        background: var(--success-color);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .project-flag {
+        font-size: 48px;
+        margin-bottom: 16px;
+    }
+
+    .project-name {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--dark-color);
+        margin-bottom: 8px;
+    }
+
+    .project-country {
+        color: var(--secondary-color);
+        font-size: 0.9rem;
+        margin-bottom: 16px;
+    }
+
+    .project-stats {
+        display: flex;
+        gap: 16px;
+        padding-top: 16px;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    .project-stat {
+        text-align: center;
+        flex: 1;
+    }
+
+    .project-stat-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+
+    .project-stat-label {
+        font-size: 0.75rem;
+        color: var(--secondary-color);
+    }
+
+    .no-data {
+        color: var(--warning-color);
+    }
+
+    .project-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--secondary-color);
+    }
+
+    .status-dot.has-data {
+        background: var(--success-color);
+    }
+
+    .status-dot.no-data {
+        background: var(--warning-color);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">
+            <i class="bi bi-folder2-open me-2"></i>Proje Seçimi
+        </h1>
+        <p class="text-muted mb-0">Çalışmak istediğiniz projeyi seçin</p>
+    </div>
+</div>
+
+<div class="project-grid">
+    {% for project in projects %}
+    <div class="project-card {{ 'active' if project.code == current_project }}"
+        onclick="selectProject('{{ project.code }}')">
+        <div class="project-flag">{{ project.flag }}</div>
+        <div class="project-name">{{ project.name }}</div>
+        <div class="project-country">{{ project.country }}</div>
+
+        <div class="project-status">
+            <span class="status-dot {{ 'has-data' if project.has_fracas else 'no-data' }}"></span>
+            <span class="{% if not project.has_fracas %}text-warning{% else %}text-success{% endif %}">
+                {{ 'FRACAS Verisi Mevcut' if project.has_fracas else 'FRACAS Dosyası Yok' }}
+            </span>
+        </div>
+
+        <div class="project-stats">
+            <div class="project-stat">
+                <div class="project-stat-value {% if not project.has_fracas %}no-data{% endif %}">
+                    {{ project.vehicle_count if project.has_fracas else '-' }}
+                </div>
+                <div class="project-stat-label">Araç</div>
+            </div>
+            <div class="project-stat">
+                <div class="project-stat-value {% if not project.has_fracas %}no-data{% endif %}">
+                    {{ project.failure_count if project.has_fracas else '-' }}
+                </div>
+                <div class="project-stat-label">Arıza Kaydı</div>
+            </div>
+            <div class="project-stat">
+                <div class="project-stat-value {% if not project.has_fracas %}no-data{% endif %}">
+                    {{ project.open_failures if project.has_fracas else '-' }}
+                </div>
+                <div class="project-stat-label">Açık Arıza</div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="mt-4">
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>Not:</strong> Her proje için FRACAS Excel dosyasını ilgili klasöre yükleyin:
+        <code>data/[proje_adı]/FRACAS.xlsx</code>
+    </div>
+</div>
+
+<script>
+    function selectProject(projectCode) {
+        window.location.href = '/proje-degistir/' + projectCode;
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block title %}Arıza Detayı{% endblock %}
+{% block page_title %}{{ ariza.failure_code }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-exclamation-triangle"></i> Arıza Bilgileri</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Arıza Kodu:</strong> {{ ariza.failure_code }}</p>
+                        <p><strong>Araç:</strong> 
+                            {{ ariza.equipment.equipment_code }} - {{ ariza.equipment.name if ariza.equipment else '-' }}
+                        </p>
+                        <p><strong>Arıza Tarihi:</strong> {{ ariza.failure_date.strftime('%d.%m.%Y %H:%M') }}</p>
+                        <p><strong>Arıza Türü:</strong> {{ ariza.failure_type }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Önem Derecesi:</strong>
+                            {% if ariza.severity == 'critical' %}
+                                <span class="badge bg-danger">Kritik</span>
+                            {% elif ariza.severity == 'major' %}
+                                <span class="badge bg-warning">Önemli</span>
+                            {% else %}
+                                <span class="badge bg-info">Düşük</span>
+                            {% endif %}
+                        </p>
+                        <p><strong>Bildiren:</strong> {{ ariza.reporter.full_name if ariza.reporter else '-' }}</p>
+                        <p><strong>Durum:</strong>
+                            {% if ariza.resolved %}
+                                <span class="badge bg-success">Çözüldü</span>
+                            {% else %}
+                                <span class="badge bg-danger">Aktif</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                
+                <hr>
+                <h6>Açıklama:</h6>
+                <p>{{ ariza.description }}</p>
+                
+                {% if ariza.resolved %}
+                <hr>
+                <h6>Çözüm Bilgileri:</h6>
+                <p><strong>Çözüm Tarihi:</strong> {{ ariza.resolution_date.strftime('%d.%m.%Y %H:%M') if ariza.resolution_date else '-' }}</p>
+                <p><strong>Çözen:</strong> {{ ariza.resolver.full_name if ariza.resolver else '-' }}</p>
+                <p><strong>Çözüm Notları:</strong> {{ ariza.resolution_notes or '-' }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        {% if not ariza.resolved %}
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5><i class="bi bi-check-circle"></i> Arızayı Kapat</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('failure.resolve', id=ariza.id) }}">
+                    <div class="mb-3">
+                        <label class="form-label">Çözüm Notları</label>
+                        <textarea name="resolution_notes" class="form-control" rows="4" 
+                                  placeholder="Yapılan işlemleri açıklayın..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="bi bi-check-lg"></i> Arızayı Çözüldü Olarak İşaretle
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5><i class="bi bi-lightning"></i> Hızlı İşlemler</h5>
+            </div>
+            <div class="card-body d-grid gap-2">
+                <a href="{{ url_for('workorder.add', equipment_id=ariza.equipment_id) }}" 
+                   class="btn btn-primary">
+                    <i class="bi bi-plus"></i> İş Emri Oluştur
+                </a>
+                <a href="{{ url_for('failure.list') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Arıza Listesine Dön
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

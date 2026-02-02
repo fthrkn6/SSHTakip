@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SSH Takip - Bakım Yönetim Sistemi{% endblock %}</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --primary-dark: #1d4ed8;
+            --secondary-color: #64748b;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --info-color: #06b6d4;
+            --dark-color: #1e293b;
+            --light-bg: #f8fafc;
+            --sidebar-width: 260px;
+            --navbar-height: 60px;
+        }
+
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--light-bg);
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: var(--sidebar-width);
+            height: 100vh;
+            background: linear-gradient(180deg, var(--dark-color) 0%, #0f172a 100%);
+            z-index: 1000;
+            transition: all 0.3s ease;
+            overflow-y: auto;
+        }
+
+        .sidebar-brand {
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar-brand-icon {
+            width: 45px;
+            height: 45px;
+            background: linear-gradient(135deg, var(--primary-color), var(--info-color));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+        }
+
+        .sidebar-brand-text {
+            color: white;
+            font-weight: 700;
+            font-size: 20px;
+        }
+
+        .sidebar-brand-text small {
+            display: block;
+            font-size: 11px;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 2px;
+        }
+
+        .sidebar-menu {
+            padding: 15px 0;
+        }
+
+        .sidebar-menu-title {
+            padding: 10px 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .sidebar-link {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+            gap: 12px;
+        }
+
+        .sidebar-link:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+        }
+
+        .sidebar-link.active {
+            background: rgba(37, 99, 235, 0.2);
+            color: white;
+            border-left-color: var(--primary-color);
+        }
+
+        .sidebar-link i {
+            font-size: 18px;
+            width: 24px;
+        }
+
+        .sidebar-link .badge {
+            margin-left: auto;
+            font-size: 10px;
+            padding: 4px 8px;
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+        }
+
+        /* Top Navbar */
+        .top-navbar {
+            height: var(--navbar-height);
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .navbar-search {
+            position: relative;
+            width: 300px;
+        }
+
+        .navbar-search input {
+            width: 100%;
+            padding: 8px 16px 8px 40px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .navbar-search input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .navbar-search i {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--secondary-color);
+        }
+
+        .navbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .navbar-icon-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            border: none;
+            background: var(--light-bg);
+            color: var(--secondary-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .navbar-icon-btn:hover {
+            background: #e2e8f0;
+            color: var(--dark-color);
+        }
+
+        .navbar-icon-btn .notification-badge {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 8px;
+            height: 8px;
+            background: var(--danger-color);
+            border-radius: 50%;
+        }
+
+        .user-dropdown {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .user-dropdown:hover {
+            background: var(--light-bg);
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--primary-color), var(--info-color));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .user-info {
+            text-align: left;
+        }
+
+        .user-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--dark-color);
+        }
+
+        .user-role {
+            font-size: 12px;
+            color: var(--secondary-color);
+        }
+
+        /* Page Content */
+        .page-content {
+            padding: 24px;
+        }
+
+        .page-header {
+            margin-bottom: 24px;
+        }
+
+        .page-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--dark-color);
+            margin-bottom: 4px;
+        }
+
+        .page-subtitle {
+            font-size: 14px;
+            color: var(--secondary-color);
+        }
+
+        /* Cards */
+        .card {
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            transition: all 0.2s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-header {
+            background: white;
+            border-bottom: 1px solid #f1f5f9;
+            padding: 16px 20px;
+            font-weight: 600;
+            border-radius: 16px 16px 0 0 !important;
+        }
+
+        /* Stat Cards */
+        .stat-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            transition: all 0.2s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        }
+
+        .stat-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .stat-icon.primary {
+            background: rgba(37, 99, 235, 0.1);
+            color: var(--primary-color);
+        }
+
+        .stat-icon.success {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success-color);
+        }
+
+        .stat-icon.warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning-color);
+        }
+
+        .stat-icon.danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger-color);
+        }
+
+        .stat-icon.info {
+            background: rgba(6, 182, 212, 0.1);
+            color: var(--info-color);
+        }
+
+        .stat-content h3 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: var(--dark-color);
+        }
+
+        .stat-content p {
+            font-size: 13px;
+            color: var(--secondary-color);
+            margin: 0;
+        }
+
+        /* Tables */
+        .table {
+            margin-bottom: 0;
+        }
+
+        .table thead th {
+            background: #f8fafc;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--secondary-color);
+            border-bottom: none;
+            padding: 14px 16px;
+        }
+
+        .table tbody td {
+            padding: 14px 16px;
+            vertical-align: middle;
+            border-color: #f1f5f9;
+        }
+
+        .table tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        /* Badges */
+        .badge {
+            font-weight: 500;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+        }
+
+        /* Buttons */
+        .btn {
+            border-radius: 10px;
+            font-weight: 500;
+            padding: 10px 20px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            border-color: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+
+        /* Form Controls */
+        .form-control,
+        .form-select {
+            border-radius: 10px;
+            padding: 10px 14px;
+            border-color: #e2e8f0;
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .form-label {
+            font-weight: 500;
+            font-size: 14px;
+            color: var(--dark-color);
+            margin-bottom: 6px;
+        }
+
+        /* Alerts */
+        .alert {
+            border: none;
+            border-radius: 12px;
+            padding: 14px 18px;
+        }
+
+        /* Status Indicators */
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .status-dot.success {
+            background: var(--success-color);
+        }
+
+        .status-dot.warning {
+            background: var(--warning-color);
+        }
+
+        .status-dot.danger {
+            background: var(--danger-color);
+        }
+
+        .status-dot.info {
+            background: var(--info-color);
+        }
+
+        /* Tramvay Grid */
+        .tramvay-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 16px;
+        }
+
+        .tramvay-card {
+            background: white;
+            border-radius: 14px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+            cursor: pointer;
+        }
+
+        .tramvay-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .tramvay-card.aktif {
+            border-color: var(--success-color);
+        }
+
+        .tramvay-card.bakim {
+            border-color: var(--warning-color);
+        }
+
+        .tramvay-card.ariza {
+            border-color: var(--danger-color);
+        }
+
+        .tramvay-icon {
+            font-size: 42px;
+            margin-bottom: 10px;
+        }
+
+        .tramvay-card.aktif .tramvay-icon {
+            color: var(--success-color);
+        }
+
+        .tramvay-card.bakim .tramvay-icon {
+            color: var(--warning-color);
+        }
+
+        .tramvay-card.ariza .tramvay-icon {
+            color: var(--danger-color);
+        }
+
+        .tramvay-card h6 {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .tramvay-card small {
+            color: var(--secondary-color);
+            font-size: 12px;
+        }
+
+        /* Responsive */
+        @media (max-width: 992px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .sidebar.show {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .navbar-search {
+                display: none;
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+    {% if current_user.is_authenticated %}
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <div class="sidebar-brand-icon">
+                <i class="bi bi-train-front-fill"></i>
+            </div>
+            <div class="sidebar-brand-text">
+                SSH Takip
+                <small>{{ session.get('project_name', 'Proje Seçilmedi') }}</small>
+            </div>
+        </div>
+
+        <nav class="sidebar-menu">
+            <div class="sidebar-menu-title">Ana Menü</div>
+
+            <a href="{{ url_for('dashboard') }}" class="sidebar-link {{ 'active' if request.endpoint == 'dashboard' }}">
+                <i class="bi bi-grid-1x2-fill"></i>
+                <span>Dashboard</span>
+            </a>
+
+            <div class="sidebar-menu-title">İş Yönetimi</div>
+
+            <a href="{{ url_for('yeni_ariza_bildir') }}"
+                class="sidebar-link {{ 'active' if 'ariza_bildir' in request.endpoint|string }}">
+                <i class="bi bi-plus-circle-fill"></i>
+                <span>Yeni Arıza Bildir</span>
+            </a>
+
+            <a href="{{ url_for('ariza_listesi') }}"
+                class="sidebar-link {{ 'active' if 'ariza' in request.endpoint|string }}">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <span>Arızalar</span>
+            </a>
+
+            <a href="{{ url_for('bakim_planlari') }}"
+                class="sidebar-link {{ 'active' if 'bakim_plan' in request.endpoint|string }}">
+                <i class="bi bi-calendar3"></i>
+                <span>Bakım Planları</span>
+            </a>
+
+            <a href="{{ url_for('tramvay_km') }}"
+                class="sidebar-link {{ 'active' if 'tramvay_km' in request.endpoint|string }}">
+                <i class="bi bi-speedometer"></i>
+                <span>Tramvay KM</span>
+            </a>
+
+            <a href="{{ url_for('servis_durumu') }}"
+                class="sidebar-link {{ 'active' if 'servis_durumu' in request.endpoint|string }}">
+                <i class="bi bi-toggle-on"></i>
+                <span>Servis Durumu</span>
+            </a>
+
+            <div class="sidebar-menu-title">Envanter</div>
+
+            <a href="{{ url_for('yedek_parca') }}"
+                class="sidebar-link {{ 'active' if 'yedek_parca' in request.endpoint|string }}">
+                <i class="bi bi-box-seam"></i>
+                <span>Yedek Parça</span>
+            </a>
+
+            <div class="sidebar-menu-title">Raporlar & Analiz</div>
+
+            <a href="{{ url_for('fracas.index') }}"
+                class="sidebar-link {{ 'active' if 'fracas' in request.endpoint|string }}">
+                <i class="bi bi-graph-up-arrow"></i>
+                <span>FRACAS Analiz</span>
+            </a>
+
+            <a href="{{ url_for('kpi.index') }}"
+                class="sidebar-link {{ 'active' if 'kpi' in request.endpoint|string }}">
+                <i class="bi bi-speedometer2"></i>
+                <span>KPI Dashboard</span>
+            </a>
+
+            <div class="sidebar-menu-title">Dokümantasyon</div>
+
+            <a href="{{ url_for('dokuman_listesi') }}"
+                class="sidebar-link {{ 'active' if 'dokuman' in request.endpoint|string }}">
+                <i class="bi bi-file-earmark-text"></i>
+                <span>Teknik Dokümanlar</span>
+            </a>
+
+            {% if current_user.role == 'admin' %}
+            <div class="sidebar-menu-title">Yönetim</div>
+
+            <a href="{{ url_for('kullanicilar') }}"
+                class="sidebar-link {{ 'active' if 'kullanici' in request.endpoint|string }}">
+                <i class="bi bi-people"></i>
+                <span>Kullanıcılar</span>
+            </a>
+
+            <a href="{{ url_for('audit_log') }}" class="sidebar-link {{ 'active' if request.endpoint == 'audit_log' }}">
+                <i class="bi bi-shield-lock"></i>
+                <span>Denetim Günlüğü</span>
+            </a>
+
+            <a href="{{ url_for('proje_sec') }}" class="sidebar-link {{ 'active' if request.endpoint == 'proje_sec' }}">
+                <i class="bi bi-folder2-open"></i>
+                <span>Proje Değiştir</span>
+            </a>
+            {% endif %}
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Navbar -->
+        <header class="top-navbar">
+            <div class="navbar-search">
+                <i class="bi bi-search"></i>
+                <input type="text" placeholder="Ara... (ekipman, arıza, iş emri)">
+            </div>
+
+            <div class="navbar-actions">
+                <button class="navbar-icon-btn">
+                    <i class="bi bi-bell"></i>
+                    <span class="notification-badge"></span>
+                </button>
+
+                <div class="dropdown">
+                    <div class="user-dropdown" data-bs-toggle="dropdown">
+                        <div class="user-avatar">
+                            {{ current_user.full_name[0] if current_user.full_name else 'U' }}
+                        </div>
+                        <div class="user-info d-none d-md-block">
+                            <div class="user-name">{{ current_user.full_name or current_user.username }}</div>
+                            <div class="user-role">{{ current_user.get_role_display() }}</div>
+                        </div>
+                        <i class="bi bi-chevron-down ms-1"></i>
+                    </div>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{{ url_for('profile') }}"><i
+                                    class="bi bi-person me-2"></i>Profil</a></li>
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+                        <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}"><i
+                                    class="bi bi-box-arrow-right me-2"></i>Çıkış Yap</a></li>
+                    </ul>
+                </div>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <div class="page-content">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show fade-in"
+                role="alert">
+                <i
+                    class="bi bi-{% if category == 'success' %}check-circle{% elif category == 'danger' or category == 'error' %}exclamation-circle{% elif category == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %} me-2"></i>
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+    {% else %}
+    {% block public_content %}{% endblock %}
+    {% endif %}
+
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Main JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+    {% block scripts %}{% endblock %}
+    {% block extra_js %}{% endblock %}
+</body>
+
+</html>

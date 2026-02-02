@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block title %}Kullanıcılar - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">Kullanıcı Yönetimi</h1>
+        <p class="page-subtitle">Sistem kullanıcıları</p>
+    </div>
+    <a href="{{ url_for('kullanici_ekle') }}" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-2"></i>Yeni Kullanıcı
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Kullanıcı</th>
+                        <th>E-posta</th>
+                        <th>Rol</th>
+                        <th>Departman</th>
+                        <th>Son Giriş</th>
+                        <th>Durum</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="user-avatar me-3" style="width: 40px; height: 40px; font-size: 16px;">
+                                    {{ user.full_name[0] if user.full_name else 'U' }}
+                                </div>
+                                <div>
+                                    <strong>{{ user.full_name or user.username }}</strong>
+                                    <br><small class="text-muted">@{{ user.username }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ user.email }}</td>
+                        <td>
+                            {% if user.role == 'admin' %}
+                                <span class="badge bg-danger">Yönetici</span>
+                            {% elif user.role == 'muhendis' %}
+                                <span class="badge bg-primary">Mühendis</span>
+                            {% elif user.role == 'teknisyen' %}
+                                <span class="badge bg-info">Teknisyen</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ user.get_role_display() }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ user.department or '-' }}</td>
+                        <td>{{ user.last_login.strftime('%d.%m.%Y %H:%M') if user.last_login else 'Henüz giriş yapmadı' }}</td>
+                        <td>
+                            {% if user.is_active %}
+                                <span class="badge bg-success">Aktif</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Pasif</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,242 @@
+{% extends 'base.html' %}
+
+{% block title %}Arızalar - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">Arıza Yönetimi
+            {% if project_name %}<span class="badge bg-secondary fs-6">{{ project_name }}</span>{% endif %}
+        </h1>
+        <p class="page-subtitle">Arıza kayıtları ve takibi {% if excel_data %}<span class="badge bg-info">Excel
+                Verisi</span>{% endif %}</p>
+    </div>
+    {% if not excel_data %}
+    <a href="{{ url_for('ariza_ekle') }}" class="btn btn-danger">
+        <i class="bi bi-plus-lg me-2"></i>Arıza Bildir
+    </a>
+    {% endif %}
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i class="bi bi-list-check"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ stats.toplam }}</h3>
+                <p>Toplam Arıza</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon danger">
+                <i class="bi bi-exclamation-circle"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ stats.acik }}</h3>
+                <p>Açık</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i class="bi bi-hourglass-split"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ stats.devam_ediyor }}</h3>
+                <p>Devam Ediyor</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ stats.cozuldu }}</h3>
+                <p>Çözüldü</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+{% if not excel_data %}
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Durum</label>
+                <select name="durum" class="form-select" onchange="this.form.submit()">
+                    <option value="all">Tümü</option>
+                    <option value="acik">Açık</option>
+                    <option value="devam_ediyor">Devam Ediyor</option>
+                    <option value="cozuldu">Çözüldü</option>
+                </select>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <a href="{{ url_for('ariza_listesi') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-counterclockwise me-2"></i>Sıfırla
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<!-- Failure List -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0 table-sm">
+                <thead class="table-dark sticky-top">
+                    <tr>
+                        <th style="width: 5%; min-width: 40px;">#</th>
+                        {% if excel_data and columns %}
+                        <!-- Dinamik Sütunlar -->
+                        {% set display_cols = ['FRACAS ID', 'Araç Numarası Vehicle Number', 'Araç Module Vehicle
+                        Module',
+                        'Arıza Tanımı Failure Description', 'Arıza Tipi Failure Type',
+                        'Sistem', '.', 'Tamir Süresi (dakika) Repair Time (dakika)'] %}
+                        {% for col in columns %}
+                        {% if col in display_cols %}
+                        <th style="min-width: 120px;">{{ column_display_names.get(col, col[:15]) }}</th>
+                        {% endif %}
+                        {% endfor %}
+                        {% else %}
+                        <!-- Sabit Sütunlar (Database) -->
+                        <th style="width: 12%;">Arıza Kodu</th>
+                        <th style="width: 10%;">Araç</th>
+                        <th style="width: 18%;">Arıza Tanımı</th>
+                        <th style="width: 12%;">Arıza Tipi</th>
+                        <th style="width: 10%;">Tarih</th>
+                        <th style="width: 8%;">Durum</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ariza in arizalar %}
+                    <tr style="cursor: pointer;" onclick="toggleRow({{ ariza.idx }})">
+                        <td class="fw-bold text-primary">{{ ariza.idx }}</td>
+                        {% if excel_data and ariza.raw_data %}
+                        <!-- Dinamik Veri -->
+                        {% for col in columns %}
+                        {% if col in display_cols %}
+                        <td>
+                            <small>
+                                {% set val = ariza.raw_data.get(col, '-') %}
+                                {% if col == 'FRACAS ID' %}
+                                <span class="badge bg-primary">{{ val }}</span>
+                                {% elif col == 'Araç Numarası Vehicle Number' %}
+                                <span class="badge bg-info">{{ val }}</span>
+                                {% elif col == '.' %}
+                                {{ ariza.detection_date }}
+                                {% elif 'Tamir Süresi' in col %}
+                                {% if val and val != '-' %}<span class="badge bg-success">{{ ariza.repair_time
+                                    }}</span>{% else %}-{% endif %}
+                                {% elif val|length > 50 %}
+                                {{ val[:45] }}...
+                                {% else %}
+                                {{ val }}
+                                {% endif %}
+                            </small>
+                        </td>
+                        {% endif %}
+                        {% endfor %}
+                        {% else %}
+                        <!-- Database Verisi -->
+                        <td class="fw-bold">
+                            <a href="{{ url_for('ariza_detay', id=ariza.id) }}" class="text-decoration-none">
+                                {{ ariza.failure_code }}
+                            </a>
+                        </td>
+                        <td>
+                            {% if ariza.equipment %}
+                            <a href="{{ url_for('ekipman_detay', id=ariza.equipment.id) }}"
+                                class="text-decoration-none">
+                                {{ ariza.equipment.equipment_code }}
+                            </a>
+                            {% else %}-{% endif %}
+                        </td>
+                        <td><small>{{ ariza.description[:50] if ariza.description else '-' }}</small></td>
+                        <td>{{ ariza.failure_type or '-' }}</td>
+                        <td>{{ ariza.created_at.strftime('%d.%m.%Y') }}</td>
+                        <td>
+                            {% set status = ariza.get_status_badge() %}
+                            <span class="badge bg-{{ status[0] }}">{{ status[1] }}</span>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    <!-- Detay Satırı -->
+                    <tr class="detail-row collapse" id="details-{{ ariza.idx }}">
+                        <td colspan="20">
+                            <div class="p-3 bg-light">
+                                {% if excel_data and ariza.raw_data %}
+                                <!-- Excel Verisi Detayı -->
+                                <div class="row">
+                                    {% for col in columns %}
+                                    {% if col not in display_cols and ariza.raw_data.get(col, '-') != '-' %}
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold" style="font-size: 0.85rem;">{{ column_display_names.get(col,
+                                            col[:20]) }}</dt>
+                                        <dd style="font-size: 0.85rem; margin-bottom: 0;">
+                                            {{ ariza.raw_data.get(col, '-')[:100] }}{% if ariza.raw_data.get(col,
+                                            '-')|length > 100 %}...{% endif %}
+                                        </dd>
+                                    </div>
+                                    {% endif %}
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <!-- Database Detayı -->
+                                <h6 class="text-primary mb-2">Detaylar</h6>
+                                <p>{{ ariza.description }}</p>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="20" class="text-center py-5">
+                            <i class="bi bi-check-circle text-success" style="font-size: 48px;"></i>
+                            <p class="text-muted mt-3">Arıza kaydı bulunamadı</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    .detail-row {
+        display: none;
+    }
+
+    .detail-row.show {
+        display: table-row;
+    }
+
+    .sticky-top {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+</style>
+
+<script>
+    function toggleRow(idx) {
+        const detailRow = document.getElementById('details-' + idx);
+        if (detailRow) {
+            detailRow.classList.toggle('show');
+        }
+    }
+</script>
+{% endblock %}

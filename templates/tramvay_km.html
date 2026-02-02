@@ -1,0 +1,276 @@
+{% extends 'base.html' %}
+
+{% block title %}Tramvay KM Yönetimi - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="page-title">Tramvay KM Yönetimi</h1>
+            <p class="text-muted mb-0">{{ project_name }}</p>
+        </div>
+        <div>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#topluGuncelleModal">
+                <i class="bi bi-pencil-square me-2"></i>Toplu Güncelle
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- İstatistik Kartları -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white border-0 h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-white-50 small">Toplam Tramvay</div>
+                        <div class="display-6 fw-bold">{{ stats.toplam_tramvay }}</div>
+                    </div>
+                    <i class="bi bi-train-front fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white border-0 h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-white-50 small">Toplam KM</div>
+                        <div class="display-6 fw-bold">{{ "{:,}".format(stats.toplam_km) }}</div>
+                    </div>
+                    <i class="bi bi-speedometer2 fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white border-0 h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-white-50 small">Ortalama KM</div>
+                        <div class="display-6 fw-bold">{{ "{:,}".format(stats.ortalama_km) }}</div>
+                    </div>
+                    <i class="bi bi-graph-up fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark border-0 h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-dark small opacity-75">En Yüksek KM</div>
+                        <div class="display-6 fw-bold">{{ "{:,}".format(stats.max_km) }}</div>
+                    </div>
+                    <i class="bi bi-trophy fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tramvay Listesi -->
+<div class="card">
+    <div class="card-header bg-white py-3">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>Tramvay KM Verileri</h5>
+            <div class="input-group" style="width: 250px;">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control" id="searchInput" placeholder="Tramvay ara...">
+            </div>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" id="tramvayTable">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Tramvay No</th>
+                        <th>Mevcut KM</th>
+                        <th>Aylık KM</th>
+                        <th>Son Güncelleme</th>
+                        <th>Notlar</th>
+                        <th class="text-end pe-4">İşlem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tram in tramvaylar %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-primary bg-opacity-10 rounded-circle p-2 me-3">
+                                    <i class="bi bi-train-front text-primary"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold">{{ tram.id }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge bg-success fs-6">{{ "{:,}".format(tram.current_km) }} km</span>
+                        </td>
+                        <td>
+                            {% if tram.monthly_km > 0 %}
+                            <span class="text-muted">+{{ "{:,}".format(tram.monthly_km) }} km/ay</span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if tram.last_update != '-' %}
+                            <small class="text-muted">{{ tram.last_update }}</small>
+                            {% else %}
+                            <small class="text-muted">Henüz güncellenmedi</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if tram.notes %}
+                            <small class="text-muted">{{ tram.notes[:30] }}{% if tram.notes|length > 30 %}...{% endif %}</small>
+                            {% else %}
+                            <small class="text-muted">-</small>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                            <button class="btn btn-sm btn-outline-primary" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#editModal"
+                                    data-tram-id="{{ tram.id }}"
+                                    data-current-km="{{ tram.current_km }}"
+                                    data-monthly-km="{{ tram.monthly_km }}"
+                                    data-notes="{{ tram.notes }}">
+                                <i class="bi bi-pencil"></i> Düzenle
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Tek Tramvay Düzenleme Modal -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>KM Güncelle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('tramvay_km_guncelle') }}">
+                <div class="modal-body">
+                    <input type="hidden" name="tram_id" id="edit_tram_id">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Tramvay</label>
+                        <input type="text" class="form-control" id="edit_tram_name" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Mevcut KM <span class="text-danger">*</span></label>
+                        <input type="number" name="current_km" id="edit_current_km" class="form-control" min="0" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Aylık Ortalama KM</label>
+                        <input type="number" name="monthly_km" id="edit_monthly_km" class="form-control" min="0">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Notlar</label>
+                        <textarea name="notes" id="edit_notes" class="form-control" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-2"></i>Kaydet
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Toplu Güncelleme Modal -->
+<div class="modal fade" id="topluGuncelleModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Toplu KM Güncelleme</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('tramvay_km_toplu_guncelle') }}">
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Güncellemek istediğiniz tramvayların KM değerlerini girin. Boş bırakılan alanlar güncellenmez.</p>
+                    
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>Tramvay</th>
+                                    <th>Mevcut KM</th>
+                                    <th>Yeni KM</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for tram in tramvaylar %}
+                                <tr>
+                                    <td><strong>{{ tram.id }}</strong></td>
+                                    <td><span class="text-muted">{{ "{:,}".format(tram.current_km) }} km</span></td>
+                                    <td>
+                                        <input type="number" name="km_{{ tram.id }}" class="form-control form-control-sm" 
+                                               placeholder="{{ tram.current_km }}" min="0">
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-2"></i>Tümünü Kaydet
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Arama fonksiyonu
+document.getElementById('searchInput').addEventListener('keyup', function() {
+    const filter = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#tramvayTable tbody tr');
+    
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(filter) ? '' : 'none';
+    });
+});
+
+// Düzenleme modal verilerini doldur
+document.getElementById('editModal').addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    const tramId = button.getAttribute('data-tram-id');
+    const currentKm = button.getAttribute('data-current-km');
+    const monthlyKm = button.getAttribute('data-monthly-km');
+    const notes = button.getAttribute('data-notes');
+    
+    document.getElementById('edit_tram_id').value = tramId;
+    document.getElementById('edit_tram_name').value = tramId;
+    document.getElementById('edit_current_km').value = currentKm;
+    document.getElementById('edit_monthly_km').value = monthlyKm;
+    document.getElementById('edit_notes').value = notes;
+});
+</script>
+{% endblock %}

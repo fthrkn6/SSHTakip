@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Yeni Kullanıcı - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="bi bi-person-plus"></i> Yeni Kullanıcı Ekle</h3>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="username" class="form-label">Kullanıcı Adı *</label>
+                                <input type="text" class="form-control" id="username" name="username" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="email" class="form-label">E-posta *</label>
+                                <input type="email" class="form-control" id="email" name="email" required>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="password" class="form-label">Şifre *</label>
+                                <input type="password" class="form-control" id="password" name="password" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="full_name" class="form-label">Tam Ad</label>
+                                <input type="text" class="form-control" id="full_name" name="full_name">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="role" class="form-label">Rol *</label>
+                                <select class="form-select" id="role" name="role" required>
+                                    <option value="technician">Teknisyen</option>
+                                    <option value="operator">Operatör</option>
+                                    <option value="manager">Müdür</option>
+                                    <option value="admin">Yönetici</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="department" class="form-label">Departman</label>
+                                <input type="text" class="form-control" id="department" name="department">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="phone" class="form-label">Telefon</label>
+                            <input type="text" class="form-control" id="phone" name="phone">
+                        </div>
+
+                        <hr>
+
+                        <div class="d-flex justify-content-end">
+                            <a href="{{ url_for('auth.users') }}" class="btn btn-secondary me-2">
+                                <i class="bi bi-x-circle"></i> İptal
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-check-circle"></i> Kullanıcı Oluştur
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

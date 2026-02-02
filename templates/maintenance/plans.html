@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Bakım Planları - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="mb-3">
+                <i class="bi bi-calendar3"></i> Bakım Planları
+                <span class="badge bg-warning text-dark ms-2" style="font-size: 0.5em;">{{ project_name }}</span>
+            </h1>
+        </div>
+    </div>
+
+    <!-- Araç Listesi (trams.xlsx'den) -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-tram-front"></i> Araç Listesi ({{ tramvaylar|length }} araç)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if tramvaylar %}
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for tram in tramvaylar %}
+                        <span class="badge bg-primary" style="font-size: 0.9rem; padding: 8px 12px;">
+                            <i class="bi bi-train-front"></i> {{ tram }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning mb-0">
+                        <i class="bi bi-exclamation-triangle"></i> Araç verisi bulunamadı. Lütfen
+                        <code>Veriler/{{ session.get('current_project', 'belgrad') }}/trams.xlsx</code> dosyasını
+                        kontrol edin.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bakım Planları Listesi -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Aktif Bakım Planları</h5>
+                </div>
+                <div class="card-body">
+                    {% if plans %}
+                    <div class="row">
+                        {% for plan in plans %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header bg-primary text-white">
+                                    <h5>{{ plan.plan_name }}</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>Ekipman:</strong> {{ plan.equipment.name }}</p>
+                                    <p><strong>Tip:</strong>
+                                        {% if plan.maintenance_type == 'preventive' %}
+                                        <span class="badge bg-success">Önleyici</span>
+                                        {% elif plan.maintenance_type == 'predictive' %}
+                                        <span class="badge bg-info">Öngörücü</span>
+                                        {% elif plan.maintenance_type == 'corrective' %}
+                                        <span class="badge bg-warning">Düzeltici</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">{{ plan.maintenance_type }}</span>
+                                        {% endif %}
+                                    </p>
+                                    <p><strong>Sıklık:</strong>
+                                        {% if plan.frequency == 'daily' %}
+                                        Her gün
+                                        {% elif plan.frequency == 'weekly' %}
+                                        Haftalık
+                                        {% elif plan.frequency == 'monthly' %}
+                                        Aylık
+                                        {% elif plan.frequency == 'yearly' %}
+                                        Yıllık
+                                        {% elif plan.frequency == 'km_based' %}
+                                        Her {{ plan.frequency_value }} km
+                                        {% elif plan.frequency == 'hours_based' %}
+                                        Her {{ plan.frequency_value }} saat
+                                        {% else %}
+                                        {{ plan.frequency }}
+                                        {% endif %}
+                                    </p>
+                                    <p><strong>Tahmini Süre:</strong> {{ plan.estimated_duration_hours }} saat</p>
+                                    <p><strong>Öncelik:</strong>
+                                        <span
+                                            class="badge bg-{{ 'danger' if plan.priority == 'critical' else 'warning' if plan.priority == 'high' else 'info' }}">
+                                            {{ plan.priority }}
+                                        </span>
+                                    </p>
+                                    <hr>
+                                    <p class="text-muted">{{ plan.description }}</p>
+                                    <a href="{{ url_for('maintenance.plan_detail', plan_id=plan.id) }}"
+                                        class="btn btn-primary btn-sm">
+                                        <i class="bi bi-eye"></i> Detaylar
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> Bakım planı bulunamadı.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

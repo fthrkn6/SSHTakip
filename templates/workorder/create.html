@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Yeni İş Emri - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <a href="{{ url_for('workorder.index') }}" class="btn btn-secondary mb-3">
+                <i class="bi bi-arrow-left"></i> Geri
+            </a>
+            <h1 class="mb-3">
+                <i class="bi bi-plus-circle"></i> Yeni İş Emri Oluştur
+            </h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="equipment_id" class="form-label">Ekipman *</label>
+                            <select class="form-select" id="equipment_id" name="equipment_id" required>
+                                <option value="">Ekipman seçiniz...</option>
+                                {% for eq in equipment %}
+                                <option value="{{ eq.id }}">{{ eq.name }} ({{ eq.equipment_code }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="title" class="form-label">İş Emri Başlığı *</label>
+                            <input type="text" class="form-control" id="title" name="title" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Açıklama</label>
+                            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="work_type" class="form-label">İş Tipi *</label>
+                                <select class="form-select" id="work_type" name="work_type" required>
+                                    <option value="preventive">Önleyici Bakım</option>
+                                    <option value="corrective">Düzeltici Bakım</option>
+                                    <option value="inspection">Kontrol</option>
+                                    <option value="modification">Modifikasyon</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="priority" class="form-label">Öncelik *</label>
+                                <select class="form-select" id="priority" name="priority" required>
+                                    <option value="low">Düşük</option>
+                                    <option value="medium" selected>Orta</option>
+                                    <option value="high">Yüksek</option>
+                                    <option value="critical">Kritik</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="scheduled_start" class="form-label">Planlanan Başlangıç</label>
+                                <input type="datetime-local" class="form-control" id="scheduled_start" name="scheduled_start">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="assigned_to" class="form-label">Atanan Teknisyen</label>
+                                <select class="form-select" id="assigned_to" name="assigned_to">
+                                    <option value="">Henüz atanmadı</option>
+                                    {% for tech in technicians %}
+                                    <option value="{{ tech.id }}">{{ tech.full_name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <div class="d-flex justify-content-end">
+                            <a href="{{ url_for('workorder.index') }}" class="btn btn-secondary me-2">
+                                <i class="bi bi-x-circle"></i> İptal
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-check-circle"></i> Oluştur
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h5><i class="bi bi-info-circle"></i> Bilgi</h5>
+                    <p>İş emri oluştururken:</p>
+                    <ul>
+                        <li>Ekipman mutlaka seçilmelidir</li>
+                        <li>Kritik iş emirleri öncelikli işlenir</li>
+                        <li>Planlama tarihi opsiyoneldir</li>
+                        <li>Teknisyen sonradan atanabilir</li>
+                    </ul>
+                    
+                    <hr>
+                    
+                    <h6>İş Tipleri:</h6>
+                    <ul class="small">
+                        <li><strong>Önleyici:</strong> Planlı periyodik bakım</li>
+                        <li><strong>Düzeltici:</strong> Arıza sonrası onarım</li>
+                        <li><strong>Kontrol:</strong> Durum değerlendirmesi</li>
+                        <li><strong>Modifikasyon:</strong> İyileştirme çalışması</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

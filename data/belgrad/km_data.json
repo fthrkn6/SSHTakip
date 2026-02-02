@@ -1,0 +1,34 @@
+{
+  "": {
+    "current_km": 1200,
+    "monthly_km": 0,
+    "last_update": "2026-01-26 16:23",
+    "notes": "",
+    "updated_by": "admin"
+  },
+  "1531": {
+    "current_km": 1500,
+    "last_update": "2026-01-26 16:23",
+    "updated_by": "admin"
+  },
+  "1532": {
+    "current_km": 15500,
+    "last_update": "2026-01-26 16:23",
+    "updated_by": "admin"
+  },
+  "1533": {
+    "current_km": 75000,
+    "last_update": "2026-01-28 17:44",
+    "updated_by": "admin"
+  },
+  "1534": {
+    "current_km": 500,
+    "last_update": "2026-01-28 17:45",
+    "updated_by": "admin"
+  },
+  "1535": {
+    "current_km": 9300,
+    "last_update": "2026-01-28 18:14",
+    "updated_by": "admin"
+  }
+}
