@@ -934,23 +934,32 @@ def create_app():
             try:
                 tram_id = request.form.get('tram_id')
                 current_km = request.form.get('current_km', 0)
-                monthly_km = request.form.get('monthly_km', 0)
                 notes = request.form.get('notes', '')
                 
-                # Equipment tablosunda güncelle
+                # Equipment tablosunda ara
                 equipment = Equipment.query.get(tram_id)
-                if equipment:
-                    try:
-                        equipment.current_km = int(current_km) if current_km else 0
-                        equipment.monthly_km = int(monthly_km) if monthly_km else 0
-                        equipment.notes = notes
-                        db.session.commit()
-                        flash(f'✅ {equipment.equipment_code or tram_id} KM bilgileri güncellendi', 'success')
-                    except Exception as e:
-                        db.session.rollback()
-                        flash(f'❌ Güncelleme hatası: {str(e)}', 'danger')
-                else:
-                    flash('❌ Tramvay bulunamadı', 'warning')
+                
+                # Bulunamadıysa oluştur
+                if not equipment:
+                    equipment = Equipment(
+                        id=tram_id,
+                        equipment_code=tram_id,
+                        equipment_type='Tramvay',
+                        current_km=0,
+                        monthly_km=0,
+                        notes=''
+                    )
+                    db.session.add(equipment)
+                
+                # Verileri güncelle
+                try:
+                    equipment.current_km = int(current_km) if current_km else 0
+                    equipment.notes = notes
+                    db.session.commit()
+                    flash(f'✅ {equipment.equipment_code or tram_id} KM bilgileri kaydedildi', 'success')
+                except Exception as e:
+                    db.session.rollback()
+                    flash(f'❌ Kaydedilme hatası: {str(e)}', 'danger')
             except Exception as e:
                 flash(f'❌ Hata: {str(e)}', 'danger')
             
@@ -967,34 +976,40 @@ def create_app():
                 
                 for tram_id, data in updates.items():
                     try:
+                        # Equipment tablosunda ara
                         equipment = Equipment.query.get(tram_id)
-                        if equipment:
-                            # Mevcut KM güncelle
-                            if 'current_km' in data and data['current_km']:
-                                try:
-                                    equipment.current_km = int(float(data['current_km']))
-                                except:
-                                    errors.append(f"{equipment.equipment_code}: Geçersiz KM değeri")
-                                    continue
-                            
-                            # Aylık KM güncelle
-                            if 'monthly_km' in data and data['monthly_km']:
-                                try:
-                                    equipment.monthly_km = int(float(data['monthly_km']))
-                                except:
-                                    pass
-                            
-                            # Notlar güncelle
-                            if 'notes' in data:
-                                equipment.notes = str(data['notes']).strip()
-                            
-                            count += 1
+                        
+                        # Bulunamadıysa oluştur
+                        if not equipment:
+                            equipment = Equipment(
+                                id=tram_id,
+                                equipment_code=tram_id,
+                                equipment_type='Tramvay',
+                                current_km=0,
+                                monthly_km=0,
+                                notes=''
+                            )
+                            db.session.add(equipment)
+                        
+                        # Mevcut KM güncelle
+                        if 'current_km' in data and data['current_km']:
+                            try:
+                                equipment.current_km = int(float(data['current_km']))
+                            except:
+                                errors.append(f"{tram_id}: Geçersiz KM değeri")
+                                continue
+                        
+                        # Notlar güncelle
+                        if 'notes' in data:
+                            equipment.notes = str(data['notes']).strip()
+                        
+                        count += 1
                     except Exception as e:
                         errors.append(f"Tramvay {tram_id}: {str(e)}")
                 
                 db.session.commit()
                 
-                message = f'✅ {count} araç başarıyla güncellendi'
+                message = f'✅ {count} araç başarıyla kaydedildi'
                 if errors:
                     message += f' ({len(errors)} hata)'
                 
