@@ -7,7 +7,7 @@ EN 13306, ISO 55000, EN 15341, ISO 27001 Standartlarına Uygun
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from datetime import datetime
-from models import db, User, Equipment, Failure, WorkOrder, MaintenancePlan, SparePartInventory
+from models import db, User, Equipment, Failure, WorkOrder, MaintenancePlan, SparePartInventory, ServiceStatus
 from werkzeug.utils import secure_filename
 from routes.fracas import bp as fracas_bp, get_excel_path, get_column
 from routes.kpi import bp as kpi_bp
