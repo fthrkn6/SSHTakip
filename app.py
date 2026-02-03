@@ -873,7 +873,7 @@ def create_app():
         @app.route('/tramvay-km')
         @login_required
         def tramvay_km():
-            """Tram kilometer tracking - Veriler.xlsx Sayfa2'den çek"""
+            """Tram kilometer tracking - Veriler.xlsx Sayfa2'den tram_id'leri çek, database'den values"""
             import pandas as pd
             import os
             
@@ -882,9 +882,10 @@ def create_app():
             project_folder = os.path.join('data', project_code)
             excel_path = os.path.join(project_folder, 'Veriler.xlsx')
             
+            tram_ids = []
             equipments = []
             
-            # Excel'den tramvay verilerini çek
+            # Excel'den tramvay ID'lerini çek
             if os.path.exists(excel_path):
                 try:
                     # Sayfa2 (index 1) oku
@@ -895,21 +896,40 @@ def create_app():
                         for idx, row in df.iterrows():
                             tram_id = str(row['tram_id']).strip() if pd.notna(row['tram_id']) else None
                             if tram_id:
-                                # Basit object oluştur
-                                class TramObj:
-                                    def __init__(self, code):
-                                        self.id = code
-                                        self.equipment_code = code
-                                        self.current_km = 0
-                                        self.monthly_km = 0
-                                        self.notes = ''
-                                        self.last_update = None
-                                
-                                equipments.append(TramObj(tram_id))
+                                tram_ids.append(tram_id)
                 except Exception as e:
                     print(f"Excel okuma hatası: {str(e)}")
             
-            # Excel'den veri çekilemezse fallback
+            # Tram ID'ler için database'den equipment'ları çek
+            if tram_ids:
+                # ID'ler integer olabilir, string olabilir - her ikiyle de ara
+                for tram_id in tram_ids:
+                    # String olarak ara
+                    equipment = Equipment.query.filter(
+                        db.or_(
+                            Equipment.id == tram_id,
+                            Equipment.id == int(tram_id) if tram_id.isdigit() else None,
+                            Equipment.equipment_code == str(tram_id)
+                        )
+                    ).first()
+                    
+                    # Bulunamadıysa dummy object oluştur (veriler halen database'de ama equipment oluşturulmamış olabilir)
+                    if equipment:
+                        equipments.append(equipment)
+                    else:
+                        # Dummy object - bu tramvay henüz kayıt edilmemiş
+                        class TramObj:
+                            def __init__(self, code):
+                                self.id = code
+                                self.equipment_code = code
+                                self.current_km = 0
+                                self.monthly_km = 0
+                                self.notes = ''
+                                self.last_update = None
+                        
+                        equipments.append(TramObj(tram_id))
+            
+            # Veri bulunamadıysa fallback
             if not equipments:
                 equipments_db = Equipment.query.filter_by(equipment_type='Tramvay').all()
                 equipments = equipments_db if equipments_db else []
