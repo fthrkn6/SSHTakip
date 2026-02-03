@@ -944,6 +944,7 @@ def create_app():
                     equipment = Equipment(
                         id=tram_id,
                         equipment_code=tram_id,
+                        name=f'Tramvay {tram_id}',
                         equipment_type='Tramvay',
                         current_km=0,
                         monthly_km=0,
@@ -984,6 +985,7 @@ def create_app():
                             equipment = Equipment(
                                 id=tram_id,
                                 equipment_code=tram_id,
+                                name=f'Tramvay {tram_id}',
                                 equipment_type='Tramvay',
                                 current_km=0,
                                 monthly_km=0,
