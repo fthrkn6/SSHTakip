@@ -887,15 +887,58 @@ def create_app():
         @login_required
         def tramvay_km_guncelle():
             """Update tram km"""
-            flash('Kilometer tracking updated', 'success')
+            try:
+                tram_id = request.form.get('tram_id')
+                current_km = request.form.get('current_km', 0)
+                monthly_km = request.form.get('monthly_km', 0)
+                notes = request.form.get('notes', '')
+                
+                # Equipment tablosunda güncelle
+                equipment = Equipment.query.get(tram_id)
+                if equipment:
+                    try:
+                        equipment.current_km = int(current_km) if current_km else 0
+                        equipment.monthly_km = int(monthly_km) if monthly_km else 0
+                        equipment.notes = notes
+                        db.session.commit()
+                        flash(f'✅ {equipment.equipment_code or tram_id} KM bilgileri güncellendi', 'success')
+                    except Exception as e:
+                        db.session.rollback()
+                        flash(f'❌ Güncelleme hatası: {str(e)}', 'danger')
+                else:
+                    flash('❌ Tramvay bulunamadı', 'warning')
+            except Exception as e:
+                flash(f'❌ Hata: {str(e)}', 'danger')
+            
             return redirect(url_for('tramvay_km'))
 
         @app.route('/tramvay-km/toplu-guncelle', methods=['POST'])
         @login_required
         def tramvay_km_toplu_guncelle():
             """Bulk update tram km"""
-            flash('Bulk kilometer update completed', 'success')
-            return redirect(url_for('tramvay_km'))
+            try:
+                updates = request.get_json()
+                count = 0
+                
+                for tram_id, data in updates.items():
+                    equipment = Equipment.query.get(tram_id)
+                    if equipment:
+                        try:
+                            if 'current_km' in data:
+                                equipment.current_km = int(data['current_km']) if data['current_km'] else 0
+                            if 'monthly_km' in data:
+                                equipment.monthly_km = int(data['monthly_km']) if data['monthly_km'] else 0
+                            if 'notes' in data:
+                                equipment.notes = data['notes']
+                            count += 1
+                        except Exception as e:
+                            pass
+                
+                db.session.commit()
+                return jsonify({'success': True, 'message': f'✅ {count} araç güncellendi'}), 200
+            except Exception as e:
+                db.session.rollback()
+                return jsonify({'success': False, 'message': f'❌ Hata: {str(e)}'}), 500
 
         @app.route('/servis-durumu', methods=['GET', 'POST'])
         @login_required

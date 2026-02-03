@@ -98,7 +98,8 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for tram in tramvaylar %}
+                    {% if equipments %}
+                    {% for tram in equipments %}
                     <tr>
                         <td class="ps-4">
                             <div class="d-flex align-items-center">
@@ -106,22 +107,22 @@
                                     <i class="bi bi-train-front text-primary"></i>
                                 </div>
                                 <div>
-                                    <div class="fw-bold">{{ tram.id }}</div>
+                                    <div class="fw-bold">{{ tram.equipment_code or tram.id }}</div>
                                 </div>
                             </div>
                         </td>
                         <td>
-                            <span class="badge bg-success fs-6">{{ "{:,}".format(tram.current_km) }} km</span>
+                            <span class="badge bg-success fs-6">{{ "{:,}".format(tram.current_km or 0) }} km</span>
                         </td>
                         <td>
-                            {% if tram.monthly_km > 0 %}
+                            {% if tram.monthly_km and tram.monthly_km > 0 %}
                             <span class="text-muted">+{{ "{:,}".format(tram.monthly_km) }} km/ay</span>
                             {% else %}
                             <span class="text-muted">-</span>
                             {% endif %}
                         </td>
                         <td>
-                            {% if tram.last_update != '-' %}
+                            {% if tram.last_update and tram.last_update != '-' %}
                             <small class="text-muted">{{ tram.last_update }}</small>
                             {% else %}
                             <small class="text-muted">Henüz güncellenmedi</small>
@@ -129,24 +130,30 @@
                         </td>
                         <td>
                             {% if tram.notes %}
-                            <small class="text-muted">{{ tram.notes[:30] }}{% if tram.notes|length > 30 %}...{% endif %}</small>
+                            <small class="text-muted">{{ tram.notes[:30] }}{% if tram.notes|length > 30 %}...{% endif
+                                %}</small>
                             {% else %}
                             <small class="text-muted">-</small>
                             {% endif %}
                         </td>
                         <td class="text-end pe-4">
-                            <button class="btn btn-sm btn-outline-primary" 
-                                    data-bs-toggle="modal" 
-                                    data-bs-target="#editModal"
-                                    data-tram-id="{{ tram.id }}"
-                                    data-current-km="{{ tram.current_km }}"
-                                    data-monthly-km="{{ tram.monthly_km }}"
-                                    data-notes="{{ tram.notes }}">
+                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+                                data-bs-target="#editModal" data-tram-id="{{ tram.id }}"
+                                data-tram-code="{{ tram.equipment_code or tram.id }}"
+                                data-current-km="{{ tram.current_km or 0 }}"
+                                data-monthly-km="{{ tram.monthly_km or 0 }}" data-notes="{{ tram.notes or '' }}">
                                 <i class="bi bi-pencil"></i> Düzenle
                             </button>
                         </td>
                     </tr>
                     {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4">
+                            <p class="text-muted mb-0">Tramvay verisi bulunamadı</p>
+                        </td>
+                    </tr>
+                    {% endif %}
                 </tbody>
             </table>
         </div>
@@ -164,22 +171,23 @@
             <form method="POST" action="{{ url_for('tramvay_km_guncelle') }}">
                 <div class="modal-body">
                     <input type="hidden" name="tram_id" id="edit_tram_id">
-                    
+
                     <div class="mb-3">
                         <label class="form-label">Tramvay</label>
                         <input type="text" class="form-control" id="edit_tram_name" readonly>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label class="form-label">Mevcut KM <span class="text-danger">*</span></label>
-                        <input type="number" name="current_km" id="edit_current_km" class="form-control" min="0" required>
+                        <input type="number" name="current_km" id="edit_current_km" class="form-control" min="0"
+                            required>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label class="form-label">Aylık Ortalama KM</label>
                         <input type="number" name="monthly_km" id="edit_monthly_km" class="form-control" min="0">
                     </div>
-                    
+
                     <div class="mb-3">
                         <label class="form-label">Notlar</label>
                         <textarea name="notes" id="edit_notes" class="form-control" rows="2"></textarea>
@@ -204,10 +212,11 @@
                 <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Toplu KM Güncelleme</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="{{ url_for('tramvay_km_toplu_guncelle') }}">
+            <form id="topluGuncelleForm">
                 <div class="modal-body">
-                    <p class="text-muted mb-3">Güncellemek istediğiniz tramvayların KM değerlerini girin. Boş bırakılan alanlar güncellenmez.</p>
-                    
+                    <p class="text-muted mb-3">Güncellemek istediğiniz tramvayların KM değerlerini girin. Boş bırakılan
+                        alanlar güncellenmez.</p>
+
                     <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
                         <table class="table table-sm">
                             <thead class="table-light sticky-top">
@@ -218,13 +227,15 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for tram in tramvaylar %}
+                                {% for tram in equipments %}
                                 <tr>
-                                    <td><strong>{{ tram.id }}</strong></td>
-                                    <td><span class="text-muted">{{ "{:,}".format(tram.current_km) }} km</span></td>
+                                    <td><strong>{{ tram.equipment_code or tram.id }}</strong></td>
+                                    <td><span class="text-muted">{{ "{:,}".format(tram.current_km or 0) }} km</span>
+                                    </td>
                                     <td>
-                                        <input type="number" name="km_{{ tram.id }}" class="form-control form-control-sm" 
-                                               placeholder="{{ tram.current_km }}" min="0">
+                                        <input type="number" class="form-control form-control-sm km-input"
+                                            data-tram-id="{{ tram.id }}" placeholder="{{ tram.current_km or 0 }}"
+                                            min="0">
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -234,7 +245,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                    <button type="submit" class="btn btn-primary">
+                    <button type="button" class="btn btn-primary" id="topluGuncelleBtn">
                         <i class="bi bi-check-lg me-2"></i>Tümünü Kaydet
                     </button>
                 </div>
@@ -247,30 +258,72 @@
 
 {% block scripts %}
 <script>
-// Arama fonksiyonu
-document.getElementById('searchInput').addEventListener('keyup', function() {
-    const filter = this.value.toLowerCase();
-    const rows = document.querySelectorAll('#tramvayTable tbody tr');
-    
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        row.style.display = text.includes(filter) ? '' : 'none';
-    });
-});
+    // Arama fonksiyonu
+    document.getElementById('searchInput').addEventListener('keyup', function () {
+        const filter = this.value.toLowerCase();
+        const rows = document.querySelectorAll('#tramvayTable tbody tr');
 
-// Düzenleme modal verilerini doldur
-document.getElementById('editModal').addEventListener('show.bs.modal', function(event) {
-    const button = event.relatedTarget;
-    const tramId = button.getAttribute('data-tram-id');
-    const currentKm = button.getAttribute('data-current-km');
-    const monthlyKm = button.getAttribute('data-monthly-km');
-    const notes = button.getAttribute('data-notes');
-    
-    document.getElementById('edit_tram_id').value = tramId;
-    document.getElementById('edit_tram_name').value = tramId;
-    document.getElementById('edit_current_km').value = currentKm;
-    document.getElementById('edit_monthly_km').value = monthlyKm;
-    document.getElementById('edit_notes').value = notes;
-});
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(filter) ? '' : 'none';
+        });
+    });
+
+    // Düzenleme modal verilerini doldur
+    document.getElementById('editModal').addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        const tramId = button.getAttribute('data-tram-id');
+        const tramCode = button.getAttribute('data-tram-code') || tramId;
+        const currentKm = button.getAttribute('data-current-km') || '0';
+        const monthlyKm = button.getAttribute('data-monthly-km') || '0';
+        const notes = button.getAttribute('data-notes') || '';
+
+        document.getElementById('edit_tram_id').value = tramId;
+        document.getElementById('edit_tram_name').value = tramCode;
+        document.getElementById('edit_current_km').value = currentKm;
+        document.getElementById('edit_monthly_km').value = monthlyKm;
+        document.getElementById('edit_notes').value = notes;
+    });
+
+    // Toplu güncelleme işlemi
+    document.getElementById('topluGuncelleBtn').addEventListener('click', function () {
+        const updates = {};
+        document.querySelectorAll('.km-input').forEach(input => {
+            if (input.value) {
+                const tramId = input.getAttribute('data-tram-id');
+                updates[tramId] = {
+                    current_km: input.value,
+                    monthly_km: 0,
+                    notes: ''
+                };
+            }
+        });
+
+        if (Object.keys(updates).length === 0) {
+            alert('Lütfen güncellemek için en az bir tramvayın KM değerini girin');
+            return;
+        }
+
+        fetch('{{ url_for("tramvay_km_toplu_guncelle") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(updates)
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    location.reload();
+                } else {
+                    alert('❌ ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('❌ Hata: ' + error);
+            });
+    });
 </script>
 {% endblock %}
