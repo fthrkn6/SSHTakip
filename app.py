@@ -111,20 +111,37 @@ def create_app():
         @login_required
         def dashboard():
             """Main dashboard"""
+            from datetime import datetime
+            
             # Ensure project is selected
             if 'current_project' not in session:
                 session['current_project'] = 'belgrad'
                 session['project_code'] = 'belgrad'
                 session['project_name'] = '🇷🇸 Belgrad'
             
-            # Tüm tramvayları (equipment_type='Tramvay') al
-            all_tramvaylar = Equipment.query.filter_by(equipment_type='Tramvay').all()
+            # ServiceStatus'ten Bugünün durumunu çek
+            today = datetime.now().strftime('%Y-%m-%d')
+            today_service_status = ServiceStatus.query.filter_by(date=today).all()
             
-            # Durum bazında sayımlar
-            aktif_tramvay = len([e for e in all_tramvaylar if getattr(e, 'status', '') == 'aktif'])
-            bakimda_tramvay = len([e for e in all_tramvaylar if getattr(e, 'status', '') == 'bakımda'])
-            arizali_tramvay = len([e for e in all_tramvaylar if getattr(e, 'status', '') == 'arızalı'])
-            toplam_tramvay = len(all_tramvaylar)
+            # Status'a göre sayımlar
+            aktif_tramvay = len([s for s in today_service_status if s.status and 'Servis' in s.status and 'Dışı' not in s.status])
+            arizali_tramvay = len([s for s in today_service_status if s.status and 'Dışı' in s.status])
+            bakimda_tramvay = 0  # ServiceStatus'ta bakım durumu ayrı değil
+            
+            # Tüm tramvaylar (Excel'den)
+            import pandas as pd
+            import os
+            current_project = session.get('current_project', 'belgrad')
+            veriler_path = os.path.join(app.root_path, 'data', current_project, 'Veriler.xlsx')
+            toplam_tramvay = 0
+            
+            if os.path.exists(veriler_path):
+                try:
+                    df = pd.read_excel(veriler_path, sheet_name=1, header=0, engine='openpyxl')
+                    if 'tram_id' in df.columns:
+                        toplam_tramvay = len(df['tram_id'].dropna())
+                except Exception as e:
+                    print(f"Excel okuma hatası: {e}")
             
             # Fleet availability oranı = aktif tramvay / toplam tramvay * 100
             fleet_availability = (aktif_tramvay / toplam_tramvay * 100) if toplam_tramvay > 0 else 0
