@@ -3,6 +3,57 @@
 {% block title %}Tramvay KM Yönetimi - SSH Takip{% endblock %}
 
 {% block content %}
+<style>
+    /* KM Input Focus Styling */
+    .km-input:focus {
+        border-color: #0c63e4 !important;
+        box-shadow: 0 0 0 0.2rem rgba(12, 99, 228, 0.25);
+        background-color: #f0f7ff;
+    }
+
+    .monthly-km-input:focus,
+    .notes-input:focus {
+        border-color: #0c63e4 !important;
+        box-shadow: 0 0 0 0.2rem rgba(12, 99, 228, 0.15);
+    }
+
+    /* Input Row Highlight Animation */
+    .input-row {
+        animation: slideIn 0.2s ease-out;
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0.9;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    /* Sticky Table Header */
+    .table.table-sm thead.position-sticky {
+        background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+        box-shadow: inset 0 2px 0 0 #dee2e6;
+    }
+
+    /* Modal Body Scrolling */
+    .modal-body {
+        padding: 0 !important;
+    }
+
+    /* Keyboard Hint */
+    kbd {
+        background-color: #f8f9fa;
+        border: 1px solid rgba(0, 0, 0, 0.2);
+        border-radius: 3px;
+        padding: 2px 6px;
+        font-family: monospace;
+        font-size: 0.875em;
+    }
+</style>
+
 <div class="mb-4">
     <div class="d-flex justify-content-between align-items-center">
         <div>
@@ -206,71 +257,89 @@
 
 <!-- Toplu Güncelleme Modal -->
 <div class="modal fade" id="topluGuncelleModal" tabindex="-1">
-    <div class="modal-dialog modal-xl">
+    <div class="modal-dialog modal-fullscreen-lg">
         <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header border-bottom-0 bg-gradient pt-4">
-                <div>
-                    <h5 class="modal-title"><i class="bi bi-pencil-square me-2 text-primary"></i>Toplu KM Güncelleme
+            <div class="modal-header border-bottom bg-gradient sticky-top"
+                style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="flex-grow-1">
+                    <h5 class="modal-title text-white mb-2">
+                        <i class="bi bi-lightning-fill me-2"></i>⚡ Hızlı KM Veri Girişi
                     </h5>
-                    <p class="text-muted small mb-0">Güncellemek istediğiniz tramvayların KM bilgilerini girin. Boş
-                        alanlar güncellenmez.</p>
+                    <p class="text-white-50 small mb-1">
+                        <i class="bi bi-info-circle me-1"></i>Tüm tramvayların KM verilerini hızlıca girin
+                    </p>
+                    <p class="text-white-50 small mb-0">
+                        <kbd>Enter</kbd> tuşu = Sonraki satıra geç | Renkli satır = Veri girildi
+                    </p>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form id="topluGuncelleForm">
-                <div class="modal-body p-4">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th class="fw-bold">
+                <div class="modal-body p-3">
+                    <div style="max-height: 65vh; overflow-y: auto; border-radius: 8px; border: 1px solid #e9ecef;">
+                        <table class="table table-sm table-borderless align-middle mb-0">
+                            <thead class="table-light position-sticky top-0 z-3">
+                                <tr class="border-bottom-2 border-primary">
+                                    <th class="fw-bold ps-3 py-3" style="width: 15%;">
                                         <i class="bi bi-train-front me-2 text-primary"></i>Tramvay
                                     </th>
-                                    <th class="fw-bold">
-                                        <i class="bi bi-speedometer2 me-2 text-success"></i>Mevcut KM
+                                    <th class="fw-bold text-center py-3" style="width: 15%;">
+                                        <i class="bi bi-speedometer2 me-1 text-muted"></i>Mevcut KM
                                     </th>
-                                    <th class="fw-bold">
-                                        <i class="bi bi-arrow-right-circle me-2 text-info"></i>Yeni KM
+                                    <th class="fw-bold text-center py-3" style="width: 20%;">
+                                        <i class="bi bi-pencil-square me-1 text-success"></i>Yeni KM
                                     </th>
-                                    <th class="fw-bold">
-                                        <i class="bi bi-graph-up me-2 text-warning"></i>Aylık Ort. KM
+                                    <th class="fw-bold text-center py-3" style="width: 15%;">
+                                        <i class="bi bi-graph-up me-1 text-warning"></i>Aylık KM
                                     </th>
-                                    <th class="fw-bold">
-                                        <i class="bi bi-chat-left-text me-2 text-secondary"></i>Notlar
+                                    <th class="fw-bold py-3" style="width: 25%;">
+                                        <i class="bi bi-chat-left-text me-1 text-secondary"></i>Notlar
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody class="tbody-scroll">
                                 {% for tram in equipments %}
-                                <tr>
-                                    <td>
+                                <tr class="input-row border-bottom" data-tram-id="{{ tram.id }}"
+                                    style="transition: background-color 0.2s ease;">
+                                    <td class="ps-3 py-2">
                                         <div class="d-flex align-items-center">
-                                            <div class="bg-primary bg-opacity-10 rounded-circle p-2 me-2">
-                                                <i class="bi bi-train-front text-primary small"></i>
+                                            <div class="bg-primary bg-opacity-10 rounded p-2 me-2"
+                                                style="width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                                <i class="bi bi-train-front text-primary"
+                                                    style="font-size: 1.3rem;"></i>
                                             </div>
                                             <div>
-                                                <strong class="d-block">{{ tram.equipment_code or tram.id }}</strong>
+                                                <strong class="d-block" style="font-size: 1.05rem;">{{
+                                                    tram.equipment_code or tram.id }}</strong>
+                                                <small class="text-muted">ID: {{ tram.id }}</small>
                                             </div>
                                         </div>
                                     </td>
-                                    <td>
-                                        <span class="badge bg-success fs-6">{{ "{:,}".format(tram.current_km or 0) }}
-                                            km</span>
+                                    <td class="text-center py-2">
+                                        <span class="badge bg-secondary fs-6 px-3 py-2">{{ "{:,}".format(tram.current_km
+                                            or 0) }} km</span>
                                     </td>
-                                    <td>
-                                        <input type="number" class="form-control form-control-sm km-input"
-                                            data-tram-id="{{ tram.id }}" data-old-km="{{ tram.current_km or 0 }}"
-                                            placeholder="Yeni KM" min="0" style="width: 130px;">
+                                    <td class="text-center py-2">
+                                        <input type="number"
+                                            class="form-control form-control-sm km-input text-center fw-bold"
+                                            data-tram-id="{{ tram.id }}" placeholder="0" min="0"
+                                            style="font-size: 1.1rem; border: 2px solid #d0d0d0; padding: 0.6rem 0.4rem;"
+                                            autocomplete="off">
                                     </td>
-                                    <td>
-                                        <input type="number" class="form-control form-control-sm monthly-km-input"
-                                            data-tram-id="{{ tram.id }}" placeholder="KM/ay"
-                                            value="{{ tram.monthly_km or 0 }}" min="0" style="width: 130px;">
+                                    <td class="text-center py-2">
+                                        <input type="number"
+                                            class="form-control form-control-sm monthly-km-input text-center"
+                                            data-tram-id="{{ tram.id }}" placeholder="0"
+                                            value="{{ tram.monthly_km or 0 }}" min="0"
+                                            style="font-size: 0.95rem; border: 1px solid #e0e0e0; padding: 0.5rem 0.4rem;"
+                                            autocomplete="off">
                                     </td>
-                                    <td>
+                                    <td class="py-2">
                                         <input type="text" class="form-control form-control-sm notes-input"
                                             data-tram-id="{{ tram.id }}" placeholder="Not ekle..."
-                                            value="{{ tram.notes or '' }}" maxlength="100" style="width: 150px;">
+                                            value="{{ tram.notes or '' }}" maxlength="100"
+                                            style="font-size: 0.95rem; border: 1px solid #e0e0e0; padding: 0.5rem 0.4rem;"
+                                            autocomplete="off">
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -278,13 +347,26 @@
                         </table>
                     </div>
                 </div>
-                <div class="modal-footer border-top-0 bg-light p-3">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                        <i class="bi bi-x-lg me-2"></i>İptal
-                    </button>
-                    <button type="button" class="btn btn-primary" id="topluGuncelleBtn">
-                        <i class="bi bi-check-circle me-2"></i>Değişiklikleri Kaydet
-                    </button>
+                <div
+                    class="modal-footer border-top bg-light p-3 sticky-bottom d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-2">
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle me-1 text-info"></i>
+                            Güncellenen:
+                        </small>
+                        <span class="badge bg-info fs-6 px-3 py-2">
+                            <span id="enteredCount">0</span> / {{ equipments|length }}
+                        </span>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-lg me-2"></i>İptal
+                        </button>
+                        <button type="button" class="btn btn-success btn-lg px-4" id="topluGuncelleBtn"
+                            style="min-width: 150px;">
+                            <i class="bi bi-check-circle me-2"></i>Tümünü Kaydet
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -320,6 +402,66 @@
         document.getElementById('edit_current_km').value = currentKm;
         document.getElementById('edit_monthly_km').value = monthlyKm;
         document.getElementById('edit_notes').value = notes;
+    });
+
+    // Enter'a basınca sonraki satıra geç
+    document.querySelectorAll('.km-input, .monthly-km-input, .notes-input').forEach((input, index) => {
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const allInputs = Array.from(document.querySelectorAll('.km-input, .monthly-km-input, .notes-input'));
+                const nextIndex = allInputs.indexOf(this) + 1;
+
+                if (nextIndex < allInputs.length) {
+                    allInputs[nextIndex].focus();
+                    allInputs[nextIndex].select();
+                } else {
+                    // Son input'ta Enter'a basıldıysa kaydet buttonuna git
+                    document.getElementById('topluGuncelleBtn').focus();
+                }
+            }
+        });
+
+        // Input değişince satırı highlight et ve sayıcı güncelle
+        input.addEventListener('input', function () {
+            const row = this.closest('.input-row');
+            const tramId = this.getAttribute('data-tram-id');
+
+            // Satırı highlight et
+            if (this.value) {
+                row.style.backgroundColor = '#e7f5ff';
+                row.style.borderLeft = '3px solid #0c63e4';
+                row.style.paddingLeft = '0.5rem';
+            } else {
+                row.style.backgroundColor = '';
+                row.style.borderLeft = '';
+                row.style.paddingLeft = '';
+            }
+
+            // Güncellenen sayısını hesapla
+            let count = 0;
+            document.querySelectorAll('.input-row').forEach(r => {
+                const kmInput = r.querySelector('.km-input');
+                if (kmInput && kmInput.value) {
+                    count++;
+                }
+            });
+
+            // Counter'ı update et
+            const counter = document.getElementById('enteredCount');
+            if (counter) {
+                counter.textContent = count;
+                // Counter'ın rengi değiştir
+                const badge = counter.closest('.badge');
+                if (count > 0) {
+                    badge.classList.remove('bg-info');
+                    badge.classList.add('bg-success');
+                } else {
+                    badge.classList.remove('bg-success');
+                    badge.classList.add('bg-info');
+                }
+            }
+        });
     });
 
     // Toplu güncelleme işlemi
