@@ -132,7 +132,7 @@ def create_app():
                 'bugun_tamamlanan': WorkOrder.query.filter_by(status='completed').count() if hasattr(WorkOrder, 'status') else 0,
             }
             
-            # Get equipment (tramvaylar) - Veriler.xlsx'ten tram_id sütununu oku
+            # Get equipment (tramvaylar) - Veriler.xlsx'ten Sayfa2'den tram_id sütununu oku
             import pandas as pd
             import os
             
@@ -142,24 +142,53 @@ def create_app():
             
             if os.path.exists(veriler_path):
                 try:
-                    df = pd.read_excel(veriler_path)
+                    # Sayfa2 (index 1) oku
+                    df = pd.read_excel(veriler_path, sheet_name=1, header=0, engine='openpyxl')
                     if 'tram_id' in df.columns:
-                        tram_list = df['tram_id'].dropna().tolist()
-                        tram_list.sort(key=lambda x: int(x) if str(x).isdigit() else 0)
+                        # Excel'den tram_id'leri al
+                        tram_ids = df['tram_id'].dropna().astype(str).tolist()
                         
-                        for tram_id in tram_list:
-                            tramvaylar.append({
-                                'id': tram_id,
-                                'code': f'TRN-{tram_id}',
-                                'name': f'Tramvay {tram_id}',
-                                'location': current_project.capitalize(),
-                                'status': 'aktif',
-                                'total_km': 0,
-                                'total_failures': 0,
-                                'open_failures': 0,
-                                'equipment_code': f'TRN-{tram_id}',
-                                'get_status_badge': lambda: ('success', 'Aktif')  # Method yerine lambda kullan
-                            })
+                        # Her tram_id için database'den equipment bilgisini çek
+                        for tram_id in tram_ids:
+                            tram_id_clean = tram_id.strip()
+                            
+                            # Database'den ara
+                            equipment = Equipment.query.filter(
+                                db.or_(
+                                    Equipment.id == tram_id_clean,
+                                    Equipment.id == int(tram_id_clean) if tram_id_clean.isdigit() else None,
+                                    Equipment.equipment_code == tram_id_clean
+                                )
+                            ).first()
+                            
+                            if equipment:
+                                # Database'den gerçek veriler
+                                tramvaylar.append({
+                                    'id': equipment.id,
+                                    'code': equipment.equipment_code or f'TRN-{tram_id_clean}',
+                                    'name': equipment.name or f'Tramvay {tram_id_clean}',
+                                    'location': current_project.capitalize(),
+                                    'status': getattr(equipment, 'status', 'aktif'),
+                                    'total_km': getattr(equipment, 'current_km', 0) or 0,
+                                    'total_failures': 0,
+                                    'open_failures': 0,
+                                    'equipment_code': equipment.equipment_code or f'TRN-{tram_id_clean}',
+                                    'get_status_badge': lambda: ('success', 'Aktif')
+                                })
+                            else:
+                                # Database'de yoksa dummy object oluştur
+                                tramvaylar.append({
+                                    'id': tram_id_clean,
+                                    'code': f'TRN-{tram_id_clean}',
+                                    'name': f'Tramvay {tram_id_clean}',
+                                    'location': current_project.capitalize(),
+                                    'status': 'aktif',
+                                    'total_km': 0,
+                                    'total_failures': 0,
+                                    'open_failures': 0,
+                                    'equipment_code': f'TRN-{tram_id_clean}',
+                                    'get_status_badge': lambda: ('success', 'Aktif')
+                                })
                 except Exception as e:
                     print(f"Veriler.xlsx okuma hatası: {e}")
                     tramvaylar = []
