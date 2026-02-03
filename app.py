@@ -655,8 +655,32 @@ def create_app():
         @app.route('/bakim-planlari')
         @login_required
         def bakim_planlari():
+            from datetime import datetime, timedelta
+            
             plans = MaintenancePlan.query.all()
-            return render_template('bakim_planlari.html', plans=plans)
+            
+            # Tarih hesaplamaları
+            today = datetime.now()
+            week_later = today + timedelta(days=7)
+            
+            # İstatistikler
+            geciken_plans = []
+            bu_hafta_plans = []
+            
+            for plan in plans:
+                if hasattr(plan, 'next_maintenance_date') and plan.next_maintenance_date:
+                    if plan.next_maintenance_date < today:
+                        geciken_plans.append(plan)
+                    elif plan.next_maintenance_date <= week_later:
+                        bu_hafta_plans.append(plan)
+            
+            stats = {
+                'toplam': len(plans),
+                'geciken': len(geciken_plans),
+                'bu_hafta': len(bu_hafta_plans),
+            }
+            
+            return render_template('bakim_planlari.html', plans=plans, stats=stats)
 
         @app.route('/yedek-parca')
         @login_required
