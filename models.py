@@ -130,6 +130,11 @@ class Equipment(db.Model):
     # Gerekli Beceriler
     required_skills = db.Column(db.Text)  # JSON: bakım için gerekli beceriler
     
+    # KM Takip Alanları (Tramvay KM Sayfası için)
+    current_km = db.Column(db.Integer, default=0)  # Mevcut KM
+    monthly_km = db.Column(db.Integer, default=0)  # Aylık ortalama KM
+    last_update = db.Column(db.DateTime)  # Son güncelleme tarihi
+    
     parent_id = db.Column(db.Integer, db.ForeignKey('equipment.id'), nullable=True)
     notes = db.Column(db.Text)
     technical_specs = db.Column(db.Text)
