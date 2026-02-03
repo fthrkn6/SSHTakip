@@ -299,23 +299,30 @@ def create_app():
             if request.method == 'GET':
                 # Son FRACAS ID'yi bul
                 next_fracas_id = 1
+                print(f"📥 GET /yeni-ariza-bildir - excel_path: {excel_path}")
                 if excel_path and os.path.exists(excel_path):
                     try:
-                        df = pd.read_excel(excel_path, sheet_name='FRACAS', header=3)
+                        # FRACAS Header 1. satırda!
+                        df = pd.read_excel(excel_path, sheet_name='FRACAS', header=0)
+                        print(f"   📋 FRACAS sheet sütunları: {df.columns.tolist()}")
+                        
                         # FRACAS ID sütununu bul
                         fracas_col = None
                         for col in df.columns:
-                            if 'fracas' in col.lower() and 'id' in col.lower():
+                            if isinstance(col, str) and 'fracas' in col.lower() and 'id' in col.lower():
                                 fracas_col = col
                                 break
                         
+                        print(f"   🔍 FRACAS ID sütunu: {fracas_col}")
                         if fracas_col:
                             # Sayısal FRACAS ID'leri çıkar
                             ids = []
                             for val in df[fracas_col].dropna():
                                 try:
-                                    # "BEL25-001" gibi formatları handle et
-                                    if isinstance(val, str) and '-' in val:
+                                    # "BOZ-BEL25-FF-001" gibi formatları handle et
+                                    if isinstance(val, str) and 'FF-' in val:
+                                        num = int(val.split('FF-')[-1])
+                                    elif isinstance(val, str) and '-' in val:
                                         num = int(val.split('-')[-1])
                                     else:
                                         num = int(val)
@@ -323,10 +330,11 @@ def create_app():
                                 except:
                                     pass
                             
+                            print(f"   📊 Bulunan ID'ler: {sorted(ids)}") 
                             if ids:
                                 next_fracas_id = max(ids) + 1
                     except Exception as e:
-                        print(f"FRACAS ID okuma hatası: {e}")
+                        print(f"❌ FRACAS ID okuma hatası: {e}")
                 
                 # Tramvaylar ve sistemler
                 tramvaylar = []
@@ -447,7 +455,7 @@ def create_app():
                 return render_template('yeni_ariza_bildir.html', 
                                      sistem_detay=sistem_detay, 
                                      modules=modules,
-                                     next_fracas_id=f"BEL25-{next_fracas_id:03d}",
+                                     next_fracas_id=f"BOZ-BEL25-FF-{next_fracas_id:03d}",
                                      tramvaylar=tramvaylar,
                                      sistemler=list(sistemler.keys()),
                                      ariza_siniflari=ariza_siniflari,
@@ -456,6 +464,47 @@ def create_app():
                 # POST - Excel'e kayıt et
                 try:
                     form_data = request.form.to_dict()
+                    print(f"\n📤 POST /yeni-ariza-bildir")
+                    print(f"   📋 Gelen form alanları: {list(form_data.keys())}")
+                    
+                    # FRACAS ID'yi form'dan al veya hesapla
+                    fracas_id = form_data.get('fracas_id', '')
+                    print(f"   🔢 Form'dan gelen FRACAS ID: '{fracas_id}'")
+                    if not fracas_id:
+                        # FRACAS ID'yi hesapla
+                        print(f"   ⚠️  Boş FRACAS ID - Excel'den hesaplanıyor...")
+                        next_fracas_id = 1
+                        if excel_path and os.path.exists(excel_path):
+                            try:
+                                # FRACAS Header 1. satırda!
+                                df = pd.read_excel(excel_path, sheet_name='FRACAS', header=0)
+                                fracas_col = None
+                                for col in df.columns:
+                                    if isinstance(col, str) and 'fracas' in col.lower() and 'id' in col.lower():
+                                        fracas_col = col
+                                        break
+                                
+                                if fracas_col:
+                                    ids = []
+                                    for val in df[fracas_col].dropna():
+                                        try:
+                                            if isinstance(val, str) and 'FF-' in val:
+                                                num = int(val.split('FF-')[-1])
+                                            elif isinstance(val, str) and '-' in val:
+                                                num = int(val.split('-')[-1])
+                                            else:
+                                                num = int(val)
+                                            ids.append(num)
+                                        except:
+                                            pass
+                                    
+                                    if ids:
+                                        next_fracas_id = max(ids) + 1
+                            except Exception as e:
+                                print(f"FRACAS ID okuma hatası: {e}")
+                        
+                        fracas_id = f"BOZ-BEL25-FF-{next_fracas_id:03d}"
+                        form_data['fracas_id'] = fracas_id
                     
                     if excel_path and os.path.exists(excel_path):
                         wb = load_workbook(excel_path)
