@@ -206,36 +206,71 @@
 
 <!-- Toplu Güncelleme Modal -->
 <div class="modal fade" id="topluGuncelleModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Toplu KM Güncelleme</h5>
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-bottom-0 bg-gradient pt-4">
+                <div>
+                    <h5 class="modal-title"><i class="bi bi-pencil-square me-2 text-primary"></i>Toplu KM Güncelleme
+                    </h5>
+                    <p class="text-muted small mb-0">Güncellemek istediğiniz tramvayların KM bilgilerini girin. Boş
+                        alanlar güncellenmez.</p>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="topluGuncelleForm">
-                <div class="modal-body">
-                    <p class="text-muted mb-3">Güncellemek istediğiniz tramvayların KM değerlerini girin. Boş bırakılan
-                        alanlar güncellenmez.</p>
-
-                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                        <table class="table table-sm">
-                            <thead class="table-light sticky-top">
+                <div class="modal-body p-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
                                 <tr>
-                                    <th>Tramvay</th>
-                                    <th>Mevcut KM</th>
-                                    <th>Yeni KM</th>
+                                    <th class="fw-bold">
+                                        <i class="bi bi-train-front me-2 text-primary"></i>Tramvay
+                                    </th>
+                                    <th class="fw-bold">
+                                        <i class="bi bi-speedometer2 me-2 text-success"></i>Mevcut KM
+                                    </th>
+                                    <th class="fw-bold">
+                                        <i class="bi bi-arrow-right-circle me-2 text-info"></i>Yeni KM
+                                    </th>
+                                    <th class="fw-bold">
+                                        <i class="bi bi-graph-up me-2 text-warning"></i>Aylık Ort. KM
+                                    </th>
+                                    <th class="fw-bold">
+                                        <i class="bi bi-chat-left-text me-2 text-secondary"></i>Notlar
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for tram in equipments %}
                                 <tr>
-                                    <td><strong>{{ tram.equipment_code or tram.id }}</strong></td>
-                                    <td><span class="text-muted">{{ "{:,}".format(tram.current_km or 0) }} km</span>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-primary bg-opacity-10 rounded-circle p-2 me-2">
+                                                <i class="bi bi-train-front text-primary small"></i>
+                                            </div>
+                                            <div>
+                                                <strong class="d-block">{{ tram.equipment_code or tram.id }}</strong>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-success fs-6">{{ "{:,}".format(tram.current_km or 0) }}
+                                            km</span>
                                     </td>
                                     <td>
                                         <input type="number" class="form-control form-control-sm km-input"
-                                            data-tram-id="{{ tram.id }}" placeholder="{{ tram.current_km or 0 }}"
-                                            min="0">
+                                            data-tram-id="{{ tram.id }}" data-old-km="{{ tram.current_km or 0 }}"
+                                            placeholder="Yeni KM" min="0" style="width: 130px;">
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm monthly-km-input"
+                                            data-tram-id="{{ tram.id }}" placeholder="KM/ay"
+                                            value="{{ tram.monthly_km or 0 }}" min="0" style="width: 130px;">
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm notes-input"
+                                            data-tram-id="{{ tram.id }}" placeholder="Not ekle..."
+                                            value="{{ tram.notes or '' }}" maxlength="100" style="width: 150px;">
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -243,10 +278,12 @@
                         </table>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                <div class="modal-footer border-top-0 bg-light p-3">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg me-2"></i>İptal
+                    </button>
                     <button type="button" class="btn btn-primary" id="topluGuncelleBtn">
-                        <i class="bi bi-check-lg me-2"></i>Tümünü Kaydet
+                        <i class="bi bi-check-circle me-2"></i>Değişiklikleri Kaydet
                     </button>
                 </div>
             </form>
@@ -288,21 +325,36 @@
     // Toplu güncelleme işlemi
     document.getElementById('topluGuncelleBtn').addEventListener('click', function () {
         const updates = {};
+        let hasChanges = false;
+
+        // Tüm KM inputlarını kontrol et
         document.querySelectorAll('.km-input').forEach(input => {
-            if (input.value) {
-                const tramId = input.getAttribute('data-tram-id');
+            const tramId = input.getAttribute('data-tram-id');
+            const newKm = input.value;
+            const monthlyKm = document.querySelector(`.monthly-km-input[data-tram-id="${tramId}"]`).value;
+            const notes = document.querySelector(`.notes-input[data-tram-id="${tramId}"]`).value;
+
+            // Eğer yeni KM girilmişse veya diğer alanlar değişmişse
+            if (newKm || monthlyKm || notes) {
                 updates[tramId] = {
-                    current_km: input.value,
-                    monthly_km: 0,
-                    notes: ''
+                    current_km: newKm || null,
+                    monthly_km: monthlyKm || 0,
+                    notes: notes || ''
                 };
+                hasChanges = true;
             }
         });
 
-        if (Object.keys(updates).length === 0) {
-            alert('Lütfen güncellemek için en az bir tramvayın KM değerini girin');
+        if (!hasChanges) {
+            alert('⚠️ Lütfen güncellemek için en az bir alanı doldurun');
             return;
         }
+
+        // Yüklenme göstergesi
+        const btn = document.getElementById('topluGuncelleBtn');
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Kaydediliyor...';
 
         fetch('{{ url_for("tramvay_km_toplu_guncelle") }}', {
             method: 'POST',
@@ -314,15 +366,32 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert(data.message);
-                    location.reload();
+                    // Başarı mesajı göster
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('topluGuncelleModal'));
+                    modal.hide();
+
+                    // Toast mesajı
+                    const toast = document.createElement('div');
+                    toast.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3';
+                    toast.innerHTML = `
+                        <i class="bi bi-check-circle me-2"></i>${data.message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    `;
+                    document.body.appendChild(toast);
+
+                    // Sayfayı 1.5 saniye sonra yenile
+                    setTimeout(() => location.reload(), 1500);
                 } else {
                     alert('❌ ' + data.message);
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
                 alert('❌ Hata: ' + error);
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
             });
     });
 </script>

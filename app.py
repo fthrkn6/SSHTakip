@@ -919,23 +919,42 @@ def create_app():
             try:
                 updates = request.get_json()
                 count = 0
+                errors = []
                 
                 for tram_id, data in updates.items():
-                    equipment = Equipment.query.get(tram_id)
-                    if equipment:
-                        try:
-                            if 'current_km' in data:
-                                equipment.current_km = int(data['current_km']) if data['current_km'] else 0
-                            if 'monthly_km' in data:
-                                equipment.monthly_km = int(data['monthly_km']) if data['monthly_km'] else 0
+                    try:
+                        equipment = Equipment.query.get(tram_id)
+                        if equipment:
+                            # Mevcut KM güncelle
+                            if 'current_km' in data and data['current_km']:
+                                try:
+                                    equipment.current_km = int(float(data['current_km']))
+                                except:
+                                    errors.append(f"{equipment.equipment_code}: Geçersiz KM değeri")
+                                    continue
+                            
+                            # Aylık KM güncelle
+                            if 'monthly_km' in data and data['monthly_km']:
+                                try:
+                                    equipment.monthly_km = int(float(data['monthly_km']))
+                                except:
+                                    pass
+                            
+                            # Notlar güncelle
                             if 'notes' in data:
-                                equipment.notes = data['notes']
+                                equipment.notes = str(data['notes']).strip()
+                            
                             count += 1
-                        except Exception as e:
-                            pass
+                    except Exception as e:
+                        errors.append(f"Tramvay {tram_id}: {str(e)}")
                 
                 db.session.commit()
-                return jsonify({'success': True, 'message': f'✅ {count} araç güncellendi'}), 200
+                
+                message = f'✅ {count} araç başarıyla güncellendi'
+                if errors:
+                    message += f' ({len(errors)} hata)'
+                
+                return jsonify({'success': True, 'message': message}), 200
             except Exception as e:
                 db.session.rollback()
                 return jsonify({'success': False, 'message': f'❌ Hata: {str(e)}'}), 500
