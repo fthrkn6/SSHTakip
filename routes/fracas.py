@@ -121,7 +121,8 @@ def load_fracas_data():
         return None
     
     try:
-        df = pd.read_excel(excel_path, sheet_name='FRACAS', header=3)
+        # Header 1. satırda (header=0)
+        df = pd.read_excel(excel_path, sheet_name='FRACAS', header=0)
         # Sütun isimlerini normalize et
         df.columns = df.columns.str.replace('\n', ' ', regex=False).str.strip()
         
