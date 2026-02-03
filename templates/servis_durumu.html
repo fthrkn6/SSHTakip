@@ -525,21 +525,40 @@
         guncelleFormDunuVeri(this.value);
     });
 
-    // Tüm araçların dün'ü tekrar yükle - Bilgi dialog
+    // Tüm araçların dün'ü tekrar yükle
     function gecenGunuTekrarYukle() {
         if (Object.keys(yesterday_data).length === 0) {
             alert('⚠️ Dün için kaydedilmiş durum verisi yok.');
             return;
         }
 
-        // Tüm araçlar için dün'ün durumunu göster
-        const resultText = [];
-        Object.entries(yesterday_data).forEach(([tram_id, data]) => {
-            resultText.push(`${tram_id}: ${data.status || 'Belirtilmemiş'}`);
-        });
+        if (!confirm('⚠️ TÜM araçları dünün durum verilerine göre güncellemek istediğinize emin misiniz?')) {
+            return;
+        }
 
-        alert('📋 Dün\'ün Durum Özeti:\n\n' + resultText.slice(0, 15).join('\n') +
-            (resultText.length > 15 ? `\n... ve ${resultText.length - 15} araç daha` : ''));
+        // Dün'ün verisini bugüne kopyala
+        fetch('/api/copy_previous_day', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                yesterday_data: yesterday_data
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ ' + data.message);
+                    location.reload();
+                } else {
+                    alert('❌ Hata: ' + (data.message || 'Bilinmeyen hata'));
+                }
+            })
+            .catch(error => {
+                console.error('Hata:', error);
+                alert('❌ İşlem sırasında hata oluştu: ' + error);
+            });
     }
 
     document.getElementById('durum').addEventListener('change', function () {

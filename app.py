@@ -878,7 +878,10 @@ def create_app():
                 'ortalama_km': 0,
                 'max_km': 0,
             }
-            return render_template('tramvay_km.html', stats=stats)
+            return render_template('tramvay_km.html', 
+                                 stats=stats,
+                                 equipments=equipments,
+                                 project_name=session.get('project_name', 'Belgrad'))
 
         @app.route('/tramvay-km/guncelle', methods=['POST'])
         @login_required
@@ -1268,6 +1271,69 @@ def create_app():
                 return jsonify({'success': True, 'message': f'{len(tram_ids)} araç servise alındı'}), 200
             except Exception as e:
                 db.session.rollback()
+                return jsonify({'success': False, 'message': str(e)}), 400
+
+        @app.route('/api/copy_previous_day', methods=['POST'])
+        @login_required
+        def api_copy_previous_day():
+            """Önceki günün verilerini bugüne kopyala"""
+            try:
+                data = request.get_json()
+                yesterday_data = data.get('yesterday_data', {})
+                
+                if not yesterday_data:
+                    return jsonify({'success': False, 'message': 'Dün\'ün veri yok'}), 400
+                
+                # Bugünkü tarihi al
+                from datetime import datetime, timedelta, date
+                today = date.today()
+                yesterday = today - timedelta(days=1)
+                
+                today_str = today.strftime('%Y-%m-%d')
+                yesterday_str = yesterday.strftime('%Y-%m-%d')
+                
+                # Tüm araçlar için dünün durumunu bugüne kopyala
+                from models import ServiceStatus
+                
+                count = 0
+                for tram_id, yesterday_record in yesterday_data.items():
+                    tram_str = str(tram_id)
+                    
+                    # Bugün için zaten kayıt varsa kontrol et
+                    existing = ServiceStatus.query.filter_by(
+                        tram_id=tram_str,
+                        date=today_str
+                    ).first()
+                    
+                    if existing:
+                        # Mevcut kaydı güncelle
+                        existing.status = yesterday_record.get('status', '')
+                        existing.sistem = yesterday_record.get('sistem', '')
+                        existing.aciklama = yesterday_record.get('aciklama', '') + ' (Dünden kopyalandı)'
+                    else:
+                        # Yeni kayıt oluştur
+                        new_record = ServiceStatus(
+                            tram_id=tram_str,
+                            date=today_str,
+                            status=yesterday_record.get('status', ''),
+                            sistem=yesterday_record.get('sistem', ''),
+                            aciklama=yesterday_record.get('aciklama', '') + ' (Dünden kopyalandı)'
+                        )
+                        db.session.add(new_record)
+                    count += 1
+                
+                db.session.commit()
+                
+                return jsonify({
+                    'success': True,
+                    'message': f'✅ {count} araç dünün durumuna göre güncellendi'
+                }), 200
+                
+            except Exception as e:
+                db.session.rollback()
+                print(f"Hata: {e}")
+                import traceback
+                traceback.print_exc()
                 return jsonify({'success': False, 'message': str(e)}), 400
 
         @app.route('/servis-durumu/indir')
