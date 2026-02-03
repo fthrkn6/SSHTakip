@@ -575,5 +575,33 @@
             document.getElementById('serviseTarih').value = ed;
         }
     }
+
+    // Aksiyon seçimine göre Parça Bilgileri bölümünü göster/gizle
+    var aksiyon_select = document.querySelector('select[name="aksiyon"]');
+    var parca_section = document.querySelector('.bg-part').closest('.form-card');
+
+    function toggleParcaBilgileri() {
+        var selected_action = aksiyon_select.value;
+        // "Değişim" seçilirse parça alanlarını göster
+        if (selected_action === 'Değişim' || selected_action === 'Beklemede') {
+            parca_section.style.display = 'block';
+            // Parça alanlarını zorunlu yap
+            document.querySelector('input[name="parca_kodu"]').required = true;
+            document.querySelector('input[name="parca_adi"]').required = true;
+        } else {
+            parca_section.style.display = 'none';
+            // Parça alanlarını zorunlu olmaktan çıkar
+            document.querySelector('input[name="parca_kodu"]').required = false;
+            document.querySelector('input[name="parca_adi"]').required = false;
+        }
+    }
+
+    // Başlangıçta kontrol et
+    toggleParcaBilgileri();
+
+    // Aksiyon seçimi değişirse kontrol et
+    if (aksiyon_select) {
+        aksiyon_select.addEventListener('change', toggleParcaBilgileri);
+    }
 </script>
 {% endblock %}
