@@ -286,13 +286,10 @@
                                     <th class="fw-bold text-center py-3" style="width: 15%;">
                                         <i class="bi bi-speedometer2 me-1 text-muted"></i>Mevcut KM
                                     </th>
-                                    <th class="fw-bold text-center py-3" style="width: 20%;">
-                                        <i class="bi bi-pencil-square me-1 text-success"></i>Yeni KM
+                                    <th class="fw-bold text-center py-3" style="width: 30%;">
+                                        <i class="bi bi-pencil-square me-1 text-success"></i>Güncel KM
                                     </th>
-                                    <th class="fw-bold text-center py-3" style="width: 15%;">
-                                        <i class="bi bi-graph-up me-1 text-warning"></i>Aylık KM
-                                    </th>
-                                    <th class="fw-bold py-3" style="width: 25%;">
+                                    <th class="fw-bold py-3" style="width: 40%;">
                                         <i class="bi bi-chat-left-text me-1 text-secondary"></i>Notlar
                                     </th>
                                 </tr>
@@ -324,14 +321,6 @@
                                             class="form-control form-control-sm km-input text-center fw-bold"
                                             data-tram-id="{{ tram.id }}" placeholder="0" min="0"
                                             style="font-size: 1.1rem; border: 2px solid #d0d0d0; padding: 0.6rem 0.4rem;"
-                                            autocomplete="off">
-                                    </td>
-                                    <td class="text-center py-2">
-                                        <input type="number"
-                                            class="form-control form-control-sm monthly-km-input text-center"
-                                            data-tram-id="{{ tram.id }}" placeholder="0"
-                                            value="{{ tram.monthly_km or 0 }}" min="0"
-                                            style="font-size: 0.95rem; border: 1px solid #e0e0e0; padding: 0.5rem 0.4rem;"
                                             autocomplete="off">
                                     </td>
                                     <td class="py-2">
@@ -405,11 +394,11 @@
     });
 
     // Enter'a basınca sonraki satıra geç
-    document.querySelectorAll('.km-input, .monthly-km-input, .notes-input').forEach((input, index) => {
+    document.querySelectorAll('.km-input, .notes-input').forEach((input, index) => {
         input.addEventListener('keydown', function (e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                const allInputs = Array.from(document.querySelectorAll('.km-input, .monthly-km-input, .notes-input'));
+                const allInputs = Array.from(document.querySelectorAll('.km-input, .notes-input'));
                 const nextIndex = allInputs.indexOf(this) + 1;
 
                 if (nextIndex < allInputs.length) {
@@ -473,15 +462,13 @@
         document.querySelectorAll('.km-input').forEach(input => {
             const tramId = input.getAttribute('data-tram-id');
             const newKm = input.value;
-            const monthlyKm = document.querySelector(`.monthly-km-input[data-tram-id="${tramId}"]`).value;
             const notes = document.querySelector(`.notes-input[data-tram-id="${tramId}"]`).value;
 
-            // Eğer yeni KM girilmişse veya diğer alanlar değişmişse
-            if (newKm || monthlyKm || notes) {
-                console.log(`📊 Tram ID: ${tramId}, Yeni KM: ${newKm}, Aylık: ${monthlyKm}, Notlar: ${notes}`);
+            // Eğer yeni KM girilmişse
+            if (newKm) {
+                console.log(`📊 Tram ID: ${tramId}, Güncel KM: ${newKm}, Notlar: ${notes}`);
                 updates[tramId] = {
                     current_km: newKm || null,
-                    monthly_km: monthlyKm || 0,
                     notes: notes || ''
                 };
                 hasChanges = true;
