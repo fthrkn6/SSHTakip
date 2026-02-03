@@ -336,6 +336,7 @@
 
             // Eğer yeni KM girilmişse veya diğer alanlar değişmişse
             if (newKm || monthlyKm || notes) {
+                console.log(`📊 Tram ID: ${tramId}, Yeni KM: ${newKm}, Aylık: ${monthlyKm}, Notlar: ${notes}`);
                 updates[tramId] = {
                     current_km: newKm || null,
                     monthly_km: monthlyKm || 0,
@@ -344,6 +345,8 @@
                 hasChanges = true;
             }
         });
+
+        console.log('📋 Gönderilecek güncelleme verileri:', updates);
 
         if (!hasChanges) {
             alert('⚠️ Lütfen güncellemek için en az bir alanı doldurun');
@@ -365,6 +368,7 @@
         })
             .then(response => response.json())
             .then(data => {
+                console.log('✅ Server cevabı:', data);
                 if (data.success) {
                     // Başarı mesajı göster
                     const modal = bootstrap.Modal.getInstance(document.getElementById('topluGuncelleModal'));
@@ -388,7 +392,7 @@
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('❌ Hata:', error);
                 alert('❌ Hata: ' + error);
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;
