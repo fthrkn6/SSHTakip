@@ -117,19 +117,31 @@ def create_app():
                 session['project_code'] = 'belgrad'
                 session['project_name'] = '🇷🇸 Belgrad'
             
+            # Tüm tramvayları (equipment_type='Tramvay') al
+            all_tramvaylar = Equipment.query.filter_by(equipment_type='Tramvay').all()
+            
+            # Durum bazında sayımlar
+            aktif_tramvay = len([e for e in all_tramvaylar if getattr(e, 'status', '') == 'aktif'])
+            bakimda_tramvay = len([e for e in all_tramvaylar if getattr(e, 'status', '') == 'bakımda'])
+            arizali_tramvay = len([e for e in all_tramvaylar if getattr(e, 'status', '') == 'arızalı'])
+            toplam_tramvay = len(all_tramvaylar)
+            
+            # Fleet availability oranı = aktif tramvay / toplam tramvay * 100
+            fleet_availability = (aktif_tramvay / toplam_tramvay * 100) if toplam_tramvay > 0 else 0
+            
             stats = {
                 'total_equipment': Equipment.query.count(),
                 'total_failures': Failure.query.count(),
                 'total_workorders': WorkOrder.query.count(),
                 'total_maintenance_plans': MaintenancePlan.query.count(),
-                'total_tramvay': Equipment.query.filter_by(equipment_type='tramvay').count() if hasattr(Equipment, 'equipment_type') else 0,
-                'aktif_servis': Equipment.query.filter_by(status='actif').count() if hasattr(Equipment, 'status') else 0,
-                'bakimda': Equipment.query.filter_by(status='maintenance').count() if hasattr(Equipment, 'status') else 0,
-                'arizali': Equipment.query.filter_by(status='failure').count() if hasattr(Equipment, 'status') else 0,
-                'aktif_ariza': Failure.query.filter_by(status='open').count() if hasattr(Failure, 'status') else 0,
-                'bekleyen_is_emri': WorkOrder.query.filter_by(status='pending').count() if hasattr(WorkOrder, 'status') else 0,
-                'devam_eden_is_emri': WorkOrder.query.filter_by(status='in_progress').count() if hasattr(WorkOrder, 'status') else 0,
-                'bugun_tamamlanan': WorkOrder.query.filter_by(status='completed').count() if hasattr(WorkOrder, 'status') else 0,
+                'total_tramvay': toplam_tramvay,
+                'aktif_servis': aktif_tramvay,
+                'bakimda': bakimda_tramvay,
+                'arizali': arizali_tramvay,
+                'aktif_ariza': Failure.query.filter(Failure.status.ilike('open')).count() if Failure.query.count() > 0 else 0,
+                'bekleyen_is_emri': WorkOrder.query.filter(WorkOrder.status.ilike('pending')).count() if WorkOrder.query.count() > 0 else 0,
+                'devam_eden_is_emri': WorkOrder.query.filter(WorkOrder.status.ilike('in_progress')).count() if WorkOrder.query.count() > 0 else 0,
+                'bugun_tamamlanan': WorkOrder.query.filter(WorkOrder.status.ilike('completed')).count() if WorkOrder.query.count() > 0 else 0,
             }
             
             # Get equipment (tramvaylar) - Veriler.xlsx'ten Sayfa2'den tram_id sütununu oku
@@ -170,8 +182,8 @@ def create_app():
                                     'location': current_project.capitalize(),
                                     'status': getattr(equipment, 'status', 'aktif'),
                                     'total_km': getattr(equipment, 'current_km', 0) or 0,
-                                    'total_failures': 0,
-                                    'open_failures': 0,
+                                    'total_failures': Failure.query.filter(Failure.equipment_id == equipment.id).count() if Failure.query.count() > 0 else 0,
+                                    'open_failures': Failure.query.filter(Failure.equipment_id == equipment.id, Failure.status.ilike('open')).count() if Failure.query.count() > 0 else 0,
                                     'equipment_code': equipment.equipment_code or f'TRN-{tram_id_clean}',
                                     'get_status_badge': lambda: ('success', 'Aktif')
                                 })
@@ -200,14 +212,27 @@ def create_app():
             # Get recent failures
             son_arizalar = Failure.query.order_by(Failure.created_at.desc()).limit(10).all() if Failure.query.count() > 0 else []
             
-            # KPI metrics
+            # KPI metrics - Gerçek verilerden hesapla
+            total_workorders = stats['total_workorders']
+            completed_workorders = stats['bugun_tamamlanan']
+            wo_completion_rate = (completed_workorders / total_workorders * 100) if total_workorders > 0 else 0
+            
+            # Koruyucu bakım oranı (MaintenancePlan'lar)
+            total_plans = stats['total_maintenance_plans']
+            preventive_ratio = (total_plans / total_workorders * 100) if total_workorders > 0 else 0
+            
+            # Arıza çözüm oranı (open vs total failures)
+            total_failures = stats['total_failures']
+            open_failures = stats['aktif_ariza']
+            failure_resolution_rate = ((total_failures - open_failures) / total_failures * 100) if total_failures > 0 else 100
+            
             kpi = {
-                'fleet_availability': 95,
-                'failure_resolution_rate': 100,
-                'wo_completion_rate': 100,
-                'preventive_ratio': 0,
-                'critical_failures': Failure.query.filter_by(status='open').count() if hasattr(Failure, 'status') else 0,
-                'total_cost': 0
+                'fleet_availability': round(fleet_availability, 1),
+                'failure_resolution_rate': round(failure_resolution_rate, 1),
+                'wo_completion_rate': round(wo_completion_rate, 1),
+                'preventive_ratio': round(preventive_ratio, 1),
+                'critical_failures': open_failures,
+                'total_cost': 0  # Bu veri database'de yok
             }
             
             return render_template('dashboard.html', 
