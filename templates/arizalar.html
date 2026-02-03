@@ -100,10 +100,8 @@
                         <th style="width: 5%; min-width: 40px;">#</th>
                         {% if excel_data and columns %}
                         <!-- Dinamik Sütunlar -->
-                        {% set display_cols = ['FRACAS ID', 'Araç Numarası Vehicle Number', 'Araç Module Vehicle
-                        Module',
-                        'Arıza Tanımı Failure Description', 'Arıza Tipi Failure Type',
-                        'Sistem', '.', 'Tamir Süresi (dakika) Repair Time (dakika)'] %}
+                        {% set display_cols = ['FRACAS ID', 'Araç Numarası', 'Araç Modülü', 'Arıza Tanımı', 'Arıza
+                        Tipi', 'Sistem', 'Hata Tarih Saat', 'Tamir Süresi (dakika)'] %}
                         {% for col in columns %}
                         {% if col in display_cols %}
                         <th style="min-width: 120px;">{{ column_display_names.get(col, col[:15]) }}</th>
@@ -133,9 +131,9 @@
                                 {% set val = ariza.raw_data.get(col, '-') %}
                                 {% if col == 'FRACAS ID' %}
                                 <span class="badge bg-primary">{{ val }}</span>
-                                {% elif col == 'Araç Numarası Vehicle Number' %}
+                                {% elif col == 'Araç Numarası' %}
                                 <span class="badge bg-info">{{ val }}</span>
-                                {% elif col == '.' %}
+                                {% elif col == 'Hata Tarih Saat' %}
                                 {{ ariza.detection_date }}
                                 {% elif 'Tamir Süresi' in col %}
                                 {% if val and val != '-' %}<span class="badge bg-success">{{ ariza.repair_time

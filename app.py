@@ -9,7 +9,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from datetime import datetime
 from models import db, User, Equipment, Failure, WorkOrder, MaintenancePlan, SparePartInventory
 from werkzeug.utils import secure_filename
-from routes.fracas import bp as fracas_bp
+from routes.fracas import bp as fracas_bp, get_excel_path, get_column
 from routes.kpi import bp as kpi_bp
 import os
 
@@ -524,50 +524,52 @@ def create_app():
             
             if excel_path and os.path.exists(excel_path):
                 try:
-                    df = pd.read_excel(excel_path, sheet_name='FRACAS', header=3)
-                    df.columns = df.columns.str.replace('\n', ' ', regex=False).str.strip()
+                    df = pd.read_excel(excel_path, sheet_name='FRACAS', header=0, engine='openpyxl')
+                    df.columns = df.columns.astype(str).str.replace('\n', ' ', regex=False).str.strip()
                     
                     # Boş satırları temizle
                     fracas_col = get_column(df, ['FRACAS ID', 'Fracas Id', 'fracas_id'])
                     if fracas_col:
+                        # Sadece FRACAS ID'si olan satırları tut
                         df = df[df[fracas_col].notna()].copy()
                     
                     if len(df) > 0:
                         excel_data = True
                         all_columns = list(df.columns)
                         
-                        # Sütun gösterim adlarını oluştur (daha kısa, temiz adlar)
+                        # Sütun gösterim adlarını oluştur (yeni temiz başlıklar)
                         display_mapping = {
-                            'Project': 'Proje',
-                            'Araç Numarası  Vehicle Number': 'Araç',
-                            'Araç Module  Vehicle Module': 'Modül',
-                            'Araç Kilometresi  Vehicle Kilometer': 'Km',
+                            'Proje': 'Proje',
+                            'Araç Numarası': 'Araç No',
+                            'Araç Modülü': 'Modül',
+                            'Araç Kilometresi': 'Km',
                             'FRACAS ID': 'Arıza Kodu',
-                            '.': 'Tarih',
+                            'Hata Tarih Saat': 'Tarih',
                             'Sistem': 'Sistem',
                             'Alt Sistemler': 'Alt Sistem',
-                            'İlgili Tedarikçi Relevant Supplier': 'Tedarikçi',
-                            'Arıza Tanımı Failure Description': 'Açıklama',
-                            'Arıza Sınıfı   Failure Class': 'Sınıf',
-                            'Arıza Kaynağı  Source of Failure': 'Kaynak',
-                            'Arıza Tipi  Failure Type': 'Tip',
-                            'Aksiyon  Action': 'Aksiyon',
-                            'Garanti Kapsamı  Warranty Coverage': 'Garanti',
-                            'Tamir Süresi (dakika)     Repair Time (dakika)': 'Tamir Süresi',
+                            'İlgili Tedarikçi': 'Tedarikçi',
+                            'Arıza Tanımı': 'Açıklama',
+                            'Arıza Sınıfı': 'Sınıf',
+                            'Arıza Kaynağı': 'Kaynak',
+                            'Arıza Tespitini Takiben Yapılan İşlem': 'İşlem',
+                            'Aksiyon': 'Aksiyon',
+                            'Garanti Kapsamı': 'Garanti',
+                            'Tamir Süresi (dakika)': 'Tamir Süresi',
                             'Araç MTTR': 'MTTR Araç',
                             'Kompanent MTTR': 'MTTR Komponent',
-                            'Parça Kodu  Part Code': 'Parça Kodu',
-                            'Parça Adı  Part Name': 'Parça Adı',
-                            'Adeti Quantity': 'Adet',
-                            'İşçilik Maliyeti   Labor Cost': 'İşçilik Maliyeti',
+                            'Parça Kodu': 'Parça Kodu',
+                            'Parça Adı': 'Parça Adı',
+                            'Adeti': 'Adet',
+                            'İşçilik Maliyeti': 'Maliyet',
+                            'Arıza Tipi': 'Tip',
                         }
                         
                         for col in all_columns:
                             if col in display_mapping:
                                 column_display_names[col] = display_mapping[col]
                             else:
-                                # Bilinmeyen sütunlar için otomatik kısaltma
-                                column_display_names[col] = col.replace('  ', '\n').split('\n')[0][:25]
+                                # Bilinmeyen sütunlar için otomatik gösterim
+                                column_display_names[col] = col[:30]
                         
                         # DataFrame'i dictionary listesine dönüştür
                         for idx, (_, row) in enumerate(df.iterrows(), 1):
@@ -583,7 +585,7 @@ def create_app():
                             
                             # Özel işlemler (tarih, tamir süresi, vb)
                             date_val = '-'
-                            for col in ['.', '..1', 'Tarih', 'Date']:
+                            for col in ['Hata Tarih Saat', 'Tarih', 'Date', '.']:
                                 val = row.get(col)
                                 if pd.notna(val):
                                     try:

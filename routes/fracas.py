@@ -84,7 +84,25 @@ def get_excel_path():
     if not os.path.exists(project_folder):
         return None
     
-    # FRACAS dosyasını tercihen bul (FRACAS içeren dosya)
+    # FRACAS dosyasını tercihen bul (FRACAS içeren dosya - tam eşleşme veya _FRACAS)
+    preferred_patterns = [
+        f'{current_project.upper()}_FRACAS.xlsx',  # Exact: BEL25_FRACAS.xlsx
+        f'*_FRACAS*.xlsx',  # Any *_FRACAS*.xlsx
+    ]
+    
+    # Tam eşleşmeler
+    for filename in os.listdir(project_folder):
+        if 'fracas' in filename.lower() and filename.endswith(('.xlsx', '.xls')) and not filename.startswith('~$'):
+            # Dosya adında '_FRACAS' veya '_fracas' varsa ve basit adsa tercih et
+            if '_FRACAS' in filename.upper() and '(' not in filename and ' ' not in filename:
+                return os.path.join(project_folder, filename)
+    
+    # İkinci seçenek: başında project kodu olan dosya
+    for filename in os.listdir(project_folder):
+        if filename.startswith(current_project.upper()) and 'fracas' in filename.lower() and filename.endswith(('.xlsx', '.xls')) and not filename.startswith('~$'):
+            return os.path.join(project_folder, filename)
+    
+    # Son seçenek: FRACAS içeren herhangi bir dosya
     for filename in os.listdir(project_folder):
         if 'fracas' in filename.lower() and filename.endswith(('.xlsx', '.xls')) and not filename.startswith('~$'):
             return os.path.join(project_folder, filename)
