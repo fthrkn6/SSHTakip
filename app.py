@@ -88,6 +88,7 @@ def create_app():
                     # Set default project if not set
                     if 'current_project' not in session:
                         session['current_project'] = 'belgrad'
+                        session['project_code'] = 'belgrad'
                         session['project_name'] = '🇷🇸 Belgrad'
                     
                     next_page = request.args.get('next')
@@ -113,6 +114,7 @@ def create_app():
             # Ensure project is selected
             if 'current_project' not in session:
                 session['current_project'] = 'belgrad'
+                session['project_code'] = 'belgrad'
                 session['project_name'] = '🇷🇸 Belgrad'
             
             stats = {
@@ -849,6 +851,7 @@ def create_app():
             
             if project:
                 session['current_project'] = project_code
+                session['project_code'] = project_code.lower()
                 session['project_name'] = f"{project['flag']} {project['name']}"
                 flash(f"Proje değiştirildi: {project['flag']} {project['name']}", 'success')
             else:
@@ -870,14 +873,55 @@ def create_app():
         @app.route('/tramvay-km')
         @login_required
         def tramvay_km():
-            """Tram kilometer tracking"""
-            equipments = Equipment.query.all()
+            """Tram kilometer tracking - Veriler.xlsx Sayfa2'den çek"""
+            import pandas as pd
+            import os
+            
+            # Project folder'ını belirle
+            project_code = session.get('project_code', 'belgrad').lower()
+            project_folder = os.path.join('data', project_code)
+            excel_path = os.path.join(project_folder, 'Veriler.xlsx')
+            
+            equipments = []
+            
+            # Excel'den tramvay verilerini çek
+            if os.path.exists(excel_path):
+                try:
+                    # Sayfa2 (index 1) oku
+                    df = pd.read_excel(excel_path, sheet_name=1, header=0, engine='openpyxl')
+                    
+                    # tram_id sütununu bul
+                    if 'tram_id' in df.columns:
+                        for idx, row in df.iterrows():
+                            tram_id = str(row['tram_id']).strip() if pd.notna(row['tram_id']) else None
+                            if tram_id:
+                                # Basit object oluştur
+                                class TramObj:
+                                    def __init__(self, code):
+                                        self.id = code
+                                        self.equipment_code = code
+                                        self.current_km = 0
+                                        self.monthly_km = 0
+                                        self.notes = ''
+                                        self.last_update = None
+                                
+                                equipments.append(TramObj(tram_id))
+                except Exception as e:
+                    print(f"Excel okuma hatası: {str(e)}")
+            
+            # Excel'den veri çekilemezse fallback
+            if not equipments:
+                equipments_db = Equipment.query.filter_by(equipment_type='Tramvay').all()
+                equipments = equipments_db if equipments_db else []
+            
+            # İstatistikleri hesapla
             stats = {
-                'toplam_tramvay': Equipment.query.count(),
+                'toplam_tramvay': len(equipments),
                 'toplam_km': sum(getattr(e, 'current_km', 0) or 0 for e in equipments),
-                'ortalama_km': 0,
-                'max_km': 0,
+                'ortalama_km': sum(getattr(e, 'current_km', 0) or 0 for e in equipments) // len(equipments) if equipments else 0,
+                'max_km': max([getattr(e, 'current_km', 0) or 0 for e in equipments]) if equipments else 0,
             }
+            
             return render_template('tramvay_km.html', 
                                  stats=stats,
                                  equipments=equipments,
