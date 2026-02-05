@@ -594,10 +594,14 @@ def create_app():
                         
                         headers = ['FRACAS ID', 'Araç No', 'Araç Modül', 'Kilometre', 'Tarih', 'Saat', 
                                   'Sistem', 'Alt Sistem', 'Tedarikçi', 'Arıza Sınıfı', 'Arıza Kaynağı', 'Arıza Tipi',
-                                  'Garanti Kapsamı', 'Arıza Tanımı', 'Yapılan İşlem', 'Aksiyon', 'Parça Kodu', 'Parça Adı', 
-                                  'Tamir Başlama Tarihi', 'Tamir Başlama Saati', 'Tamir Bitişi Tarihi', 'Tamir Bitişi Saati', 'Tamir Süresi',
+                                  'Garanti Kapsamı', 'Arıza Tanımı', 'Yapılan İşlem', 'Aksiyon', 'Parça Kodu', 'Parça Adı', 'Parça Seri No', 'Adedi',
+                                  'Tamir Başlama Tarihi', 'Tamir Başlama Saati', 'Tamir Bitişi Tarihi', 'Tamir Bitişi Saati', 'Tamir Süresi', 'MTTR (dk)',
                                   'Servise Veriliş Tarihi', 'Servise Veriliş Saati', 'Durum']
                         
+                        # Sütun genişlikleri (29 sütun)
+                        column_widths = [13, 10, 12, 10, 12, 10, 12, 12, 12, 14, 14, 18, 12, 20, 14, 10, 12, 12, 12, 10, 15, 14, 14, 14, 14, 12, 14, 14, 10]
+                        for idx, width in enumerate(column_widths, 1):
+                            ws_new.column_dimensions[get_column_letter(idx)].width = width
                         border = Border(left=Side(style='thin'), right=Side(style='thin'), 
                                        top=Side(style='thin'), bottom=Side(style='thin'))
                         
@@ -669,11 +673,14 @@ def create_app():
                             form_data.get('aksiyon', ''),
                             form_data.get('parca_kodu', ''),
                             form_data.get('parca_adi', ''),
+                            form_data.get('parca_seri_no', ''),
+                            form_data.get('adedi', ''),
                             form_data.get('tamir_baslama_tarih', ''),
                             form_data.get('tamir_baslama_saati', ''),
                             form_data.get('tamir_bitisi_tarih', ''),
                             form_data.get('tamir_bitisi_saati', ''),
                             form_data.get('tamir_suresi', ''),
+                            form_data.get('mttr', ''),
                             form_data.get('servise_verilis_tarih', ''),
                             form_data.get('servise_verilis_saat', ''),
                             'Kaydedildi'
@@ -682,12 +689,19 @@ def create_app():
                         border = Border(left=Side(style='thin'), right=Side(style='thin'), 
                                        top=Side(style='thin'), bottom=Side(style='thin'))
                         
+                        # Zebra pattern: Row 5 = beyaz, Row 6 = gri, vb.
+                        is_white = (next_row - 5) % 2 == 0
+                        white_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+                        gray_fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+                        fill = white_fill if is_white else gray_fill
+                        
                         for col_idx, value in enumerate(data, 1):
                             cell = ws.cell(row=next_row, column=col_idx)
                             cell.value = value
                             cell.border = border
                             cell.font = Font(size=10)
                             cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                            cell.fill = fill
                         
                         # Temp dosyaya kaydet
                         wb.save(temp_write_file)

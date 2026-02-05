@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+
+{% block title %}Arıza Listesi - Veriler{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">Arıza Listesi - Veriler
+            <span class="badge bg-secondary fs-6">logs/ariza_listesi/</span>
+        </h1>
+        <p class="page-subtitle">logs/ariza_listesi/ klasöründen Arıza Listesi Excel verilerini görüntüleyin ve işleyin
+        </p>
+    </div>
+    <div>
+        <a href="{{ url_for('ariza_listesi_veriler_export') }}" class="btn btn-info me-2">
+            <i class="bi bi-download me-2"></i>Excel'e İndir
+        </a>
+        <form method="POST" action="{{ url_for('ariza_listesi_veriler_process') }}" style="display: inline;">
+            <button type="submit" class="btn btn-success"
+                onclick="return confirm('⚠️ Bu işlem veriyi işleyecek. Emin misin?');">
+                <i class="bi bi-play-fill me-2"></i>Verileri İşle
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-12 col-md-6">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i class="bi bi-list-check"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ row_count }}</h3>
+                <p>Toplam Kayıt</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-6">
+        <div class="stat-card">
+            <div class="stat-icon info">
+                <i class="bi bi-calendar-event"></i>
+            </div>
+            <div class="stat-content">
+                <h3 style="font-size: 1.2rem;">{{ file_date }}</h3>
+                <p>Dosya Tarihi</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Failure List -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0 table-sm">
+                <thead class="table-dark sticky-top">
+                    <tr>
+                        <th style="width: 5%; min-width: 40px;">#</th>
+                        <th style="min-width: 120px;">FRACAS ID</th>
+                        <th style="min-width: 100px;">Araç No</th>
+                        <th style="min-width: 120px;">Sistem</th>
+                        <th style="min-width: 120px;">Alt Sistem</th>
+                        <th style="min-width: 100px;">Tarih</th>
+                        <th style="min-width: 80px;">Saat</th>
+                        <th style="min-width: 100px;">Arıza Sınıfı</th>
+                        <th style="min-width: 150px;">Arıza Tanımı</th>
+                        <th style="min-width: 100px;">Aksiyon</th>
+                        <th style="width: 5%; min-width: 40px;">Detay</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if rows %}
+                    {% for i, row in enumerate(rows, 1) %}
+                    <tr style="cursor: pointer;" onclick="toggleRow({{ i }})">
+                        <td class="fw-bold text-primary">{{ i }}</td>
+                        <td>
+                            <span class="badge bg-primary">{{ row[0] or '-' }}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-info">{{ row[1] or '-' }}</span>
+                        </td>
+                        <td><small>{{ row[6] or '-' }}</small></td>
+                        <td><small>{{ row[7] or '-' }}</small></td>
+                        <td><small>{{ row[4] or '-' }}</small></td>
+                        <td><small>{{ row[5] or '-' }}</small></td>
+                        <td>
+                            <span class="badge bg-danger">{{ row[9] or '-' }}</span>
+                        </td>
+                        <td>
+                            <small>
+                                {% set desc = row[12]|string %}
+                                {% if desc|length > 50 %}
+                                {{ desc[:45] }}...
+                                {% else %}
+                                {{ desc or '-' }}
+                                {% endif %}
+                            </small>
+                        </td>
+                        <td><small>{{ row[14] or '-' }}</small></td>
+                        <td style="text-align: center;">
+                            <i class="bi bi-chevron-down text-muted"></i>
+                        </td>
+                    </tr>
+                    <!-- Detay Satırı -->
+                    <tr class="detail-row collapse" id="details-{{ i }}">
+                        <td colspan="11">
+                            <div class="p-3 bg-light">
+                                <h6 class="text-primary mb-3">Tüm Detaylar</h6>
+                                <div class="row">
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold small">Arıza Sınıfı</dt>
+                                        <dd class="small mb-0">{{ row[9] or '-' }}</dd>
+                                    </div>
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold small">Arıza Kaynağı</dt>
+                                        <dd class="small mb-0">{{ row[10] or '-' }}</dd>
+                                    </div>
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold small">Arıza Tipi</dt>
+                                        <dd class="small mb-0">{{ row[11] or '-' }}</dd>
+                                    </div>
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold small">Tedarikçi</dt>
+                                        <dd class="small mb-0">{{ row[8] or '-' }}</dd>
+                                    </div>
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold small">Garanti Kapsamı</dt>
+                                        <dd class="small mb-0">{{ row[12] or '-' }}</dd>
+                                    </div>
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold small">Arıza Tanımı</dt>
+                                        <dd class="small mb-0">{{ row[13] or '-' }}</dd>
+                                    </div>
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold small">Yapılan İşlem</dt>
+                                        <dd class="small mb-0">{{ row[14] or '-' }}</dd>
+                                    </div>
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold small">Aksiyon</dt>
+                                        <dd class="small mb-0">{{ row[15] or '-' }}</dd>
+                                    </div>
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold small">Parça Kodu</dt>
+                                        <dd class="small mb-0">{{ row[16] or '-' }}</dd>
+                                    </div>
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold small">Parça Adı</dt>
+                                        <dd class="small mb-0">{{ row[17] or '-' }}</dd>
+                                    </div>
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold small">Parça Seri No</dt>
+                                        <dd class="small mb-0">{{ row[18] or '-' }}</dd>
+                                    </div>
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold small">Adedi</dt>
+                                        <dd class="small mb-0">{{ row[19] or '-' }}</dd>
+                                    </div>
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold small">Tamir Başlama Tarihi</dt>
+                                        <dd class="small mb-0">{{ row[20] or '-' }}</dd>
+                                    </div>
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold small">Tamir Başlama Saati</dt>
+                                        <dd class="small mb-0">{{ row[21] or '-' }}</dd>
+                                    </div>
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold small">Tamir Bitişi Tarihi</dt>
+                                        <dd class="small mb-0">{{ row[22] or '-' }}</dd>
+                                    </div>
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold small">Tamir Bitişi Saati</dt>
+                                        <dd class="small mb-0">{{ row[23] or '-' }}</dd>
+                                    </div>
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold small">Tamir Süresi</dt>
+                                        <dd class="small mb-0">{{ row[24] or '-' }}</dd>
+                                    </div>
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold small">MTTR (dk)</dt>
+                                        <dd class="small mb-0">{{ row[25] or '-' }}</dd>
+                                    </div>
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold small">Servise Veriliş Tarihi</dt>
+                                        <dd class="small mb-0">{{ row[26] or '-' }}</dd>
+                                    </div>
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold small">Servise Veriliş Saati</dt>
+                                        <dd class="small mb-0">{{ row[27] or '-' }}</dd>
+                                    </div>
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold small">Durum</dt>
+                                        <dd class="small mb-0"><span class="badge bg-success">{{ row[28] or '-'
+                                                }}</span></dd>
+                                    </div>
+                                </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="11" class="text-center py-5">
+                            <i class="bi bi-inbox text-muted" style="font-size: 48px;"></i>
+                            <p class="text-muted mt-3">Veri bulunamadı</p>
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    .detail-row {
+        display: none;
+    }
+
+    .detail-row.show {
+        display: table-row;
+    }
+
+    .sticky-top {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+</style>
+
+<script>
+    function toggleRow(idx) {
+        const detailRow = document.getElementById('details-' + idx);
+        if (detailRow) {
+            detailRow.classList.toggle('show');
+        }
+    }
+</script>
+{% endblock %}
