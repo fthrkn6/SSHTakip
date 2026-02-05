@@ -413,6 +413,7 @@ def create_app():
                 modules = []  # default
                 ariza_siniflari = ['Kritik', 'Yüksek', 'Orta', 'Düşük']  # default
                 ariza_kaynaklari = ['Fabrika Hatası', 'Kullanıcı Hatası', 'Yıpranma', 'Bilinmiyor']  # default
+                ariza_tipleri = []  # default
                 
                 if os.path.exists(os.path.join(data_dir, 'Veriler.xlsx')):
                     try:
@@ -466,6 +467,16 @@ def create_app():
                                 ariza_kaynaklari = [str(k).strip() for k in df_trams[col].dropna().unique().tolist() if str(k).strip()]
                                 print(f"Arıza Kaynakları bulundu: {ariza_kaynaklari}")  # Debug
                                 break
+                        
+                        # Arıza Tipi sütununu bul
+                        ariza_tipleri = []
+                        for col in df_trams.columns:
+                            col_norm = normalize_col(col)
+                            if 'ariza' in col_norm and 'tip' in col_norm:
+                                ariza_tipleri = [str(t).strip() for t in df_trams[col].dropna().unique().tolist() if str(t).strip()]
+                                ariza_tipleri = sorted(list(set(ariza_tipleri)))
+                                print(f"Arıza Tipleri bulundu: {ariza_tipleri}")  # Debug
+                                break
                     except Exception as e:
                         print(f"Sayfa2 yükleme hatası: {e}")
                 
@@ -478,7 +489,8 @@ def create_app():
                                      tramvaylar=tramvaylar,
                                      sistemler=list(sistemler.keys()),
                                      ariza_siniflari=ariza_siniflari,
-                                     ariza_kaynaklari=ariza_kaynaklari)
+                                     ariza_kaynaklari=ariza_kaynaklari,
+                                     ariza_tipleri=ariza_tipleri)
             else:
                 # POST - Excel'e kayıt et
                 try:
@@ -581,7 +593,7 @@ def create_app():
                         ws_new['A2'].alignment = Alignment(horizontal="right")
                         
                         headers = ['FRACAS ID', 'Araç No', 'Araç Modül', 'Kilometre', 'Tarih', 'Saat', 
-                                  'Sistem', 'Alt Sistem', 'Tedarikçi', 'Arıza Sınıfı', 'Arıza Kaynağı', 
+                                  'Sistem', 'Alt Sistem', 'Tedarikçi', 'Arıza Sınıfı', 'Arıza Kaynağı', 'Arıza Tipi',
                                   'Garanti Kapsamı', 'Arıza Tanımı', 'Yapılan İşlem', 'Aksiyon', 'Parça Kodu', 'Parça Adı', 
                                   'Tamir Başlama Tarihi', 'Tamir Başlama Saati', 'Tamir Bitişi Tarihi', 'Tamir Bitişi Saati', 'Tamir Süresi',
                                   'Servise Veriliş Tarihi', 'Servise Veriliş Saati', 'Durum']
@@ -650,6 +662,7 @@ def create_app():
                             form_data.get('tedarikci', ''),
                             form_data.get('ariza_sinifi', ''),
                             form_data.get('ariza_kaynagi', ''),
+                            form_data.get('ariza_tipi', ''),
                             form_data.get('garanti_kapsami', ''),
                             form_data.get('ariza_tanimi', ''),
                             form_data.get('yapilan_islem', ''),
