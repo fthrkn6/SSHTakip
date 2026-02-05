@@ -470,42 +470,44 @@ def create_app():
                     print(f"   📋 Gelen form alanları: {list(form_data.keys())}")
                     
                     # FRACAS ID'yi form'dan al veya hesapla
-                    fracas_id = form_data.get('fracas_id', '')
+                    fracas_id = form_data.get('fracas_id', '').strip()
                     print(f"   🔢 Form'dan gelen FRACAS ID: '{fracas_id}'")
+                    
+                    # Arıza Listesi dosyasından FRACAS ID'yi hesapla
+                    ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
+                    os.makedirs(ariza_listesi_dir, exist_ok=True)
+                    
+                    today_date = datetime.now().strftime('%Y%m%d')
+                    ariza_listesi_file = None
+                    
+                    for file in os.listdir(ariza_listesi_dir):
+                        if f'Ariza_Listesi_BELGRAD_{today_date}' in file and file.endswith('.xlsx'):
+                            ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
+                            break
+                    
+                    # FRACAS ID hesapla (Arıza Listesi dosyasından)
+                    next_fracas_num = 1
+                    if ariza_listesi_file and os.path.exists(ariza_listesi_file):
+                        try:
+                            wb_check = load_workbook(ariza_listesi_file)
+                            ws_check = wb_check.active
+                            
+                            # A sütununda (FRACAS ID) max numarayı bul
+                            for row in range(5, ws_check.max_row + 1):
+                                cell_val = ws_check.cell(row=row, column=1).value
+                                if cell_val:
+                                    try:
+                                        if isinstance(cell_val, str) and 'FF-' in cell_val:
+                                            num = int(cell_val.split('FF-')[-1])
+                                            next_fracas_num = max(next_fracas_num, num + 1)
+                                    except:
+                                        pass
+                        except Exception as e:
+                            print(f"FRACAS ID okuma hatası: {e}")
+                    
                     if not fracas_id:
-                        # FRACAS ID'yi hesapla
-                        print(f"   ⚠️  Boş FRACAS ID - Excel'den hesaplanıyor...")
-                        next_fracas_id = 1
-                        if excel_path and os.path.exists(excel_path):
-                            try:
-                                # FRACAS Header 1. satırda!
-                                df = pd.read_excel(excel_path, sheet_name='FRACAS', header=0)
-                                fracas_col = None
-                                for col in df.columns:
-                                    if isinstance(col, str) and 'fracas' in col.lower() and 'id' in col.lower():
-                                        fracas_col = col
-                                        break
-                                
-                                if fracas_col:
-                                    ids = []
-                                    for val in df[fracas_col].dropna():
-                                        try:
-                                            if isinstance(val, str) and 'FF-' in val:
-                                                num = int(val.split('FF-')[-1])
-                                            elif isinstance(val, str) and '-' in val:
-                                                num = int(val.split('-')[-1])
-                                            else:
-                                                num = int(val)
-                                            ids.append(num)
-                                        except:
-                                            pass
-                                    
-                                    if ids:
-                                        next_fracas_id = max(ids) + 1
-                            except Exception as e:
-                                print(f"FRACAS ID okuma hatası: {e}")
-                        
-                        fracas_id = f"BOZ-BEL25-FF-{next_fracas_id:03d}"
+                        fracas_id = f"BOZ-BEL25-FF-{next_fracas_num:03d}"
+                        print(f"   ✓ Hesaplanan FRACAS ID: {fracas_id}")
                         form_data['fracas_id'] = fracas_id
                     
                     # YENI: Arıza Listesi Excel dosyasına yaz
@@ -573,13 +575,16 @@ def create_app():
                         wb = load_workbook(ariza_listesi_file)
                         ws = wb.active
                         
-                        # Son dolu satırı bul
-                        last_row = 4
-                        for row in range(5, ws.max_row + 1):
-                            if ws.cell(row=row, column=1).value:
-                                last_row = row
+                        # Son satırı bul (Header 4. satırdan sonra)
+                        next_row = 5
+                        for row in range(5, ws.max_row + 100):  # Büyük range kontrol et
+                            if not ws.cell(row=row, column=1).value:
+                                next_row = row
+                                break
+                        else:
+                            next_row = ws.max_row + 1
                         
-                        next_row = last_row + 1
+                        print(f"   📝 Veri yazılacak satır: {next_row}")
                         
                         # Form verilerini Excel'e yaz
                         data = [
@@ -614,6 +619,7 @@ def create_app():
                             cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
                         
                         wb.save(ariza_listesi_file)
+                        print(f"   ✅ Arıza kaydedildi: {form_data.get('fracas_id')} -> Satır {next_row}")
                         flash(f'✅ Arıza başarıyla kaydedildi: {form_data.get("fracas_id")}', 'success')
                     except Exception as e:
                         flash(f'❌ Arıza Listesi yazma hatası: {str(e)}', 'danger')
