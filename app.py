@@ -11,6 +11,7 @@ from models import db, User, Equipment, Failure, WorkOrder, MaintenancePlan, Spa
 from werkzeug.utils import secure_filename
 from routes.fracas import bp as fracas_bp, get_excel_path, get_column
 from routes.kpi import bp as kpi_bp
+from routes.service_status import bp as service_status_bp
 import os
 
 
@@ -60,6 +61,7 @@ def create_app():
         # Register blueprints
         app.register_blueprint(fracas_bp)
         app.register_blueprint(kpi_bp)
+        app.register_blueprint(service_status_bp)
 
         # ==================== ROUTES ====================
 

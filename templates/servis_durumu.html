@@ -195,10 +195,183 @@
         box-shadow: 0 5px 15px rgba(6, 182, 212, 0.3);
         color: white;
     }
+
+    /* Sticky Export Button */
+    .sticky-export-btn {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        z-index: 1000;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        transition: all 0.3s ease;
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        border: none;
+        color: white;
+        cursor: pointer;
+    }
+
+    .sticky-export-btn:hover {
+        transform: scale(1.15);
+        box-shadow: 0 12px 32px rgba(59, 130, 246, 0.4);
+    }
+
+    .sticky-export-btn:active {
+        transform: scale(0.95);
+    }
+
+    .export-menu {
+        position: fixed;
+        bottom: 100px;
+        right: 30px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 32px rgba(0, 0, 0, 0.15);
+        display: none;
+        flex-direction: column;
+        z-index: 999;
+        min-width: 200px;
+        overflow: hidden;
+    }
+
+    .export-menu.show {
+        display: flex;
+    }
+
+    .export-menu a {
+        padding: 12px 16px;
+        color: #374151;
+        text-decoration: none;
+        border-bottom: 1px solid #f3f4f6;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .export-menu a:last-child {
+        border-bottom: none;
+    }
+
+    .export-menu a:hover {
+        background-color: #f9fafb;
+        color: #3b82f6;
+        padding-left: 24px;
+    }
+
+    .tabs-container {
+        margin-top: 2rem;
+        border-top: 2px solid #e5e7eb;
+        padding-top: 1rem;
+    }
+
+    .nav-tabs {
+        border-bottom: 2px solid #e5e7eb;
+    }
+
+    .nav-link {
+        color: #6b7280;
+        border: none;
+        border-bottom: 3px solid transparent;
+        border-radius: 0;
+        padding: 0.75rem 1.5rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .nav-link:hover {
+        color: #3b82f6;
+        border-bottom-color: #dbeafe;
+    }
+
+    .nav-link.active {
+        color: #3b82f6;
+        background-color: transparent;
+        border-bottom-color: #3b82f6;
+    }
+
+    .report-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .report-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .root-cause-form {
+        background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .metric-box {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        border-left: 4px solid #3b82f6;
+        margin-bottom: 1rem;
+    }
+
+    .metric-label {
+        font-size: 0.85rem;
+        color: #6b7280;
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+    }
+
+    .metric-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #1f2937;
+    }
+
+    @media (max-width: 768px) {
+        .sticky-export-btn {
+            width: 50px;
+            height: 50px;
+            bottom: 20px;
+            right: 20px;
+            font-size: 1.25rem;
+        }
+
+        .export-menu {
+            bottom: 80px;
+            right: 20px;
+        }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
+<!-- Sticky Export Button Panel -->
+<div id="stickyExportBtn" class="sticky-export-btn" title="Raporları İndir">
+    <i class="bi bi-download"></i>
+</div>
+
+<!-- Export Menu (Dropdown) -->
+<div id="exportMenu" class="export-menu">
+    <a href="/servis/excel/comprehensive-report" target="_blank">
+        <i class="bi bi-file-earmark-excel"></i> Kapsamlı Rapor
+    </a>
+    <a href="/servis/excel/root-cause-report" target="_blank">
+        <i class="bi bi-file-earmark-excel"></i> Root Cause Analizi
+    </a>
+    <a href="javascript:void(0)" onclick="downloadDailyReport()">
+        <i class="bi bi-file-earmark-excel"></i> Günlük Rapor
+    </a>
+</div>
+
 <div class="page-header">
     <h1 class="page-title"><i class="bi bi-toggle-on me-2"></i>Servis Durumu</h1>
     <p class="page-subtitle">Tramvay servis durumlarını yönet ve haftalık takvimini görüntüle</p>
@@ -610,5 +783,198 @@
             collapseIcon.classList.add('bi-chevron-down');
         });
     }
+
+    // ============ STICKY EXPORT BUTTON ============
+    const exportBtn = document.getElementById('stickyExportBtn');
+    const exportMenu = document.getElementById('exportMenu');
+
+    if (exportBtn && exportMenu) {
+        exportBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            exportMenu.classList.toggle('show');
+        });
+
+        document.addEventListener('click', function () {
+            exportMenu.classList.remove('show');
+        });
+
+        exportMenu.addEventListener('click', function (e) {
+            e.stopPropagation();
+        });
+    }
+
+    // Daily Report Download
+    function downloadDailyReport() {
+        const tramId = prompt('Tramvay ID gir (örn: TRV-001):');
+        if (tramId) {
+            window.location.href = `/servis/excel/daily-report/${tramId}`;
+        }
+    }
+
+
+    // ============ AVAILABILITY REPORT ============
+    async function generateAvailabilityReport(period) {
+        const tramId = document.getElementById('tramvay_id').value;
+        if (!tramId) {
+            alert('Lütfen bir tramvay seçiniz');
+            return;
+        }
+
+        try {
+            const response = await fetch('/servis/durumu/api/raporlar?tram_id=' + tramId + '&period=' + period);
+            const data = await response.json();
+
+            if (data.success) {
+                displayReportData(data.data, period);
+            } else {
+                alert('Rapor alınırken hata: ' + data.error);
+            }
+        } catch (error) {
+            console.error('Hata:', error);
+            alert('İstek sırasında hata oluştu');
+        }
+    }
+
+    function displayReportData(reports, period) {
+        const container = document.getElementById('reportContainer');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        if (reports.length === 0) {
+            container.innerHTML = '<div class="alert alert-info">Bu dönem için rapor bulunamamıştır.</div>';
+            return;
+        }
+
+        reports.forEach(report => {
+            const card = document.createElement('div');
+            card.className = 'report-card';
+            card.innerHTML = `
+                <div class="row">
+                    <div class="col-md-8">
+                        <h6>Dönem: ${report.start} - ${report.end}</h6>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="metric-box">
+                                    <div class="metric-label">Availability</div>
+                                    <div class="metric-value">${report.availability.toFixed(2)}%</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="metric-box">
+                                    <div class="metric-label">Servis Saatleri</div>
+                                    <div class="metric-value">${report.available_hours}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="metric-box">
+                                    <div class="metric-label">Servis Dışı</div>
+                                    <div class="metric-value">${report.unavailable_hours}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="metric-box">
+                                    <div class="metric-label">Planlı Bakım</div>
+                                    <div class="metric-value">${report.maintenance_hours}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-md-3">
+                                <div class="metric-box">
+                                    <div class="metric-label">Arızadan Kapalı</div>
+                                    <div class="metric-value">${report.failure_hours}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="metric-box">
+                                    <div class="metric-label">İşletme Kaynaklı</div>
+                                    <div class="metric-value">${report.downtime_hours}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted">
+                            Availability oranı hesaplandı ve loglandı.
+                        </small>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    // ============ ROOT CAUSE ANALYSIS ============
+    document.getElementById('rootCauseForm')?.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const formData = {
+            tram_id: document.getElementById('tramvay_id').value,
+            sistem: document.getElementById('rcaSistem').value,
+            alt_sistem: document.getElementById('rcaAltSistem').value,
+            root_cause: document.getElementById('rcaRootCause').value,
+            immediate_cause: document.getElementById('rcaImmediateCause').value,
+            failure_mode: document.getElementById('rcaFailureMode').value,
+            severity: document.getElementById('rcaSeverity').value,
+            contributing_factors: document.getElementById('rcaFactors').value.split('\n').filter(x => x.trim()),
+            corrective_actions: document.getElementById('rcaCorrective').value.split('\n').filter(x => x.trim()),
+            preventive_actions: document.getElementById('rcaPreventive').value.split('\n').filter(x => x.trim())
+        };
+
+        try {
+            const response = await fetch('/servis/durumu/root-cause/ekle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                alert('✅ Root Cause Analizi başarıyla kaydedildi');
+                document.getElementById('rootCauseForm').reset();
+            } else {
+                alert('❌ Hata: ' + data.error);
+            }
+        } catch (error) {
+            console.error('Hata:', error);
+            alert('❌ İstek sırasında hata oluştu');
+        }
+    });
+
+    // ============ EXCEL EXPORT ============
+    document.getElementById('exportAvailabilityBtn')?.addEventListener('click', async function () {
+        const tramId = document.getElementById('tramvay_id').value;
+        if (!tramId) {
+            alert('Lütfen bir tramvay seçiniz');
+            return;
+        }
+
+        try {
+            const response = await fetch('/servis/durumu/excel/rapor', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tram_id: tramId })
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `availability_analiz_${tramId}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                alert('✅ Excel dosyası indirmeye başladı');
+            } else {
+                alert('❌ Dosya oluşturulurken hata oluştu');
+            }
+        } catch (error) {
+            console.error('Hata:', error);
+            alert('❌ İndirme sırasında hata oluştu');
+        }
+    });
 </script>
 {% endblock %}

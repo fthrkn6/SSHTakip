@@ -1,0 +1,850 @@
+{% extends "base.html" %}
+
+{% block title %}Servis Durumu - Gelişmiş Analytics{% endblock %}
+
+{% block content %}
+<style>
+    /* Sticky Export Button */
+    .sticky-export-panel {
+        position: fixed !important;
+        left: 0 !important;
+        bottom: 20px !important;
+        width: auto !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        padding: 15px 20px !important;
+        border-radius: 0 50px 50px 0 !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+        z-index: 99999 !important;
+        animation: slideIn 0.5s ease-out !important;
+        display: block !important;
+        visibility: visible !important;
+    }
+
+    @keyframes slideIn {
+        from {
+            transform: translateX(-100%);
+        }
+
+        to {
+            transform: translateX(0);
+        }
+    }
+
+    .export-btn-group {
+        display: flex;
+        gap: 10px;
+        flex-direction: column;
+    }
+
+    .export-btn {
+        padding: 10px 15px;
+        background: white;
+        color: #667eea;
+        border: none;
+        border-radius: 20px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: all 0.3s;
+        white-space: nowrap;
+        font-size: 12px;
+    }
+
+    .export-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .export-btn-report {
+        background: #4CAF50;
+        color: white;
+    }
+
+    .export-btn-rootcause {
+        background: #FF9800;
+        color: white;
+    }
+
+    .export-btn-daily {
+        background: #2196F3;
+        color: white;
+    }
+
+    /* Dashboard */
+    .dashboard-container {
+        background: #f5f5f5;
+        padding: 20px;
+        border-radius: 10px;
+    }
+
+    .dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 3px solid #667eea;
+    }
+
+    .dashboard-header h1 {
+        color: #333;
+        margin: 0;
+        font-size: 28px;
+    }
+
+    .filters-bar {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .filter-group label {
+        font-weight: bold;
+        color: #555;
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+
+    .filter-group select,
+    .filter-group input {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 13px;
+    }
+
+    /* Status Table */
+    .status-table-wrapper {
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        margin-bottom: 30px;
+    }
+
+    .status-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .status-table thead {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .status-table th {
+        padding: 15px;
+        text-align: left;
+        font-weight: bold;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .status-table tbody tr {
+        border-bottom: 1px solid #eee;
+        transition: background-color 0.2s;
+    }
+
+    .status-table tbody tr:hover {
+        background: #f9f9f9;
+    }
+
+    .status-table td {
+        padding: 12px 15px;
+        font-size: 13px;
+    }
+
+    /* Status Badge */
+    .status-badge {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+
+    .status-operational {
+        background: #4CAF50;
+        color: white;
+    }
+
+    .status-maintenance {
+        background: #FF9800;
+        color: white;
+    }
+
+    .status-outofservice {
+        background: #f44336;
+        color: white;
+    }
+
+    .status-unknown {
+        background: #999;
+        color: white;
+    }
+
+    /* Availability Percentage */
+    .availability-cell {
+        font-weight: bold;
+    }
+
+    .availability-high {
+        color: #4CAF50;
+    }
+
+    .availability-medium {
+        color: #FF9800;
+    }
+
+    .availability-low {
+        color: #f44336;
+    }
+
+    /* Analytics Cards */
+    .analytics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+
+    .analytics-card {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #667eea;
+    }
+
+    .analytics-card h3 {
+        color: #667eea;
+        margin: 0 0 10px 0;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .analytics-card .value {
+        font-size: 32px;
+        font-weight: bold;
+        color: #333;
+    }
+
+    .analytics-card .unit {
+        font-size: 12px;
+        color: #999;
+        margin-left: 5px;
+    }
+
+    .analytics-card .description {
+        font-size: 12px;
+        color: #666;
+        margin-top: 10px;
+    }
+
+    /* Charts */
+    .chart-container {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        margin-bottom: 30px;
+    }
+
+    .chart-container h3 {
+        margin-top: 0;
+        color: #333;
+        border-bottom: 2px solid #667eea;
+        padding-bottom: 10px;
+    }
+
+    /* Root Cause Section */
+    .root-cause-section {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        margin-bottom: 30px;
+    }
+
+    .root-cause-section h3 {
+        color: #333;
+        margin-top: 0;
+        border-bottom: 2px solid #FF9800;
+        padding-bottom: 10px;
+    }
+
+    .root-cause-item {
+        padding: 10px;
+        margin: 10px 0;
+        border-left: 4px solid #FF9800;
+        background: #fff9e6;
+        border-radius: 4px;
+    }
+
+    .root-cause-item .system {
+        font-weight: bold;
+        color: #333;
+    }
+
+    .root-cause-item .cause {
+        color: #666;
+        margin-top: 5px;
+        font-size: 13px;
+    }
+
+    /* Log History */
+    .log-history {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .log-history h3 {
+        margin-top: 0;
+        color: #333;
+    }
+
+    .log-entry {
+        padding: 10px;
+        margin: 10px 0;
+        border-left: 4px solid #2196F3;
+        background: #e3f2fd;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+
+    .log-entry .timestamp {
+        font-weight: bold;
+        color: #2196F3;
+    }
+
+    .log-entry .status-change {
+        color: #666;
+        margin-top: 5px;
+    }
+
+    /* Period Buttons */
+    .period-buttons {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+
+    .period-btn {
+        padding: 8px 16px;
+        background: #f0f0f0;
+        border: 2px solid #ddd;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+        transition: all 0.3s;
+    }
+
+    .period-btn:hover,
+    .period-btn.active {
+        background: #667eea;
+        color: white;
+        border-color: #667eea;
+    }
+
+    /* Modal */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 2000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        animation: fadeIn 0.3s;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    .modal-content {
+        background-color: #fff;
+        margin: 10% auto;
+        padding: 20px;
+        border-radius: 10px;
+        width: 80%;
+        max-width: 600px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .close-btn {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .close-btn:hover {
+        color: #000;
+    }
+
+    /* Loading Spinner */
+    .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #667eea;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 20px auto;
+    }
+
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+        .analytics-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .status-table {
+            font-size: 12px;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .analytics-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .dashboard-header {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .filters-bar {
+            grid-template-columns: 1fr;
+        }
+
+        .sticky-export-panel {
+            left: auto;
+            right: 10px;
+            padding: 10px;
+        }
+
+        .export-btn-group {
+            flex-direction: row;
+            gap: 5px;
+        }
+
+        .export-btn {
+            padding: 8px 10px;
+            font-size: 11px;
+        }
+    }
+</style>
+
+<!-- Sticky Export Panel (Block dışında) -->
+<div class="sticky-export-panel">
+    <div class="export-btn-group">
+        <button class="export-btn export-btn-report" onclick="exportComprehensiveReport()" title="Kapsamlı Rapor">
+            📊 Rapor
+        </button>
+        <button class="export-btn export-btn-rootcause" onclick="exportRootCauseReport()" title="Root Cause Analizi">
+            🔍 RCA
+        </button>
+        <button class="export-btn export-btn-daily" onclick="exportDailyReport()" title="Günlük Durum">
+            📅 Günlük
+        </button>
+    </div>
+</div>
+
+<div class="dashboard-container">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <div>
+            <h1>🚊 Servis Durumu & Availability Analizi</h1>
+            <p style="color: #999; margin: 5px 0 0 0;">Araçların servis durumlarını gerçek zamanlı izleyin ve analiz
+                edin</p>
+        </div>
+        <div style="text-align: right;">
+            <p style="margin: 0; color: #999;">
+                <strong>Güncelleme:</strong> <span id="updateTime">{{ current_date.strftime('%d.%m.%Y %H:%M') }}</span>
+            </p>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-bar">
+        <div class="filter-group">
+            <label>Araç Seç</label>
+            <select id="tramFilter" onchange="filterByTram()">
+                <option value="">Tümü</option>
+                {% for tram_id in tram_ids %}
+                <option value="{{ tram_id }}">{{ tram_id }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label>Durum</label>
+            <select id="statusFilter" onchange="filterByStatus()">
+                <option value="">Tümü</option>
+                <option value="operasyonel">Operasyonel</option>
+                <option value="bakımda">Bakımda</option>
+                <option value="servis_dışı">Servis Dışı</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label>Sistem</label>
+            <select id="systemFilter" onchange="filterBySystem()">
+                <option value="">Tümü</option>
+                <option value="elektrik">Elektrik</option>
+                <option value="mekanik">Mekanik</option>
+                <option value="hvac">HVAC</option>
+                <option value="seramik">Seramik</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label>Tarih Aralığı</label>
+            <input type="date" id="dateStart" onchange="filterByDate()">
+        </div>
+
+        <div class="filter-group">
+            <label>&nbsp;</label>
+            <button onclick="refreshTable()"
+                style="padding: 8px 15px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                🔄 Yenile
+            </button>
+        </div>
+    </div>
+
+    <!-- Analytics Cards -->
+    <div class="analytics-grid">
+        <div class="analytics-card">
+            <h3>Toplam Araç</h3>
+            <div class="value" id="totalVehicles">{{ tram_ids|length }}</div>
+            <div class="description">Sistemde kayıtlı araç sayısı</div>
+        </div>
+
+        <div class="analytics-card">
+            <h3>Operasyonel</h3>
+            <div class="value" id="operationalCount">0</div>
+            <div class="description">Şu an çalışmakta olan araçlar</div>
+        </div>
+
+        <div class="analytics-card">
+            <h3>Bakım/Servis</h3>
+            <div class="value" id="maintenanceCount">0</div>
+            <div class="description">Bakım yapılmakta olan araçlar</div>
+        </div>
+
+        <div class="analytics-card">
+            <h3>Ort. Availability</h3>
+            <div class="value" id="avgAvailability">0<span class="unit">%</span></div>
+            <div class="description">Ortalama kullanılabilirlik oranı</div>
+        </div>
+    </div>
+
+    <!-- Status Table -->
+    <div class="status-table-wrapper">
+        <table class="status-table">
+            <thead>
+                <tr>
+                    <th>Araç ID</th>
+                    <th>Araç Adı</th>
+                    <th>Durum</th>
+                    <th>Sistem</th>
+                    <th>Alt Sistem</th>
+                    <th>Son Değişim</th>
+                    <th>Availability</th>
+                    <th>Downtime (Saat)</th>
+                    <th>İşlem</th>
+                </tr>
+            </thead>
+            <tbody id="statusTableBody">
+                <tr>
+                    <td colspan="9" style="text-align: center; padding: 40px;">
+                        <div class="spinner"></div>
+                        <p>Veriler yükleniyor...</p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Period Analysis -->
+    <div class="chart-container">
+        <h3>📈 Dönem Analizi</h3>
+        <div class="period-buttons">
+            <button class="period-btn active" onclick="loadPeriodData('daily')">Günlük</button>
+            <button class="period-btn" onclick="loadPeriodData('weekly')">Haftalık</button>
+            <button class="period-btn" onclick="loadPeriodData('monthly')">Aylık</button>
+            <button class="period-btn" onclick="loadPeriodData('quarterly')">3 Aylık</button>
+            <button class="period-btn" onclick="loadPeriodData('biannual')">6 Aylık</button>
+            <button class="period-btn" onclick="loadPeriodData('yearly')">Yıllık</button>
+            <button class="period-btn" onclick="loadPeriodData('total')">Total</button>
+        </div>
+        <div id="periodChart" style="height: 300px; border: 1px solid #ddd; border-radius: 5px; padding: 10px;">
+            Grafik yükleniyor...
+        </div>
+    </div>
+
+    <!-- Root Cause Analysis -->
+    <div class="root-cause-section">
+        <h3>🔍 Root Cause Analiz Özeti (Son 30 Gün)</h3>
+        <div id="rootCauseContent" style="min-height: 100px;">
+            <div class="spinner"></div>
+        </div>
+    </div>
+
+    <!-- Recent Logs -->
+    <div class="log-history">
+        <h3>📋 Son Durum Değişiklikleri</h3>
+        <div id="logHistory">
+            {% for log in recent_logs %}
+            <div class="log-entry">
+                <div class="timestamp">{{ log.log_date.strftime('%d.%m.%Y %H:%M') }}</div>
+                <div class="status-change">
+                    <strong>{{ log.tram_id }}</strong>:
+                    <span style="color: #999;">{{ log.previous_status }}</span> →
+                    <span style="color: #333; font-weight: bold;">{{ log.new_status }}</span>
+                    {% if log.sistem %}<br>Sistem: {{ log.sistem }}{% endif %}
+                    {% if log.alt_sistem %} | Alt Sistem: {{ log.alt_sistem }}{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal -->
+<div id="detailModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeDetailModal()">&times;</span>
+        <h2>Araç Detayları</h2>
+        <div id="modalContent" style="max-height: 400px; overflow-y: auto;"></div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let statusChart = null;
+
+    // Masa yenile
+    function refreshTable() {
+        fetch('/servis/durumu/tablo')
+            .then(response => response.json())
+            .then(data => {
+                let html = '';
+                let operational = 0;
+                let maintenance = 0;
+                let totalAvailability = 0;
+
+                data.forEach(item => {
+                    const statusClass = item.status === 'operasyonel' ? 'operational' :
+                        item.status === 'bakımda' ? 'maintenance' :
+                            item.status === 'servis_dışı' ? 'outofservice' : 'unknown';
+
+                    const availabilityClass = item.availability >= 95 ? 'availability-high' :
+                        item.availability >= 80 ? 'availability-medium' : 'availability-low';
+
+                    if (item.status === 'operasyonel') operational++;
+                    if (item.status === 'bakımda') maintenance++;
+
+                    totalAvailability += item.availability;
+
+                    html += `
+                        <tr>
+                            <td><strong>${item.tram_id}</strong></td>
+                            <td>${item.name}</td>
+                            <td>
+                                <span class="status-badge status-${statusClass}">
+                                    ${item.status}
+                                </span>
+                            </td>
+                            <td>${item.sistem}</td>
+                            <td>${item.alt_sistem}</td>
+                            <td>${item.last_status_change}</td>
+                            <td>
+                                <span class="availability-cell ${availabilityClass}">
+                                    ${item.availability.toFixed(2)}%
+                                </span>
+                            </td>
+                            <td>${item.downtime.toFixed(2)}</td>
+                            <td>
+                                <button onclick="viewDetails('${item.tram_id}')" style="padding: 5px 10px; background: #2196F3; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 11px;">
+                                    Detay
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                document.getElementById('statusTableBody').innerHTML = html || '<tr><td colspan="9" style="text-align: center; padding: 20px;">Veri bulunamadı</td></tr>';
+
+                // Update analytics
+                document.getElementById('operationalCount').textContent = operational;
+                document.getElementById('maintenanceCount').textContent = maintenance;
+                document.getElementById('avgAvailability').textContent =
+                    data.length > 0 ? (totalAvailability / data.length).toFixed(1) : 0;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('statusTableBody').innerHTML =
+                    '<tr><td colspan="9" style="text-align: center; padding: 20px; color: red;">Hata: Veri yüklenemedi</td></tr>';
+            });
+    }
+
+    // Detay görüntüle
+    function viewDetails(tramId) {
+        fetch(`/servis/api/root-cause-summary/${tramId}`)
+            .then(response => response.json())
+            .then(data => {
+                let html = '<h4>Sistem Bazında Kök Nedenler:</h4>';
+
+                for (const [system, details] of Object.entries(data.by_system || {})) {
+                    html += `
+                        <div style="margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 5px;">
+                            <strong>${system}</strong> (${details.count} analiz)
+                            <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                    `;
+
+                    if (details.subsystems) {
+                        for (const [subsystem, count] of Object.entries(details.subsystems)) {
+                            html += `<div>└ ${subsystem}: ${count}</div>`;
+                        }
+                    }
+
+                    html += '</div></div>';
+                }
+
+                document.getElementById('modalContent').innerHTML = html;
+                document.getElementById('detailModal').style.display = 'block';
+            });
+    }
+
+    function closeDetailModal() {
+        document.getElementById('detailModal').style.display = 'none';
+    }
+
+    // Dönem verisi yükle
+    function loadPeriodData(period) {
+        // Button active state
+        document.querySelectorAll('.period-btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+
+        let html = '<div style="text-align: center; padding: 40px;">Veriler yükleniyor...</div>';
+        document.getElementById('periodChart').innerHTML = html;
+    }
+
+    // Export fonksiyonları
+    function exportComprehensiveReport() {
+        console.log('📊 Kapsamlı rapor indiriliyor...');
+        try {
+            window.location.href = '/servis/excel/comprehensive-report';
+        } catch (e) {
+            console.error('Hata:', e);
+            alert('Hata: ' + e.message);
+        }
+    }
+
+    function exportRootCauseReport() {
+        console.log('🔍 Root Cause raporu indiriliyor...');
+        try {
+            window.location.href = '/servis/excel/root-cause-report';
+        } catch (e) {
+            console.error('Hata:', e);
+            alert('Hata: ' + e.message);
+        }
+    }
+
+    function exportDailyReport() {
+        const tramId = document.getElementById('tramFilter').value;
+        console.log('📅 Günlük rapor seçimi:', tramId);
+        if (!tramId) {
+            alert('Lütfen bir araç seçiniz');
+            return;
+        }
+        try {
+            window.location.href = `/servis/excel/daily-report/${tramId}`;
+        } catch (e) {
+            console.error('Hata:', e);
+            alert('Hata: ' + e.message);
+        }
+    }
+
+    // Filter fonksiyonları
+    function filterByTram() {
+        refreshTable();
+    }
+
+    function filterByStatus() {
+        refreshTable();
+    }
+
+    function filterBySystem() {
+        refreshTable();
+    }
+
+    function filterByDate() {
+        refreshTable();
+    }
+
+    // Root Cause Özeti Yükle
+    function loadRootCauseSummary() {
+        fetch('/servis/api/root-cause-summary/all')
+            .then(response => response.json())
+            .catch(error => console.log('Root cause summary için özel endpoint gerekli'));
+    }
+
+    // Sayfa yüklendiğinde
+    document.addEventListener('DOMContentLoaded', function () {
+        refreshTable();
+        loadRootCauseSummary();
+
+        // 30 saniyede bir yenile
+        setInterval(refreshTable, 30000);
+    });
+
+    // Modal dışına tıklandığında kapat
+    window.onclick = function (event) {
+        const modal = document.getElementById('detailModal');
+        if (event.target == modal) {
+            modal.style.display = 'none';
+        }
+    }
+</script>
+{% endblock %}
