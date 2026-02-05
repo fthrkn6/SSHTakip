@@ -473,24 +473,33 @@ def create_app():
                     fracas_id = form_data.get('fracas_id', '').strip()
                     print(f"   🔢 Form'dan gelen FRACAS ID: '{fracas_id}'")
                     
-                    # Arıza Listesi dosyasından FRACAS ID'yi hesapla
+                    # Arıza Listesi dosyasından FRACAS ID'yi hesapla (YALNIzCA BURADAN)
                     ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
                     os.makedirs(ariza_listesi_dir, exist_ok=True)
                     
                     today_date = datetime.now().strftime('%Y%m%d')
                     ariza_listesi_file = None
                     
+                    # Bugünün Arıza Listesi dosyasını bul
                     for file in os.listdir(ariza_listesi_dir):
                         if f'Ariza_Listesi_BELGRAD_{today_date}' in file and file.endswith('.xlsx'):
                             ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
                             break
                     
-                    # FRACAS ID hesapla (Arıza Listesi dosyasından)
+                    # FRACAS ID hesapla (YALNIzCA Arıza Listesi'nden)
                     next_fracas_num = 1
                     if ariza_listesi_file and os.path.exists(ariza_listesi_file):
                         try:
-                            wb_check = load_workbook(ariza_listesi_file)
-                            ws_check = wb_check.active
+                            import time
+                            # Dosya kilitliyse bekle
+                            for attempt in range(3):
+                                try:
+                                    wb_check = load_workbook(ariza_listesi_file)
+                                    ws_check = wb_check.active
+                                    break
+                                except PermissionError:
+                                    print(f"   ⏳ Dosya kilitli, {1+attempt}. deneme...")
+                                    time.sleep(0.5)
                             
                             # A sütununda (FRACAS ID) max numarayı bul
                             for row in range(5, ws_check.max_row + 1):
@@ -502,6 +511,7 @@ def create_app():
                                             next_fracas_num = max(next_fracas_num, num + 1)
                                     except:
                                         pass
+                            wb_check.close()
                         except Exception as e:
                             print(f"FRACAS ID okuma hatası: {e}")
                     
@@ -570,57 +580,73 @@ def create_app():
                         ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_BELGRAD_{today_date}.xlsx")
                         wb_new.save(ariza_listesi_file)
                     
-                    # Arıza Listesi dosyasına veri ekle
+                    # Arıza Listesi dosyasına veri ekle (Retry mekanizması ile)
                     try:
-                        wb = load_workbook(ariza_listesi_file)
-                        ws = wb.active
+                        import time
                         
-                        # Son satırı bul (Header 4. satırdan sonra)
-                        next_row = 5
-                        for row in range(5, ws.max_row + 100):  # Büyük range kontrol et
-                            if not ws.cell(row=row, column=1).value:
-                                next_row = row
-                                break
-                        else:
-                            next_row = ws.max_row + 1
-                        
-                        print(f"   📝 Veri yazılacak satır: {next_row}")
-                        
-                        # Form verilerini Excel'e yaz
-                        data = [
-                            form_data.get('fracas_id', ''),
-                            form_data.get('arac_numarasi', ''),
-                            form_data.get('arac_module', ''),
-                            form_data.get('arac_km', ''),
-                            form_data.get('hata_tarih', ''),
-                            form_data.get('hata_saat', ''),
-                            form_data.get('sistem', ''),
-                            form_data.get('alt_sistem', ''),
-                            form_data.get('tedarikci', ''),
-                            form_data.get('ariza_sinifi', ''),
-                            form_data.get('ariza_kaynagi', ''),
-                            form_data.get('garanti_kapsami', ''),
-                            form_data.get('ariza_tanimi', ''),
-                            form_data.get('yapilan_islem', ''),
-                            form_data.get('aksiyon', ''),
-                            form_data.get('parca_kodu', ''),
-                            form_data.get('parca_adi', ''),
-                            'Kaydedildi'
-                        ]
-                        
-                        border = Border(left=Side(style='thin'), right=Side(style='thin'), 
-                                       top=Side(style='thin'), bottom=Side(style='thin'))
-                        
-                        for col_idx, value in enumerate(data, 1):
-                            cell = ws.cell(row=next_row, column=col_idx)
-                            cell.value = value
-                            cell.border = border
-                            cell.font = Font(size=10)
-                            cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
-                        
-                        wb.save(ariza_listesi_file)
-                        print(f"   ✅ Arıza kaydedildi: {form_data.get('fracas_id')} -> Satır {next_row}")
-                        flash(f'✅ Arıza başarıyla kaydedildi: {form_data.get("fracas_id")}', 'success')
+                        # Dosya yazma için retry
+                        for write_attempt in range(3):
+                            try:
+                                wb = load_workbook(ariza_listesi_file)
+                                ws = wb.active
+                                
+                                # Son satırı bul (Header 4. satırdan sonra)
+                                next_row = 5
+                                for row in range(5, ws.max_row + 100):
+                                    if not ws.cell(row=row, column=1).value:
+                                        next_row = row
+                                        break
+                                else:
+                                    next_row = ws.max_row + 1
+                                
+                                print(f"   📝 Veri yazılacak satır: {next_row}")
+                                
+                                # Form verilerini Excel'e yaz
+                                data = [
+                                    form_data.get('fracas_id', ''),
+                                    form_data.get('arac_numarasi', ''),
+                                    form_data.get('arac_module', ''),
+                                    form_data.get('arac_km', ''),
+                                    form_data.get('hata_tarih', ''),
+                                    form_data.get('hata_saat', ''),
+                                    form_data.get('sistem', ''),
+                                    form_data.get('alt_sistem', ''),
+                                    form_data.get('tedarikci', ''),
+                                    form_data.get('ariza_sinifi', ''),
+                                    form_data.get('ariza_kaynagi', ''),
+                                    form_data.get('garanti_kapsami', ''),
+                                    form_data.get('ariza_tanimi', ''),
+                                    form_data.get('yapilan_islem', ''),
+                                    form_data.get('aksiyon', ''),
+                                    form_data.get('parca_kodu', ''),
+                                    form_data.get('parca_adi', ''),
+                                    'Kaydedildi'
+                                ]
+                                
+                                border = Border(left=Side(style='thin'), right=Side(style='thin'), 
+                                               top=Side(style='thin'), bottom=Side(style='thin'))
+                                
+                                for col_idx, value in enumerate(data, 1):
+                                    cell = ws.cell(row=next_row, column=col_idx)
+                                    cell.value = value
+                                    cell.border = border
+                                    cell.font = Font(size=10)
+                                    cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                                
+                                wb.save(ariza_listesi_file)
+                                wb.close()
+                                print(f"   ✅ Arıza kaydedildi: {form_data.get('fracas_id')} -> Satır {next_row}")
+                                flash(f'✅ Arıza başarıyla kaydedildi: {form_data.get("fracas_id")}', 'success')
+                                break  # Başarılıysa loop'tan çık
+                                
+                            except PermissionError as pe:
+                                if write_attempt < 2:
+                                    print(f"   ⏳ Dosya kilitli ({write_attempt+1}. deneme), 1 saniye bekleniyor...")
+                                    time.sleep(1)
+                                else:
+                                    raise pe
+                            except Exception as e:
+                                raise e
                     except Exception as e:
                         flash(f'❌ Arıza Listesi yazma hatası: {str(e)}', 'danger')
                     
