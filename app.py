@@ -13,6 +13,8 @@ from routes.fracas import bp as fracas_bp, get_excel_path, get_column
 from routes.kpi import bp as kpi_bp
 from routes.service_status import bp as service_status_bp
 import os
+import shutil
+import tempfile
 
 
 ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'dwg', 'jpg', 'png', 'jpeg'}
@@ -299,44 +301,56 @@ def create_app():
                         break
             
             if request.method == 'GET':
-                # Son FRACAS ID'yi bul
+                # Son FRACAS ID'yi Arıza Listesi'nden bul (temp'te)
+                import tempfile
+                import time
                 next_fracas_id = 1
-                print(f"📥 GET /yeni-ariza-bildir - excel_path: {excel_path}")
-                if excel_path and os.path.exists(excel_path):
+                
+                print(f"📥 GET /yeni-ariza-bildir")
+                
+                ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
+                os.makedirs(ariza_listesi_dir, exist_ok=True)
+                today_date = datetime.now().strftime('%Y%m%d')
+                temp_dir = tempfile.gettempdir()
+                
+                ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_BELGRAD_{today_date}.xlsx")
+                
+                if os.path.exists(ariza_listesi_file):
                     try:
-                        # FRACAS Header 1. satırda!
-                        df = pd.read_excel(excel_path, sheet_name='FRACAS', header=0)
-                        print(f"   📋 FRACAS sheet sütunları: {df.columns.tolist()}")
+                        # Main dosyayı temp'e kopyala
+                        temp_read_file = os.path.join(temp_dir, f"Ariza_check_get_{today_date}_{int(time.time())}.xlsx")
+                        shutil.copy(ariza_listesi_file, temp_read_file)
+                        time.sleep(0.2)
                         
-                        # FRACAS ID sütununu bul
-                        fracas_col = None
-                        for col in df.columns:
-                            if isinstance(col, str) and 'fracas' in col.lower() and 'id' in col.lower():
-                                fracas_col = col
-                                break
+                        # Temp'ten oku
+                        df = pd.read_excel(temp_read_file, sheet_name='Ariza Listesi', header=3)  # Row 4 = Header
+                        print(f"   📋 Arıza Listesi sütunları: {df.columns.tolist()[:3]}")
                         
+                        # FRACAS ID sütunu (A = 0. sütun)
+                        fracas_col = df.columns[0]  # First column = FRACAS ID
                         print(f"   🔍 FRACAS ID sütunu: {fracas_col}")
-                        if fracas_col:
-                            # Sayısal FRACAS ID'leri çıkar
-                            ids = []
-                            for val in df[fracas_col].dropna():
-                                try:
-                                    # "BOZ-BEL25-FF-001" gibi formatları handle et
-                                    if isinstance(val, str) and 'FF-' in val:
-                                        num = int(val.split('FF-')[-1])
-                                    elif isinstance(val, str) and '-' in val:
-                                        num = int(val.split('-')[-1])
-                                    else:
-                                        num = int(val)
+                        
+                        # Sayısal FRACAS ID'leri çıkar
+                        ids = []
+                        for val in df[fracas_col].dropna():
+                            try:
+                                # "BOZ-BEL25-FF-035" gibi formatları handle et
+                                if isinstance(val, str) and 'FF-' in val:
+                                    num = int(val.split('FF-')[-1])
                                     ids.append(num)
-                                except:
-                                    pass
-                            
-                            print(f"   📊 Bulunan ID'ler: {sorted(ids)}") 
-                            if ids:
-                                next_fracas_id = max(ids) + 1
+                                    print(f"   ✓ {val} -> {num}")
+                            except Exception as e:
+                                pass
+                        
+                        print(f"   📊 Bulunan ID'ler: {sorted(ids)}") 
+                        if ids:
+                            next_fracas_id = max(ids) + 1
+                            print(f"   ✅ Next FRACAS ID: {next_fracas_id}")
+                        
+                        os.remove(temp_read_file)
                     except Exception as e:
-                        print(f"❌ FRACAS ID okuma hatası: {e}")
+                        print(f"   ❌ FRACAS ID okuma hatası: {e}")
+                        next_fracas_id = 1
                 
                 # Tramvaylar ve sistemler
                 tramvaylar = []
@@ -474,34 +488,31 @@ def create_app():
                     print(f"   🔢 Form'dan gelen FRACAS ID: '{fracas_id}'")
                     
                     # Arıza Listesi dosyasından FRACAS ID'yi hesapla (YALNIzCA BURADAN)
+                    import tempfile
+                    import time
+                    
                     ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
                     os.makedirs(ariza_listesi_dir, exist_ok=True)
                     
                     today_date = datetime.now().strftime('%Y%m%d')
-                    ariza_listesi_file = None
+                    temp_dir = tempfile.gettempdir()
+                    ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_BELGRAD_{today_date}.xlsx")
                     
-                    # Bugünün Arıza Listesi dosyasını bul
-                    for file in os.listdir(ariza_listesi_dir):
-                        if f'Ariza_Listesi_BELGRAD_{today_date}' in file and file.endswith('.xlsx'):
-                            ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
-                            break
-                    
-                    # FRACAS ID hesapla (YALNIzCA Arıza Listesi'nden)
+                    # FRACAS ID hesapla (YALNIzCA Arıza Listesi'nden - TEMP'TEN OKU)
                     next_fracas_num = 1
-                    if ariza_listesi_file and os.path.exists(ariza_listesi_file):
+                    if os.path.exists(ariza_listesi_file):
                         try:
-                            import time
-                            # Dosya kilitliyse bekle
-                            for attempt in range(3):
-                                try:
-                                    wb_check = load_workbook(ariza_listesi_file)
-                                    ws_check = wb_check.active
-                                    break
-                                except PermissionError:
-                                    print(f"   ⏳ Dosya kilitli, {1+attempt}. deneme...")
-                                    time.sleep(0.5)
+                            # Main dosyayı temp'e kopyala (lock'u çözmek için)
+                            temp_read_file = os.path.join(temp_dir, f"Ariza_check_{today_date}_{int(time.time())}.xlsx")
+                            shutil.copy(ariza_listesi_file, temp_read_file)
+                            time.sleep(0.2)
+                            
+                            # Temp'ten oku
+                            wb_check = load_workbook(temp_read_file, data_only=True)
+                            ws_check = wb_check.active
                             
                             # A sütununda (FRACAS ID) max numarayı bul
+                            print(f"   📊 Arıza Listesi max row: {ws_check.max_row}")
                             for row in range(5, ws_check.max_row + 1):
                                 cell_val = ws_check.cell(row=row, column=1).value
                                 if cell_val:
@@ -509,11 +520,15 @@ def create_app():
                                         if isinstance(cell_val, str) and 'FF-' in cell_val:
                                             num = int(cell_val.split('FF-')[-1])
                                             next_fracas_num = max(next_fracas_num, num + 1)
-                                    except:
+                                            print(f"   ✓ Row {row}: {cell_val} -> next will be {next_fracas_num}")
+                                    except Exception as e:
                                         pass
                             wb_check.close()
+                            os.remove(temp_read_file)
+                            print(f"   ✅ FRACAS ID hesaplandı: {next_fracas_num}")
                         except Exception as e:
-                            print(f"FRACAS ID okuma hatası: {e}")
+                            print(f"   ❌ FRACAS ID okuma hatası: {e}")
+                            next_fracas_num = 1
                     
                     if not fracas_id:
                         fracas_id = f"BOZ-BEL25-FF-{next_fracas_num:03d}"
@@ -522,21 +537,24 @@ def create_app():
                     
                     # YENI: Arıza Listesi Excel dosyasına yaz
                     from openpyxl.styles import Border, Side, Font, PatternFill, Alignment
+                    import shutil
                     
                     ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
                     os.makedirs(ariza_listesi_dir, exist_ok=True)
                     
                     # Güncellik Arıza Listesi dosyasını bul
-                    ariza_listesi_file = None
                     today_date = datetime.now().strftime('%Y%m%d')
+                    ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_BELGRAD_{today_date}.xlsx")
                     
-                    for file in os.listdir(ariza_listesi_dir):
-                        if f'Ariza_Listesi_BELGRAD_{today_date}' in file and file.endswith('.xlsx'):
-                            ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
-                            break
+                    # Temp klasörü tanımla (tüm işlemler için)
+                    import tempfile
+                    import time
+                    temp_dir = tempfile.gettempdir()
                     
-                    # Yoksa yeni dosya oluştur
-                    if not ariza_listesi_file:
+                    # Yoksa yeni dosya oluştur (temp'te, sonra taşı)
+                    if not os.path.exists(ariza_listesi_file):
+                        temp_file = os.path.join(temp_dir, f"Ariza_Listesi_BELGRAD_{today_date}_temp.xlsx")
+                        
                         from openpyxl import Workbook
                         wb_new = Workbook()
                         ws_new = wb_new.active
@@ -577,76 +595,89 @@ def create_app():
                         ws_new.row_dimensions[4].height = 30
                         ws_new.freeze_panes = "A5"
                         
-                        ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_BELGRAD_{today_date}.xlsx")
-                        wb_new.save(ariza_listesi_file)
-                    
-                    # Arıza Listesi dosyasına veri ekle (Retry mekanizması ile)
-                    try:
-                        import time
+                        # Temp'e kaydet
+                        wb_new.save(temp_file)
+                        wb_new.close()
                         
-                        # Dosya yazma için retry
-                        for write_attempt in range(3):
-                            try:
-                                wb = load_workbook(ariza_listesi_file)
-                                ws = wb.active
-                                
-                                # Son satırı bul (Header 4. satırdan sonra)
-                                next_row = 5
-                                for row in range(5, ws.max_row + 100):
-                                    if not ws.cell(row=row, column=1).value:
-                                        next_row = row
-                                        break
-                                else:
-                                    next_row = ws.max_row + 1
-                                
-                                print(f"   📝 Veri yazılacak satır: {next_row}")
-                                
-                                # Form verilerini Excel'e yaz
-                                data = [
-                                    form_data.get('fracas_id', ''),
-                                    form_data.get('arac_numarasi', ''),
-                                    form_data.get('arac_module', ''),
-                                    form_data.get('arac_km', ''),
-                                    form_data.get('hata_tarih', ''),
-                                    form_data.get('hata_saat', ''),
-                                    form_data.get('sistem', ''),
-                                    form_data.get('alt_sistem', ''),
-                                    form_data.get('tedarikci', ''),
-                                    form_data.get('ariza_sinifi', ''),
-                                    form_data.get('ariza_kaynagi', ''),
-                                    form_data.get('garanti_kapsami', ''),
-                                    form_data.get('ariza_tanimi', ''),
-                                    form_data.get('yapilan_islem', ''),
-                                    form_data.get('aksiyon', ''),
-                                    form_data.get('parca_kodu', ''),
-                                    form_data.get('parca_adi', ''),
-                                    'Kaydedildi'
-                                ]
-                                
-                                border = Border(left=Side(style='thin'), right=Side(style='thin'), 
-                                               top=Side(style='thin'), bottom=Side(style='thin'))
-                                
-                                for col_idx, value in enumerate(data, 1):
-                                    cell = ws.cell(row=next_row, column=col_idx)
-                                    cell.value = value
-                                    cell.border = border
-                                    cell.font = Font(size=10)
-                                    cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
-                                
-                                wb.save(ariza_listesi_file)
-                                wb.close()
-                                print(f"   ✅ Arıza kaydedildi: {form_data.get('fracas_id')} -> Satır {next_row}")
-                                flash(f'✅ Arıza başarıyla kaydedildi: {form_data.get("fracas_id")}', 'success')
-                                break  # Başarılıysa loop'tan çık
-                                
-                            except PermissionError as pe:
-                                if write_attempt < 2:
-                                    print(f"   ⏳ Dosya kilitli ({write_attempt+1}. deneme), 1 saniye bekleniyor...")
-                                    time.sleep(1)
-                                else:
-                                    raise pe
-                            except Exception as e:
-                                raise e
+                        # Final konuma taşı
+                        time.sleep(0.5)
+                        try:
+                            shutil.move(temp_file, ariza_listesi_file)
+                            print(f"   ✓ Arıza Listesi dosyası oluşturuldu: {ariza_listesi_file}")
+                        except:
+                            # Zaten var olabilir, kontrol et
+                            if not os.path.exists(ariza_listesi_file) and os.path.exists(temp_file):
+                                shutil.copy(temp_file, ariza_listesi_file)
+                                os.remove(temp_file)
+                    
+                    # Arıza Listesi dosyasına veri ekle (Temp dosya ile atomic işlem)
+                    try:
+                        # Ana dosyayı temp'e kopyala
+                        temp_write_file = os.path.join(temp_dir, f"Ariza_write_{today_date}_{int(time.time())}.xlsx")
+                        shutil.copy(ariza_listesi_file, temp_write_file)
+                        time.sleep(0.3)
+                        
+                        # Temp dosyada aç, veri yaz
+                        wb = load_workbook(temp_write_file)
+                        ws = wb.active
+                        
+                        # Son satırı bul (Header 4. satırdan sonra)
+                        next_row = 5
+                        for row in range(5, ws.max_row + 100):
+                            if not ws.cell(row=row, column=1).value:
+                                next_row = row
+                                break
+                        else:
+                            next_row = ws.max_row + 1
+                        
+                        print(f"   📝 Veri yazılacak satır: {next_row}")
+                        
+                        # Form verilerini Excel'e yaz
+                        data = [
+                            form_data.get('fracas_id', ''),
+                            form_data.get('arac_numarasi', ''),
+                            form_data.get('arac_module', ''),
+                            form_data.get('arac_km', ''),
+                            form_data.get('hata_tarih', ''),
+                            form_data.get('hata_saat', ''),
+                            form_data.get('sistem', ''),
+                            form_data.get('alt_sistem', ''),
+                            form_data.get('tedarikci', ''),
+                            form_data.get('ariza_sinifi', ''),
+                            form_data.get('ariza_kaynagi', ''),
+                            form_data.get('garanti_kapsami', ''),
+                            form_data.get('ariza_tanimi', ''),
+                            form_data.get('yapilan_islem', ''),
+                            form_data.get('aksiyon', ''),
+                            form_data.get('parca_kodu', ''),
+                            form_data.get('parca_adi', ''),
+                            'Kaydedildi'
+                        ]
+                        
+                        border = Border(left=Side(style='thin'), right=Side(style='thin'), 
+                                       top=Side(style='thin'), bottom=Side(style='thin'))
+                        
+                        for col_idx, value in enumerate(data, 1):
+                            cell = ws.cell(row=next_row, column=col_idx)
+                            cell.value = value
+                            cell.border = border
+                            cell.font = Font(size=10)
+                            cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                        
+                        # Temp dosyaya kaydet
+                        wb.save(temp_write_file)
+                        wb.close()
+                        time.sleep(0.5)
+                        
+                        # Eski dosyayı sil, temp'i ana konuma taşı (atomic)
+                        if os.path.exists(ariza_listesi_file):
+                            os.remove(ariza_listesi_file)
+                        
+                        shutil.move(temp_write_file, ariza_listesi_file)
+                        time.sleep(0.3)
+                        
+                        print(f"   ✅ Arıza kaydedildi: {form_data.get('fracas_id')} -> Satır {next_row}")
+                        flash(f'✅ Arıza başarıyla kaydedildi: {form_data.get("fracas_id")}', 'success')
                     except Exception as e:
                         flash(f'❌ Arıza Listesi yazma hatası: {str(e)}', 'danger')
                     
