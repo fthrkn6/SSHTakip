@@ -306,7 +306,7 @@ def create_app():
                 import time
                 next_fracas_id = 1
                 
-                print(f"📥 GET /yeni-ariza-bildir")
+                print(f"\n📥 GET /yeni-ariza-bildir - FRACAS ID hesaplanıyor...")
                 
                 ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
                 os.makedirs(ariza_listesi_dir, exist_ok=True)
@@ -314,43 +314,46 @@ def create_app():
                 temp_dir = tempfile.gettempdir()
                 
                 ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_BELGRAD_{today_date}.xlsx")
+                print(f"   📁 Dosya: {ariza_listesi_file}")
+                print(f"   ✓ Var mı: {os.path.exists(ariza_listesi_file)}")
                 
                 if os.path.exists(ariza_listesi_file):
                     try:
-                        # Main dosyayı temp'e kopyala
-                        temp_read_file = os.path.join(temp_dir, f"Ariza_check_get_{today_date}_{int(time.time())}.xlsx")
-                        shutil.copy(ariza_listesi_file, temp_read_file)
-                        time.sleep(0.2)
+                        # Excel'i direkt aç (temp'e kopyalamadan)
+                        from openpyxl import load_workbook
+                        wb = load_workbook(ariza_listesi_file, data_only=True)
+                        ws = wb.active
                         
-                        # Temp'ten oku
-                        df = pd.read_excel(temp_read_file, sheet_name='Ariza Listesi', header=3)  # Row 4 = Header
-                        print(f"   📋 Arıza Listesi sütunları: {df.columns.tolist()[:3]}")
+                        print(f"   📊 Toplam satır: {ws.max_row}")
                         
-                        # FRACAS ID sütunu (A = 0. sütun)
-                        fracas_col = df.columns[0]  # First column = FRACAS ID
-                        print(f"   🔍 FRACAS ID sütunu: {fracas_col}")
-                        
-                        # Sayısal FRACAS ID'leri çıkar
+                        # A sütununda FRACAS ID'leri ara (Row 5'ten başla, Row 4 header)
                         ids = []
-                        for val in df[fracas_col].dropna():
-                            try:
-                                # "BOZ-BEL25-FF-035" gibi formatları handle et
-                                if isinstance(val, str) and 'FF-' in val:
-                                    num = int(val.split('FF-')[-1])
+                        for row in range(5, ws.max_row + 1):
+                            cell_val = ws.cell(row=row, column=1).value
+                            if cell_val and isinstance(cell_val, str) and 'FF-' in str(cell_val):
+                                try:
+                                    num = int(str(cell_val).split('FF-')[-1])
                                     ids.append(num)
-                                    print(f"   ✓ {val} -> {num}")
-                            except Exception as e:
-                                pass
+                                    print(f"   ✓ Row {row}: {cell_val} -> {num}")
+                                except:
+                                    pass
                         
-                        print(f"   📊 Bulunan ID'ler: {sorted(ids)}") 
+                        wb.close()
+                        
+                        print(f"   📊 Toplam bulunan ID: {len(ids)}")
                         if ids:
                             next_fracas_id = max(ids) + 1
-                            print(f"   ✅ Next FRACAS ID: {next_fracas_id}")
-                        
-                        os.remove(temp_read_file)
+                            print(f"   ✅ FRACAS ID: {next_fracas_id} (max: {max(ids)})")
+                        else:
+                            print(f"   ⚠️ Hiç ID bulunamadı, default: 1")
+                            next_fracas_id = 1
                     except Exception as e:
-                        print(f"   ❌ FRACAS ID okuma hatası: {e}")
+                        print(f"   ❌ Hata: {e}")
+                        import traceback
+                        traceback.print_exc()
                         next_fracas_id = 1
+                else:
+                    print(f"   ⚠️ Dosya yok, default: 1")
                 
                 # Tramvaylar ve sistemler
                 tramvaylar = []
@@ -566,20 +569,22 @@ def create_app():
                         header_font = Font(bold=True, color="FFFFFF", size=11)
                         
                         ws_new['A1'] = "ARIZA LİSTESİ - BELGRAD PROJESİ"
-                        ws_new.merge_cells('A1:R1')
+                        ws_new.merge_cells('A1:U1')
                         ws_new['A1'].font = title_font
                         ws_new['A1'].fill = title_fill
                         ws_new['A1'].alignment = Alignment(horizontal="center", vertical="center")
                         ws_new.row_dimensions[1].height = 25
                         
                         ws_new['A2'] = f"Oluşturma Tarihi: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
-                        ws_new.merge_cells('A2:R2')
+                        ws_new.merge_cells('A2:U2')
                         ws_new['A2'].font = Font(italic=True, size=10)
                         ws_new['A2'].alignment = Alignment(horizontal="right")
                         
                         headers = ['FRACAS ID', 'Araç No', 'Araç Modül', 'Kilometre', 'Tarih', 'Saat', 
                                   'Sistem', 'Alt Sistem', 'Tedarikçi', 'Arıza Sınıfı', 'Arıza Kaynağı', 
-                                  'Garanti Kapsamı', 'Arıza Tanımı', 'Yapılan İşlem', 'Aksiyon', 'Parça Kodu', 'Parça Adı', 'Durum']
+                                  'Garanti Kapsamı', 'Arıza Tanımı', 'Yapılan İşlem', 'Aksiyon', 'Parça Kodu', 'Parça Adı', 
+                                  'Tamir Başlama Tarihi', 'Tamir Başlama Saati', 'Tamir Bitişi Tarihi', 'Tamir Bitişi Saati', 'Tamir Süresi',
+                                  'Servise Veriliş Tarihi', 'Servise Veriliş Saati', 'Durum']
                         
                         border = Border(left=Side(style='thin'), right=Side(style='thin'), 
                                        top=Side(style='thin'), bottom=Side(style='thin'))
@@ -651,6 +656,13 @@ def create_app():
                             form_data.get('aksiyon', ''),
                             form_data.get('parca_kodu', ''),
                             form_data.get('parca_adi', ''),
+                            form_data.get('tamir_baslama_tarih', ''),
+                            form_data.get('tamir_baslama_saati', ''),
+                            form_data.get('tamir_bitisi_tarih', ''),
+                            form_data.get('tamir_bitisi_saati', ''),
+                            form_data.get('tamir_suresi', ''),
+                            form_data.get('servise_verilis_tarih', ''),
+                            form_data.get('servise_verilis_saat', ''),
                             'Kaydedildi'
                         ]
                         
@@ -685,6 +697,108 @@ def create_app():
                 except Exception as e:
                     flash(f'❌ Kayıt hatası: {str(e)}', 'danger')
                     return redirect(url_for('yeni_ariza_bildir'))
+
+        @app.route('/ariza-listesi-veriler')
+        @login_required
+        def ariza_listesi_veriler():
+            """Arıza Listesi sayfası - logs/ariza_listesi/'nden verileri oku ve göster"""
+            import pandas as pd
+            
+            ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
+            os.makedirs(ariza_listesi_dir, exist_ok=True)
+            
+            today_date = datetime.now().strftime('%Y%m%d')
+            ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_BELGRAD_{today_date}.xlsx")
+            
+            rows = []
+            row_count = 0
+            file_date = 'Bilinmiyor'
+            
+            if os.path.exists(ariza_listesi_file):
+                try:
+                    # Excel'i oku
+                    df = pd.read_excel(ariza_listesi_file, sheet_name='Ariza Listesi', header=3)  # Row 4 = Header
+                    
+                    # Verileri hazırla (Row 5'ten başlayan veri satırları)
+                    for idx, row in df.iterrows():
+                        row_data = list(row)
+                        # Boş satırları atla
+                        if any(row_data):  # Eğer satırda herhangi bir veri varsa
+                            rows.append(row_data)
+                    
+                    row_count = len(rows)
+                    
+                    # Dosya tarihi
+                    file_mtime = os.path.getmtime(ariza_listesi_file)
+                    file_date = datetime.fromtimestamp(file_mtime).strftime('%d.%m.%Y %H:%M')
+                    
+                    print(f"✅ Arıza Listesi yüklendi: {row_count} satır")
+                    
+                except Exception as e:
+                    print(f"❌ Arıza Listesi okuma hatası: {e}")
+                    flash(f'⚠️ Veri okuma hatası: {str(e)}', 'warning')
+            else:
+                flash(f'⚠️ Bugünün Arıza Listesi dosyası bulunamadı', 'warning')
+            
+            return render_template('ariza_listesi.html', 
+                                 rows=rows, 
+                                 row_count=row_count,
+                                 file_date=file_date,
+                                 enumerate=enumerate)
+
+        @app.route('/ariza-listesi-veriler/process', methods=['POST'])
+        @login_required
+        def ariza_listesi_veriler_process():
+            """Arıza Listesi verilerini işle (şimdilik onay sonrası mesaj göster)"""
+            
+            print("📤 Arıza Listesi işlem başlıyor...")
+            
+            try:
+                ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
+                today_date = datetime.now().strftime('%Y%m%d')
+                ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_BELGRAD_{today_date}.xlsx")
+                
+                if not os.path.exists(ariza_listesi_file):
+                    flash('❌ Arıza Listesi dosyası bulunamadı', 'danger')
+                    return redirect(url_for('ariza_listesi_veriler'))
+                
+                # TODO: Buraya işlem kodunuzu ekleyebilirsiniz
+                # Örn: Verileri başka bir yere taşı, dönüştür, vs.
+                
+                flash(f'✅ Veriler başarıyla işlendi!', 'success')
+                print(f"✅ İşlem tamamlandı")
+                
+            except Exception as e:
+                print(f"❌ İşlem hatası: {e}")
+                flash(f'❌ İşlem hatası: {str(e)}', 'danger')
+            
+            return redirect(url_for('ariza_listesi_veriler'))
+
+        @app.route('/ariza-listesi-veriler/export')
+        @login_required
+        def ariza_listesi_veriler_export():
+            """Arıza Listesi Excel dosyasını indir"""
+            import pandas as pd
+            
+            ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
+            today_date = datetime.now().strftime('%Y%m%d')
+            ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_BELGRAD_{today_date}.xlsx")
+            
+            if not os.path.exists(ariza_listesi_file):
+                flash('❌ Dosya bulunamadı', 'danger')
+                return redirect(url_for('ariza_listesi_veriler'))
+            
+            try:
+                from flask import send_file
+                return send_file(
+                    ariza_listesi_file,
+                    as_attachment=True,
+                    download_name=f"Ariza_Listesi_BELGRAD_{today_date}.xlsx",
+                    mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                )
+            except Exception as e:
+                flash(f'❌ İndirme hatası: {str(e)}', 'danger')
+                return redirect(url_for('ariza_listesi_veriler'))
 
         @app.route('/api/parts-lookup', methods=['GET'])
         @login_required

@@ -630,10 +630,16 @@
                 <span>Yeni Arıza Bildir</span>
             </a>
 
+            <a href="{{ url_for('ariza_listesi_veriler') }}"
+                class="sidebar-link {{ 'active' if 'ariza_listesi_veriler' in request.endpoint|string }}">
+                <i class="bi bi-list-check"></i>
+                <span>Arıza Listesi - Veriler</span>
+            </a>
+
             <a href="{{ url_for('ariza_listesi') }}"
-                class="sidebar-link {{ 'active' if 'ariza' in request.endpoint|string }}">
+                class="sidebar-link {{ 'active' if 'ariza_listesi' in request.endpoint|string and 'veriler' not in request.endpoint|string }}">
                 <i class="bi bi-exclamation-triangle-fill"></i>
-                <span>Arızalar</span>
+                <span>Arızalar (Eski)</span>
             </a>
 
             <a href="{{ url_for('bakim_planlari') }}"
