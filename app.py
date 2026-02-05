@@ -508,60 +508,115 @@ def create_app():
                         fracas_id = f"BOZ-BEL25-FF-{next_fracas_id:03d}"
                         form_data['fracas_id'] = fracas_id
                     
-                    if excel_path and os.path.exists(excel_path):
-                        wb = load_workbook(excel_path)
-                        ws = wb['FRACAS']
+                    # YENI: Arıza Listesi Excel dosyasına yaz
+                    from openpyxl.styles import Border, Side, Font, PatternFill, Alignment
+                    
+                    ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
+                    os.makedirs(ariza_listesi_dir, exist_ok=True)
+                    
+                    # Güncellik Arıza Listesi dosyasını bul
+                    ariza_listesi_file = None
+                    today_date = datetime.now().strftime('%Y%m%d')
+                    
+                    for file in os.listdir(ariza_listesi_dir):
+                        if f'Ariza_Listesi_BELGRAD_{today_date}' in file and file.endswith('.xlsx'):
+                            ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
+                            break
+                    
+                    # Yoksa yeni dosya oluştur
+                    if not ariza_listesi_file:
+                        from openpyxl import Workbook
+                        wb_new = Workbook()
+                        ws_new = wb_new.active
+                        ws_new.title = "Ariza Listesi"
                         
-                        # Header satırını bul (4. satır)
-                        headers = {}
-                        for col_idx, cell in enumerate(ws[4], 1):
-                            if cell.value:
-                                headers[str(cell.value).strip()] = col_idx
+                        title_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+                        title_font = Font(bold=True, size=12, color="FFFFFF")
+                        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+                        header_font = Font(bold=True, color="FFFFFF", size=11)
+                        
+                        ws_new['A1'] = "ARIZA LİSTESİ - BELGRAD PROJESİ"
+                        ws_new.merge_cells('A1:R1')
+                        ws_new['A1'].font = title_font
+                        ws_new['A1'].fill = title_fill
+                        ws_new['A1'].alignment = Alignment(horizontal="center", vertical="center")
+                        ws_new.row_dimensions[1].height = 25
+                        
+                        ws_new['A2'] = f"Oluşturma Tarihi: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+                        ws_new.merge_cells('A2:R2')
+                        ws_new['A2'].font = Font(italic=True, size=10)
+                        ws_new['A2'].alignment = Alignment(horizontal="right")
+                        
+                        headers = ['FRACAS ID', 'Araç No', 'Araç Modül', 'Kilometre', 'Tarih', 'Saat', 
+                                  'Sistem', 'Alt Sistem', 'Tedarikçi', 'Arıza Sınıfı', 'Arıza Kaynağı', 
+                                  'Garanti Kapsamı', 'Arıza Tanımı', 'Yapılan İşlem', 'Aksiyon', 'Parça Kodu', 'Parça Adı', 'Durum']
+                        
+                        border = Border(left=Side(style='thin'), right=Side(style='thin'), 
+                                       top=Side(style='thin'), bottom=Side(style='thin'))
+                        
+                        for col_idx, header in enumerate(headers, 1):
+                            cell = ws_new.cell(row=4, column=col_idx)
+                            cell.value = header
+                            cell.font = header_font
+                            cell.fill = header_fill
+                            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                            cell.border = border
+                        
+                        ws_new.row_dimensions[4].height = 30
+                        ws_new.freeze_panes = "A5"
+                        
+                        ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_BELGRAD_{today_date}.xlsx")
+                        wb_new.save(ariza_listesi_file)
+                    
+                    # Arıza Listesi dosyasına veri ekle
+                    try:
+                        wb = load_workbook(ariza_listesi_file)
+                        ws = wb.active
                         
                         # Son dolu satırı bul
-                        last_row = ws.max_row
-                        while last_row > 4 and not ws.cell(last_row, 1).value:
-                            last_row -= 1
+                        last_row = 4
+                        for row in range(5, ws.max_row + 1):
+                            if ws.cell(row=row, column=1).value:
+                                last_row = row
                         
                         next_row = last_row + 1
                         
-                        # Form verilerini Excel'e eşle
-                        mapping = {
-                            'FRACAS ID': form_data.get('fracas_id', ''),
-                            'Araç No': form_data.get('arac_numarasi', ''),
-                            'Araç Modül': form_data.get('arac_module', ''),
-                            'Kilometre': form_data.get('arac_km', ''),
-                            'Tarih': form_data.get('hata_tarih', ''),
-                            'Saat': form_data.get('hata_saat', ''),
-                            'Sistem': form_data.get('sistem', ''),
-                            'Alt Sistem': form_data.get('alt_sistem', ''),
-                            'Tedarikçi': form_data.get('tedarikci', ''),
-                            'Arıza Sınıfı': form_data.get('ariza_sinifi', ''),
-                            'Arıza Kaynağı': form_data.get('ariza_kaynagi', ''),
-                            'Garanti Kapsamı': form_data.get('garanti_kapsami', ''),
-                            'Arıza Tanımı': form_data.get('ariza_tanimi', ''),
-                            'Yapılan İşlem': form_data.get('yapilan_islem', ''),
-                            'Aksiyon': form_data.get('aksiyon', ''),
-                            'Parça Kodu': form_data.get('parca_kodu', ''),
-                            'Parça Adı': form_data.get('parca_adi', ''),
-                            'Seri No': form_data.get('seri_numarasi', ''),
-                            'Adet': form_data.get('adet', ''),
-                            'İşçilik': form_data.get('iscilik_maliyeti', ''),
-                            'Tamir Başlama': form_data.get('tamir_baslama_tarih', ''),
-                            'Tamir Bitiş': form_data.get('tamir_bitis_tarih', ''),
-                        }
+                        # Form verilerini Excel'e yaz
+                        data = [
+                            form_data.get('fracas_id', ''),
+                            form_data.get('arac_numarasi', ''),
+                            form_data.get('arac_module', ''),
+                            form_data.get('arac_km', ''),
+                            form_data.get('hata_tarih', ''),
+                            form_data.get('hata_saat', ''),
+                            form_data.get('sistem', ''),
+                            form_data.get('alt_sistem', ''),
+                            form_data.get('tedarikci', ''),
+                            form_data.get('ariza_sinifi', ''),
+                            form_data.get('ariza_kaynagi', ''),
+                            form_data.get('garanti_kapsami', ''),
+                            form_data.get('ariza_tanimi', ''),
+                            form_data.get('yapilan_islem', ''),
+                            form_data.get('aksiyon', ''),
+                            form_data.get('parca_kodu', ''),
+                            form_data.get('parca_adi', ''),
+                            'Kaydedildi'
+                        ]
                         
-                        # Eşleşen sütunlara veri yaz
-                        for header_name, value in mapping.items():
-                            for excel_header, col_idx in headers.items():
-                                if header_name.lower() in excel_header.lower() or excel_header.lower() in header_name.lower():
-                                    ws.cell(row=next_row, column=col_idx, value=value)
-                                    break
+                        border = Border(left=Side(style='thin'), right=Side(style='thin'), 
+                                       top=Side(style='thin'), bottom=Side(style='thin'))
                         
-                        wb.save(excel_path)
+                        for col_idx, value in enumerate(data, 1):
+                            cell = ws.cell(row=next_row, column=col_idx)
+                            cell.value = value
+                            cell.border = border
+                            cell.font = Font(size=10)
+                            cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                        
+                        wb.save(ariza_listesi_file)
                         flash(f'✅ Arıza başarıyla kaydedildi: {form_data.get("fracas_id")}', 'success')
-                    else:
-                        flash('❌ FRACAS dosyası bulunamadı', 'danger')
+                    except Exception as e:
+                        flash(f'❌ Arıza Listesi yazma hatası: {str(e)}', 'danger')
                     
                     return redirect(url_for('yeni_ariza_bildir'))
                 except Exception as e:
