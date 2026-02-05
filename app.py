@@ -392,7 +392,7 @@ def create_app():
                                 elif color_hex == MAVI and value and sistem_adi:
                                     sistemler[sistem_adi]['alt_sistemler'].append(str(value).strip())
                     except Exception as e:
-
+                        pass
                 
                 # Tramvaylar, Modüller, Arıza Sınıfları ve Arıza Kaynakları - Sayfa2'den
                 modules = []  # default
