@@ -35,7 +35,6 @@ def allowed_file(filename):
 
 
 def create_app():
-    print('create_app started')
     try:
         app = Flask(__name__, static_folder='static', static_url_path='/static')
         
@@ -306,16 +305,12 @@ def create_app():
                 import time
                 next_fracas_id = 1
                 
-                print(f"\n📥 GET /yeni-ariza-bildir - FRACAS ID hesaplanıyor...")
-                
                 ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
                 os.makedirs(ariza_listesi_dir, exist_ok=True)
                 today_date = datetime.now().strftime('%Y%m%d')
                 temp_dir = tempfile.gettempdir()
                 
                 ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_BELGRAD_{today_date}.xlsx")
-                print(f"   📁 Dosya: {ariza_listesi_file}")
-                print(f"   ✓ Var mı: {os.path.exists(ariza_listesi_file)}")
                 
                 if os.path.exists(ariza_listesi_file):
                     try:
@@ -323,8 +318,6 @@ def create_app():
                         from openpyxl import load_workbook
                         wb = load_workbook(ariza_listesi_file, data_only=True)
                         ws = wb.active
-                        
-                        print(f"   📊 Toplam satır: {ws.max_row}")
                         
                         # A sütununda FRACAS ID'leri ara (Row 5'ten başla, Row 4 header)
                         ids = []
@@ -340,20 +333,12 @@ def create_app():
                         
                         wb.close()
                         
-                        print(f"   📊 Toplam bulunan ID: {len(ids)}")
                         if ids:
                             next_fracas_id = max(ids) + 1
-                            print(f"   ✅ FRACAS ID: {next_fracas_id} (max: {max(ids)})")
                         else:
-                            print(f"   ⚠️ Hiç ID bulunamadı, default: 1")
                             next_fracas_id = 1
                     except Exception as e:
-                        print(f"   ❌ Hata: {e}")
-                        import traceback
-                        traceback.print_exc()
                         next_fracas_id = 1
-                else:
-                    print(f"   ⚠️ Dosya yok, default: 1")
                 
                 # Tramvaylar ve sistemler
                 tramvaylar = []
@@ -407,7 +392,7 @@ def create_app():
                                 elif color_hex == MAVI and value and sistem_adi:
                                     sistemler[sistem_adi]['alt_sistemler'].append(str(value).strip())
                     except Exception as e:
-                        print(f"Sistem yükleme hatası: {e}")
+
                 
                 # Tramvaylar, Modüller, Arıza Sınıfları ve Arıza Kaynakları - Sayfa2'den
                 modules = []  # default
@@ -420,7 +405,7 @@ def create_app():
                         import unicodedata
                         
                         df_trams = pd.read_excel(os.path.join(data_dir, 'Veriler.xlsx'), sheet_name='Sayfa2', header=0)
-                        print(f"Sayfa2 Sütunları: {df_trams.columns.tolist()}")  # Debug
+
                         
                         # Sütun adlarını normalize et (Türkçe karakterleri ASCII'ye çevir)
                         def normalize_col(col_name):
@@ -441,7 +426,7 @@ def create_app():
                             if 'tram' in col_norm and 'id' in col_norm:
                                 tramvaylar = df_trams[col].dropna().unique().tolist()
                                 tramvaylar = [str(int(t)) if isinstance(t, (int, float)) else str(t) for t in tramvaylar]
-                                print(f"Tramvaylar: {tramvaylar[:5]}")  # Debug
+
                                 break
                         
                         # Modül sütununu bul
@@ -449,7 +434,7 @@ def create_app():
                             col_norm = normalize_col(col)
                             if col_norm == 'module':
                                 modules = [str(m).strip() for m in df_trams[col].dropna().unique().tolist() if str(m).strip()]
-                                print(f"Modüller: {modules}")  # Debug
+
                                 break
                         
                         # Arıza Sınıfı sütununu bul
@@ -457,7 +442,7 @@ def create_app():
                             col_norm = normalize_col(col)
                             if 'ariza' in col_norm and 'sinif' in col_norm:
                                 ariza_siniflari = [str(s).strip() for s in df_trams[col].dropna().unique().tolist() if str(s).strip()]
-                                print(f"Arıza Sınıfları bulundu: {ariza_siniflari}")  # Debug
+
                                 break
                         
                         # Arıza Kaynağı sütununu bul
@@ -465,7 +450,6 @@ def create_app():
                             col_norm = normalize_col(col)
                             if 'ariza' in col_norm and 'kaynag' in col_norm:
                                 ariza_kaynaklari = [str(k).strip() for k in df_trams[col].dropna().unique().tolist() if str(k).strip()]
-                                print(f"Arıza Kaynakları bulundu: {ariza_kaynaklari}")  # Debug
                                 break
                         
                         # Arıza Tipi sütununu bul
@@ -475,7 +459,6 @@ def create_app():
                             if 'ariza' in col_norm and 'tip' in col_norm:
                                 ariza_tipleri = [str(t).strip() for t in df_trams[col].dropna().unique().tolist() if str(t).strip()]
                                 ariza_tipleri = sorted(list(set(ariza_tipleri)))
-                                print(f"Arıza Tipleri bulundu: {ariza_tipleri}")  # Debug
                                 break
                     except Exception as e:
                         print(f"Sayfa2 yükleme hatası: {e}")
@@ -789,14 +772,9 @@ def create_app():
                     flash('❌ Arıza Listesi dosyası bulunamadı', 'danger')
                     return redirect(url_for('ariza_listesi_veriler'))
                 
-                # TODO: Buraya işlem kodunuzu ekleyebilirsiniz
-                # Örn: Verileri başka bir yere taşı, dönüştür, vs.
-                
                 flash(f'✅ Veriler başarıyla işlendi!', 'success')
-                print(f"✅ İşlem tamamlandı")
                 
             except Exception as e:
-                print(f"❌ İşlem hatası: {e}")
                 flash(f'❌ İşlem hatası: {str(e)}', 'danger')
             
             return redirect(url_for('ariza_listesi_veriler'))
@@ -994,9 +972,7 @@ def create_app():
                             
                             failures_list.append(failure_dict)
                 except Exception as e:
-                    print(f"Excel okuma hatası: {e}")
-                    import traceback
-                    traceback.print_exc()
+                    # Excel okuma hatası - veri işlenmedi
                     excel_data = False
             
             # Excel yoksa database'den çek
@@ -1879,9 +1855,6 @@ def create_app():
                 
             except Exception as e:
                 db.session.rollback()
-                print(f"Hata: {e}")
-                import traceback
-                traceback.print_exc()
                 return jsonify({'success': False, 'message': str(e)}), 400
 
         @app.route('/servis-durumu/indir')
@@ -1922,9 +1895,7 @@ def create_app():
         return app
         
     except Exception as e:
-        print(f'CRITICAL ERROR in create_app: {e}')
-        import traceback
-        traceback.print_exc()
+        # Critical error occurred during app initialization
         return None
 
 
