@@ -436,7 +436,7 @@ def create_app():
                         
                         headers = ['FRACAS ID', 'Araç No', 'Araç Modül', 'Kilometre', 'Tarih', 'Saat', 
                                   'Sistem', 'Alt Sistem', 'Tedarikçi', 'Arıza Sınıfı', 'Arıza Kaynağı', 'Arıza Tipi',
-                                  'Garanti Kapsamı', 'Arıza Tanımı', 'Yapılan İşlem', 'Aksiyon', 'Parça Kodu', 'Parça Adı', 'Parça Seri No', 'Adedi',
+                                  'Garanti Kapsamı', 'Arıza Tanımı', 'Yapılan İşlem', 'Aksiyon', 'Parça Kodu', 'Parça Adı', 'Parça Seri No', 'Adet',
                                   'Tamir Başlama Tarihi', 'Tamir Başlama Saati', 'Tamir Bitişi Tarihi', 'Tamir Bitişi Saati', 'Tamir Süresi', 'MTTR (dk)',
                                   'Servise Veriliş Tarihi', 'Servise Veriliş Saati', 'Durum']
                         
@@ -516,7 +516,7 @@ def create_app():
                             form_data.get('parca_kodu', ''),
                             form_data.get('parca_adi', ''),
                             form_data.get('parca_seri_no', ''),
-                            form_data.get('adedi', ''),
+                            form_data.get('adet', ''),
                             form_data.get('tamir_baslama_tarih', ''),
                             form_data.get('tamir_baslama_saati', ''),
                             form_data.get('tamir_bitisi_tarih', ''),

@@ -204,6 +204,16 @@
         border-left: 4px solid #10b981;
     }
 
+    .tramvay-card.işletme {
+        border-color: #f59e0b;
+        border-left: 4px solid #f59e0b;
+    }
+
+    .tramvay-card.ariza {
+        border-color: #ef4444;
+        border-left: 4px solid #ef4444;
+    }
+
     .tramvay-card.ariza.success {
         border-color: #10b981;
         border-left: 4px solid #10b981;
@@ -425,6 +435,8 @@
                         <div class="mt-2">
                             {% if tramvay.status == 'aktif' %}
                             <span class="badge bg-success">Aktif</span>
+                            {% elif tramvay.status == 'işletme' %}
+                            <span class="badge bg-warning">İşletme Kaynaklı</span>
                             {% elif tramvay.status == 'bakim' %}
                             <span class="badge bg-warning">Bakımda</span>
                             {% else %}
@@ -462,39 +474,11 @@
                     </h6>
                 </div>
 
-                {% if son_arizalar %}
-                {% for ariza in son_arizalar %}
-                <div class="ariza-item d-flex align-items-start p-3 mb-2 rounded-3" style="background: #fef2f2;"
-                    data-vehicle="{% if excel_data %}{{ ariza.vehicle }}{% else %}{{ ariza.equipment.equipment_code if ariza.equipment else '' }}{% endif %}">
-                    >
-                    <div class="me-3">
-                        <span class="badge bg-danger">Açık</span>
-                    </div>
-                    <div class="flex-grow-1">
-                        {% if excel_data %}
-                        <h6 class="mb-1 text-dark">{{ ariza.failure_code }}</h6>
-                        <small class="text-muted">
-                            <i class="bi bi-train-front me-1"></i>Tramvay {{ ariza.vehicle|replace('TRN-', '') }}
-                        </small>
-                        <br>
-                        <small class="text-muted">{{ ariza.location if ariza.location and ariza.location != '-' else
-                            ariza.description[:40] if ariza.description else '' }}</small>
-                        {% else %}
-                        <h6 class="mb-1 text-dark">{{ ariza.title or ariza.failure_code }}</h6>
-                        <small class="text-muted">
-                            <i class="bi bi-train-front me-1"></i>{{ (ariza.equipment.equipment_code if ariza.equipment
-                            else 'N/A')|replace('TRN-', '') }}
-                        </small>
-                        {% endif %}
-                    </div>
-                </div>
-                {% endfor %}
-                {% else %}
                 <div class="text-center py-5">
-                    <i class="bi bi-check-circle text-success" style="font-size: 48px;"></i>
-                    <p class="text-muted mt-3">Tüm sistemler normal - Açık arıza yok</p>
+                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                        <span class="visually-hidden">Yükleniyor...</span>
+                    </div>
                 </div>
-                {% endif %}
             </div>
         </div>
     </div>
@@ -659,6 +643,65 @@
     }
     setInterval(updateTime, 1000);
     updateTime();
+
+    // Sayfa yüklendiğinde en son 5 arızayı getir
+    function loadFailures() {
+        fetch(`/dashboard/api/failures`, {
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                const arizaContainer = document.getElementById('ariza-container');
+
+                if (data.failures && data.failures.length > 0) {
+                    let html = '';
+                    data.failures.forEach(ariza => {
+                        html += `
+                            <div class="ariza-item d-flex align-items-start p-3 mb-2 rounded-3" style="background: #fef2f2;">
+                                <div class="me-3">
+                                    <span class="badge bg-danger">Açık</span>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1 text-dark">${ariza.fracas_id}</h6>
+                                    <small class="text-muted">
+                                        <i class="bi bi-train-front me-1"></i>${ariza.arac_no}
+                                    </small>
+                                    <br>
+                                    <small class="text-muted">${ariza.sistem}: ${ariza.ariza_tanimi}</small>
+                                    <br>
+                                    <small class="text-muted">Tarih: ${ariza.tarih}</small>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    arizaContainer.innerHTML = html;
+                    document.getElementById('ariza-count').textContent = data.failures.length;
+                } else {
+                    arizaContainer.innerHTML = `
+                        <div class="text-center py-5">
+                            <i class="bi bi-check-circle text-success" style="font-size: 48px;"></i>
+                            <p class="text-muted mt-3">Açık arıza yok</p>
+                        </div>
+                    `;
+                    document.getElementById('ariza-count').textContent = '0';
+                }
+            })
+            .catch(error => {
+                console.error('API Hata:', error);
+                document.getElementById('ariza-container').innerHTML = `<div class="text-danger"><small>Hata: ${error.message}</small></div>`;
+            });
+    }
+
+    // Sayfa yüklendiğinde çağır
+    document.addEventListener('DOMContentLoaded', loadFailures);
 
     // Tramvay seçimi ve arıza filtreleme
     let selectedVehicle = null;

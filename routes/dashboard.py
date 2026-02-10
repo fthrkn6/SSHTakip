@@ -149,19 +149,19 @@ def index():
             status_value = status_record.status if status_record.status else 'Servis'
             aciklama = status_record.aciklama if status_record.aciklama else ''
             
-            # Status'u belirle
-            if 'işletme kaynaklı' in status_value.lower():
-                # İşletme kaynaklı = aktif (işletmede)
-                status_display = 'aktif'
-                status_color = 'success'
+            # Status'u belirle - DB exact match
+            if status_value == 'İşletme Kaynaklı Servis Dışı' or 'İşletme' in status_value:
+                # İşletme Kaynaklı Servis Dışı = turuncu (işletme kaynaklı arıza)
+                status_display = 'işletme'
+                status_color = 'warning'
                 status_from_db = 'İşletme Kaynaklı Servis Dışı'
-            elif 'servis dışı' in status_value.lower():
-                # Servis Dışı = arızalı
+            elif status_value == 'Servis Dışı' or 'Dışı' in status_value:
+                # Servis Dışı = arızalı (kırmızı)
                 status_display = 'ariza'
                 status_color = 'danger'
                 status_from_db = 'Servis Dışı'
             else:
-                # Servis = aktif
+                # Servis = aktif (yeşil)
                 status_display = 'aktif'
                 status_color = 'success'
                 status_from_db = 'Servis'
@@ -283,52 +283,81 @@ def work_order_trend_api():
 def get_equipment_failures(equipment_code=None):
     """Araçla ilgili son 5 arızayı Al - Arıza Listesi dosyasından
     Eğer equipment_code yoksa TÜM son 5 arızayı getir"""
-    import pandas as pd
-    import os
-    
-    ariza_listesi_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs', 'ariza_listesi')
-    ariza_listesi_file = os.path.join(ariza_listesi_dir, 'Ariza_Listesi_BELGRAD.xlsx')
-    
-    failures = []
-    
-    if os.path.exists(ariza_listesi_file):
+    try:
+        import pandas as pd
+        import os
+        
+        ariza_listesi_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs', 'ariza_listesi')
+        ariza_listesi_file = os.path.join(ariza_listesi_dir, 'Ariza_Listesi_BELGRAD.xlsx')
+        
+        failures = []
+        
+        if not os.path.exists(ariza_listesi_file):
+            print(f"[API] Dosya bulunamadı: {ariza_listesi_file}")
+            return jsonify({'failures': [], 'error': 'File not found'})
+        
         try:
             df = pd.read_excel(ariza_listesi_file, sheet_name='Ariza Listesi', header=3)
+            print(f"[API] Excel okundu - {len(df)} satır, Sütunlar: {list(df.columns)[:5]}...")
+            
+            # FRACAS ID sütununu doğrula
+            if 'FRACAS ID' not in df.columns:
+                print("[API] FRACAS ID sütunu bulunamadı")
+                return jsonify({'failures': [], 'error': 'FRACAS ID column not found'})
             
             # Araç No sütununu bul
             arac_no_col = None
-            # Doğrudan "Araç No" sütununu ara
             if 'Araç No' in df.columns:
                 arac_no_col = 'Araç No'
-            else:
-                # Alternatif olarak fuzzy search yap
-                for col in df.columns:
-                    col_lower = str(col).lower().strip()
-                    if 'no' in col_lower and any(word in col_lower for word in ['araç', 'arac', 'aracno']):
-                        arac_no_col = col
-                        break
             
-            if arac_no_col:
-                # Eğer equipment_code verildiyse filtrele
-                if equipment_code and equipment_code.strip():
+            # Eğer equipment_code verildiyse filtrele, değilse son 5'i getir
+            if equipment_code and equipment_code.strip():
+                if arac_no_col:
                     filtered_df = df[df[arac_no_col].astype(str).str.strip() == str(equipment_code).strip()]
-                    # Son 5'i al
                     filtered_df = filtered_df.tail(5)
                 else:
-                    # Tüm son 5 arızayı al
                     filtered_df = df.tail(5)
-                
-                # Sütunları hazırla
-                for idx, row in filtered_df.iterrows():
+            else:
+                # Boş satırları hariç tut, son 5'i getir
+                filtered_df = df[df['FRACAS ID'].notna()].tail(5)
+            
+            print(f"[API] Filtrelenen satır sayısı: {len(filtered_df)}")
+            
+            # Sütunları hazırla
+            for idx, row in filtered_df.iterrows():
+                try:
+                    # Pandas Series olarak erişim
+                    fracas_id = str(row['FRACAS ID']).strip() if pd.notna(row['FRACAS ID']) else ''
+                    arac_no = str(row[arac_no_col]).strip() if arac_no_col and pd.notna(row[arac_no_col]) else ''
+                    sistem = str(row['Sistem']).strip() if pd.notna(row['Sistem']) else ''
+                    ariza_tanimi = str(row['Arıza Tanımı']).strip() if pd.notna(row['Arıza Tanımı']) else ''
+                    tarih = str(row['Tarih']).strip() if pd.notna(row['Tarih']) else ''
+                    durum = str(row['Durum']).strip() if pd.notna(row['Durum']) else ''
+                    
                     failures.append({
-                        'fracas_id': str(row.get('FRACAS ID', '')).strip(),
-                        'arac_no': str(row.get(arac_no_col, '')).strip(),
-                        'sistem': str(row.get('Sistem', '')).strip(),
-                        'ariza_tanimi': str(row.get('Arıza Tanımı', '')).strip(),
-                        'tarih': str(row.get('Tarih', '')).strip(),
-                        'durum': str(row.get('Durum', '')).strip()
+                        'fracas_id': fracas_id,
+                        'arac_no': arac_no,
+                        'sistem': sistem,
+                        'ariza_tanimi': ariza_tanimi,
+                        'tarih': tarih,
+                        'durum': durum
                     })
-        except Exception as e:
-            print(f"Arıza Listesi hatası: {e}")
+                    print(f"[API] Satır {idx}: {fracas_id} - {arac_no}")
+                except Exception as e:
+                    print(f"[API] Satır {idx} işleme hatası: {e}")
+                    continue
+            
+            print(f"[API] Toplam {len(failures)} arıza döndürülüyor")
+            return jsonify({'failures': failures, 'count': len(failures)})
+            
+        except Exception as excel_error:
+            print(f"[API] Excel okuma hatası: {type(excel_error).__name__}: {excel_error}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({'failures': [], 'error': f'Excel read error: {str(excel_error)}'})
     
-    return jsonify({'failures': failures})
+    except Exception as e:
+        print(f"[API] Genel hata: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'failures': [], 'error': f'General error: {str(e)}'})

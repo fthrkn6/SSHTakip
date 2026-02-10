@@ -53,7 +53,7 @@ COLUMN_MAPPING = {
     'Parça Kodu Part Code': 'part_code',
     'Seri Numarası Serial Number': 'serial_number',
     'Parça Adı Part Name': 'part_name',
-    'Adeti Quantity': 'quantity',
+    'Adet Quantity': 'quantity',
     'Sipariş No Order No': 'order_no',
     'Sipariş Tarihi Order Date': 'order_date',
     'Teslim Tarihi Delivery Date': 'delivery_date',
