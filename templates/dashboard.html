@@ -12,12 +12,27 @@
         position: relative;
         overflow: hidden;
     }
-    .kpi-card.green { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
-    .kpi-card.blue { background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%); }
-    .kpi-card.orange { background: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%); }
-    .kpi-card.red { background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%); }
-    .kpi-card.purple { background: linear-gradient(135deg, #8e2de2 0%, #4a00e0 100%); }
-    
+
+    .kpi-card.green {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+
+    .kpi-card.blue {
+        background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%);
+    }
+
+    .kpi-card.orange {
+        background: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%);
+    }
+
+    .kpi-card.red {
+        background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+    }
+
+    .kpi-card.purple {
+        background: linear-gradient(135deg, #8e2de2 0%, #4a00e0 100%);
+    }
+
     .kpi-card::before {
         content: '';
         position: absolute;
@@ -25,20 +40,22 @@
         right: -50%;
         width: 100%;
         height: 100%;
-        background: rgba(255,255,255,0.1);
+        background: rgba(255, 255, 255, 0.1);
         border-radius: 50%;
     }
-    
+
     .kpi-value {
         font-size: 2.5rem;
         font-weight: 700;
         line-height: 1;
     }
+
     .kpi-label {
         font-size: 0.85rem;
         opacity: 0.9;
         margin-top: 8px;
     }
+
     .kpi-icon {
         position: absolute;
         right: 20px;
@@ -47,36 +64,44 @@
         font-size: 4rem;
         opacity: 0.2;
     }
+
     .kpi-trend {
         display: inline-flex;
         align-items: center;
         font-size: 0.75rem;
-        background: rgba(255,255,255,0.2);
+        background: rgba(255, 255, 255, 0.2);
         padding: 4px 10px;
         border-radius: 20px;
         margin-top: 12px;
     }
-    .kpi-trend i { margin-right: 4px; }
-    
+
+    .kpi-trend i {
+        margin-right: 4px;
+    }
+
     .progress-ring {
         width: 120px;
         height: 120px;
         position: relative;
     }
+
     .progress-ring svg {
         transform: rotate(-90deg);
     }
+
     .progress-ring .bg {
         fill: none;
-        stroke: rgba(0,0,0,0.1);
+        stroke: rgba(0, 0, 0, 0.1);
         stroke-width: 8;
     }
+
     .progress-ring .progress {
         fill: none;
         stroke-width: 8;
         stroke-linecap: round;
         transition: stroke-dashoffset 0.5s ease;
     }
+
     .progress-ring .value {
         position: absolute;
         top: 50%;
@@ -85,15 +110,16 @@
         font-size: 1.5rem;
         font-weight: 700;
     }
-    
+
     .metric-card {
         background: white;
         border-radius: 12px;
         padding: 20px;
         text-align: center;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         border: 1px solid #eee;
     }
+
     .metric-card h6 {
         color: #666;
         font-size: 0.8rem;
@@ -101,16 +127,18 @@
         letter-spacing: 0.5px;
         margin-bottom: 10px;
     }
+
     .metric-value {
         font-size: 2rem;
         font-weight: 700;
         color: #1a1a2e;
     }
+
     .metric-unit {
         font-size: 0.9rem;
         color: #888;
     }
-    
+
     .fleet-status-bar {
         display: flex;
         height: 12px;
@@ -118,28 +146,112 @@
         overflow: hidden;
         background: #eee;
     }
+
     .fleet-status-bar .segment {
         transition: width 0.5s ease;
     }
-    .fleet-status-bar .aktif { background: #10b981; }
-    .fleet-status-bar .bakim { background: #f59e0b; }
-    .fleet-status-bar .ariza { background: #ef4444; }
-    
+
+    .fleet-status-bar .aktif {
+        background: #10b981;
+    }
+
+    .fleet-status-bar .bakim {
+        background: #f59e0b;
+    }
+
+    .fleet-status-bar .ariza {
+        background: #ef4444;
+    }
+
+    /* Tramvay Kartı Stilleri */
+    .tramvay-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 15px;
+    }
+
+    .tramvay-card {
+        padding: 15px;
+        border-radius: 12px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 2px solid #ddd;
+        background: white;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Servis durumu renklerine göre kartı stille */
+    .tramvay-card.success {
+        border-color: #10b981;
+        border-left: 4px solid #10b981;
+    }
+
+    .tramvay-card.warning {
+        border-color: #f59e0b;
+        border-left: 4px solid #f59e0b;
+    }
+
+    .tramvay-card.danger {
+        border-color: #ef4444;
+        border-left: 4px solid #ef4444;
+    }
+
+    .tramvay-card.aktif {
+        border-color: #10b981;
+        border-left: 4px solid #10b981;
+    }
+
+    .tramvay-card.ariza.success {
+        border-color: #10b981;
+        border-left: 4px solid #10b981;
+    }
+
+    .tramvay-card.ariza.warning {
+        border-color: #f59e0b;
+        border-left: 4px solid #f59e0b;
+    }
+
+    .tramvay-card.ariza.danger {
+        border-color: #ef4444;
+        border-left: 4px solid #ef4444;
+    }
+
+    .tramvay-card h6 {
+        font-weight: 700;
+        margin: 8px 0 4px 0;
+        color: #1a1a2e;
+    }
+
+    .tramvay-card small {
+        color: #666;
+        font-size: 0.75rem;
+    }
+
+    .tramvay-icon {
+        font-size: 32px;
+        color: #666;
+        margin-bottom: 8px;
+    }
+
     /* Arıza item gizleme */
     .ariza-item.hidden {
         display: none !important;
     }
-    
+
     /* Tramvay kartı seçim stili */
     .tramvay-card.selected {
         box-shadow: 0 0 0 3px #3b82f6, 0 4px 15px rgba(59, 130, 246, 0.4);
         transform: scale(1.05);
         z-index: 10;
     }
+
     .tramvay-card:hover {
         transform: scale(1.02);
         transition: all 0.2s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
     }
+
     .tramvay-card.selected:hover {
         transform: scale(1.05);
     }
@@ -149,10 +261,10 @@
 {% block content %}
 <div class="page-header d-flex justify-content-between align-items-center">
     <div>
-        <h1 class="page-title">Dashboard 
+        <h1 class="page-title">Dashboard
             {% if project_name %}<span class="badge bg-secondary fs-6">{{ project_name }}</span>{% endif %}
         </h1>
-        <p class="page-subtitle">Tramvay Filosu - Anlık Performans Görünümü 
+        <p class="page-subtitle">Tramvay Filosu - Anlık Performans Görünümü
             {% if excel_data %}<span class="badge bg-info">Excel Verisi</span>{% endif %}
         </p>
     </div>
@@ -216,7 +328,8 @@
                     <span class="text-muted">Toplam: {{ stats.total_tramvay }} Tramvay</span>
                 </div>
                 <div class="fleet-status-bar mb-3">
-                    {% set aktif_pct = (stats.aktif_servis / stats.total_tramvay * 100) if stats.total_tramvay > 0 else 0 %}
+                    {% set aktif_pct = (stats.aktif_servis / stats.total_tramvay * 100) if stats.total_tramvay > 0 else
+                    0 %}
                     {% set bakim_pct = (stats.bakimda / stats.total_tramvay * 100) if stats.total_tramvay > 0 else 0 %}
                     {% set ariza_pct = (stats.arizali / stats.total_tramvay * 100) if stats.total_tramvay > 0 else 0 %}
                     <div class="segment aktif" style="width: {{ aktif_pct }}%"></div>
@@ -280,7 +393,8 @@
     <div class="col-6 col-lg-2">
         <div class="metric-card">
             <h6>Aylık Maliyet</h6>
-            <div class="metric-value" style="font-size:1.2rem">{{ "%.0f"|format(kpi.total_cost if kpi else 0) }}<span class="metric-unit"> TND</span></div>
+            <div class="metric-value" style="font-size:1.2rem">{{ "%.0f"|format(kpi.total_cost if kpi else 0) }}<span
+                    class="metric-unit"> TND</span></div>
         </div>
     </div>
 </div>
@@ -297,48 +411,34 @@
             <div class="card-body">
                 <div class="tramvay-grid">
                     {% for tramvay in tramvaylar %}
-                    {% if excel_data %}
-                    <div class="tramvay-card {{ tramvay.status }}" style="text-decoration: none; cursor: pointer;" data-vehicle="{{ tramvay.code }}" onclick="filterArizalar('{{ tramvay.code }}')">
-                        <div class="tramvay-icon">
-                            <i class="bi bi-train-front-fill"></i>
-                        </div>
-                        <h6>{{ tramvay.code|replace('TRN-', '') }}</h6>
-                        <small>{{ tramvay.name }}</small>
-                        <div class="mt-2">
-                            {% if tramvay.status == 'aktif' %}
-                                <span class="badge bg-success">Aktif</span>
-                            {% elif tramvay.status == 'bakim' %}
-                                <span class="badge bg-warning">Bakımda</span>
-                            {% else %}
-                                <span class="badge bg-danger">Arızalı</span>
-                            {% endif %}
-                        </div>
-                        <div class="mt-1">
-                            <small class="text-muted">{{ tramvay.total_failures }} arıza ({{ tramvay.open_failures }} açık)</small>
-                        </div>
-                    </div>
-                    {% else %}
-                    <div class="tramvay-card {{ tramvay.status }}" style="text-decoration: none; cursor: pointer;" data-vehicle="{{ tramvay.equipment_code }}" data-id="{{ tramvay.id }}" onclick="filterArizalar('{{ tramvay.equipment_code }}')">
+                    <div class="tramvay-card {{ tramvay.status }}" style="text-decoration: none; cursor: pointer;"
+                        data-vehicle="{{ tramvay.equipment_code }}" data-id="{{ tramvay.id }}"
+                        onclick="filterArizalar('{{ tramvay.equipment_code }}')">
                         <div class="tramvay-icon">
                             <i class="bi bi-train-front-fill"></i>
                         </div>
                         <h6>{{ tramvay.equipment_code|replace('TRN-', '') }}</h6>
-                        <small>{{ tramvay.location[:15] if tramvay.location else '' }}{% if tramvay.location and tramvay.location|length > 15 %}...{% endif %}</small>
+                        <small>{{ tramvay.location[:15] if tramvay.location else '' }}{% if tramvay.location and
+                            tramvay.location|length > 15 %}...{% endif %}</small>
                         <div class="mt-2">
-                            {% set badge = tramvay.get_status_badge() %}
-                            <span class="badge bg-{{ badge[0] }}">{{ badge[1] }}</span>
+                            {% if tramvay.status == 'aktif' %}
+                            <span class="badge bg-success">Aktif</span>
+                            {% elif tramvay.status == 'bakim' %}
+                            <span class="badge bg-warning">Bakımda</span>
+                            {% else %}
+                            <span class="badge bg-danger">Arızalı</span>
+                            {% endif %}
                         </div>
                         <div class="mt-1">
                             <small class="text-muted">{{ "%.0f"|format(tramvay.total_km) }} km</small>
                         </div>
                     </div>
-                    {% endif %}
                     {% endfor %}
                 </div>
             </div>
         </div>
     </div>
-    
+
     <!-- System Alerts & Active Failures -->
     <div class="col-12 col-xl-4">
         <div class="card h-100">
@@ -346,39 +446,44 @@
                 <span><i class="bi bi-bell me-2 text-danger"></i>Açık Arızalar</span>
                 <div>
                     <span id="filtered-vehicle-badge" class="badge bg-primary me-1" style="display: none;"></span>
-                    <span id="ariza-count" class="badge bg-danger">{{ son_arizalar|length if son_arizalar else 0 }}</span>
-                    <button id="clear-filter-btn" class="btn btn-sm btn-outline-secondary ms-1" style="display: none;" onclick="clearFilter()"><i class="bi bi-x"></i></button>
+                    <span id="ariza-count" class="badge bg-danger">{{ son_arizalar|length if son_arizalar else 0
+                        }}</span>
+                    <button id="clear-filter-btn" class="btn btn-sm btn-outline-secondary ms-1" style="display: none;"
+                        onclick="clearFilter()"><i class="bi bi-x"></i></button>
                 </div>
             </div>
             <div id="ariza-container" class="card-body" style="max-height: 400px; overflow-y: auto;">
                 {% if son_arizalar %}
-                    {% for ariza in son_arizalar %}
-                    <div class="ariza-item d-flex align-items-start p-3 mb-2 rounded-3" style="background: #fef2f2;" data-vehicle="{% if excel_data %}{{ ariza.vehicle }}{% else %}{{ ariza.equipment.equipment_code if ariza.equipment else '' }}{% endif %}">
-                        <div class="me-3">
-                            <span class="badge bg-danger">Açık</span>
-                        </div>
-                        <div class="flex-grow-1">
-                            {% if excel_data %}
-                            <h6 class="mb-1 text-dark">{{ ariza.failure_code }}</h6>
-                            <small class="text-muted">
-                                <i class="bi bi-train-front me-1"></i>Tramvay {{ ariza.vehicle|replace('TRN-', '') }}
-                            </small>
-                            <br>
-                            <small class="text-muted">{{ ariza.location if ariza.location and ariza.location != '-' else ariza.description[:40] if ariza.description else '' }}</small>
-                            {% else %}
-                            <h6 class="mb-1 text-dark">{{ ariza.title or ariza.failure_code }}</h6>
-                            <small class="text-muted">
-                                <i class="bi bi-train-front me-1"></i>{{ (ariza.equipment.equipment_code if ariza.equipment else 'N/A')|replace('TRN-', '') }}
-                            </small>
-                            {% endif %}
-                        </div>
+                {% for ariza in son_arizalar %}
+                <div class="ariza-item d-flex align-items-start p-3 mb-2 rounded-3" style="background: #fef2f2;"
+                    data-vehicle="{% if excel_data %}{{ ariza.vehicle }}{% else %}{{ ariza.equipment.equipment_code if ariza.equipment else '' }}{% endif %}">
+                    <div class="me-3">
+                        <span class="badge bg-danger">Açık</span>
                     </div>
-                    {% endfor %}
+                    <div class="flex-grow-1">
+                        {% if excel_data %}
+                        <h6 class="mb-1 text-dark">{{ ariza.failure_code }}</h6>
+                        <small class="text-muted">
+                            <i class="bi bi-train-front me-1"></i>Tramvay {{ ariza.vehicle|replace('TRN-', '') }}
+                        </small>
+                        <br>
+                        <small class="text-muted">{{ ariza.location if ariza.location and ariza.location != '-' else
+                            ariza.description[:40] if ariza.description else '' }}</small>
+                        {% else %}
+                        <h6 class="mb-1 text-dark">{{ ariza.title or ariza.failure_code }}</h6>
+                        <small class="text-muted">
+                            <i class="bi bi-train-front me-1"></i>{{ (ariza.equipment.equipment_code if ariza.equipment
+                            else 'N/A')|replace('TRN-', '') }}
+                        </small>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
                 {% else %}
-                    <div class="text-center py-5">
-                        <i class="bi bi-check-circle text-success" style="font-size: 48px;"></i>
-                        <p class="text-muted mt-3">Tüm sistemler normal - Açık arıza yok</p>
-                    </div>
+                <div class="text-center py-5">
+                    <i class="bi bi-check-circle text-success" style="font-size: 48px;"></i>
+                    <p class="text-muted mt-3">Tüm sistemler normal - Açık arıza yok</p>
+                </div>
                 {% endif %}
             </div>
         </div>
@@ -410,7 +515,8 @@
                             {% for plan in yaklasan_bakimlar %}
                             <tr class="{% if plan.is_overdue() %}table-danger{% endif %}">
                                 <td>
-                                    <strong>{{ (plan.equipment.equipment_code if plan.equipment else 'N/A')|replace('TRN-', '') }}</strong>
+                                    <strong>{{ (plan.equipment.equipment_code if plan.equipment else
+                                        'N/A')|replace('TRN-', '') }}</strong>
                                 </td>
                                 <td>{{ plan.name[:25] }}{% if plan.name|length > 25 %}...{% endif %}</td>
                                 <td>
@@ -420,12 +526,13 @@
                                 </td>
                                 <td>
                                     {% if plan.is_overdue() %}
-                                        <span class="badge bg-danger"><i class="bi bi-exclamation-triangle me-1"></i>Gecikmiş</span>
-                                    {% elif plan.days_until_due() <= 3 %}
-                                        <span class="badge bg-warning">{{ plan.days_until_due() }} gün</span>
-                                    {% else %}
+                                    <span class="badge bg-danger"><i
+                                            class="bi bi-exclamation-triangle me-1"></i>Gecikmiş</span>
+                                    {% elif plan.days_until_due() <= 3 %} <span class="badge bg-warning">{{
+                                        plan.days_until_due() }} gün</span>
+                                        {% else %}
                                         <span class="badge bg-info">{{ plan.days_until_due() }} gün</span>
-                                    {% endif %}
+                                        {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}
@@ -441,7 +548,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Recent Work Orders -->
     <div class="col-12 col-xl-6">
         <div class="card">
@@ -465,7 +572,8 @@
                         </thead>
                         <tbody>
                             {% for emir in son_is_emirleri %}
-                            <tr style="cursor: pointer;" onclick="window.location='{{ url_for('is_emri_detay', id=emir.id) }}'">
+                            <tr style="cursor: pointer;"
+                                onclick="window.location='{{ url_for('is_emri_detay', id=emir.id) }}'">
                                 <td><strong>{{ emir.order_code }}</strong></td>
                                 <td>{{ emir.title[:20] }}{% if emir.title|length > 20 %}...{% endif %}</td>
                                 <td><small>{{ emir.get_work_type_display() }}</small></td>
@@ -497,25 +605,29 @@
                 <h6 class="mb-3 text-muted"><i class="bi bi-lightning-charge me-2"></i>Hızlı İşlemler</h6>
                 <div class="row g-3">
                     <div class="col-6 col-md-3">
-                        <a href="{{ url_for('ariza_ekle') }}" class="btn btn-danger w-100 py-3 d-flex flex-column align-items-center">
+                        <a href="{{ url_for('ariza_ekle') }}"
+                            class="btn btn-danger w-100 py-3 d-flex flex-column align-items-center">
                             <i class="bi bi-exclamation-triangle mb-2" style="font-size: 28px;"></i>
                             <span>Arıza Bildir</span>
                         </a>
                     </div>
                     <div class="col-6 col-md-3">
-                        <a href="{{ url_for('is_emri_ekle') }}" class="btn btn-primary w-100 py-3 d-flex flex-column align-items-center">
+                        <a href="{{ url_for('is_emri_ekle') }}"
+                            class="btn btn-primary w-100 py-3 d-flex flex-column align-items-center">
                             <i class="bi bi-clipboard-plus mb-2" style="font-size: 28px;"></i>
                             <span>İş Emri Oluştur</span>
                         </a>
                     </div>
                     <div class="col-6 col-md-3">
-                        <a href="{{ url_for('bakim_plani_ekle') }}" class="btn btn-warning w-100 py-3 d-flex flex-column align-items-center">
+                        <a href="{{ url_for('bakim_plani_ekle') }}"
+                            class="btn btn-warning w-100 py-3 d-flex flex-column align-items-center">
                             <i class="bi bi-calendar-plus mb-2" style="font-size: 28px;"></i>
                             <span>Bakım Planla</span>
                         </a>
                     </div>
                     <div class="col-6 col-md-3">
-                        <a href="{{ url_for('fracas.index') }}" class="btn btn-success w-100 py-3 d-flex flex-column align-items-center">
+                        <a href="{{ url_for('fracas.index') }}"
+                            class="btn btn-success w-100 py-3 d-flex flex-column align-items-center">
                             <i class="bi bi-graph-up mb-2" style="font-size: 28px;"></i>
                             <span>FRACAS Analiz</span>
                         </a>
@@ -529,102 +641,102 @@
 
 {% block extra_js %}
 <script>
-// Update time every second
-function updateTime() {
-    const now = new Date();
-    const formatted = now.toLocaleDateString('tr-TR') + ' ' + now.toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'});
-    document.getElementById('current-time').textContent = formatted;
-}
-setInterval(updateTime, 1000);
-updateTime();
-
-// Tramvay seçimi ve arıza filtreleme
-let selectedVehicle = null;
-
-function filterArizalar(vehicleCode) {
-    // Tüm tramvay kartlarından selected sınıfını kaldır
-    document.querySelectorAll('.tramvay-card').forEach(card => {
-        card.classList.remove('selected');
-    });
-    
-    // Seçili tramvay kartına selected sınıfı ekle
-    const selectedCard = document.querySelector(`.tramvay-card[data-vehicle="${vehicleCode}"]`);
-    if (selectedCard) {
-        selectedCard.classList.add('selected');
+    // Update time every second
+    function updateTime() {
+        const now = new Date();
+        const formatted = now.toLocaleDateString('tr-TR') + ' ' + now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+        document.getElementById('current-time').textContent = formatted;
     }
-    
-    selectedVehicle = vehicleCode;
-    
-    // Normalize edilmiş vehicle code (TRN- olmadan)
-    const normalizedCode = vehicleCode.replace('TRN-', '').trim();
-    
-    // Arızaları filtrele
-    const arizaItems = document.querySelectorAll('.ariza-item');
-    let visibleCount = 0;
-    
-    arizaItems.forEach(item => {
-        const itemVehicle = item.getAttribute('data-vehicle') || '';
-        const normalizedItemVehicle = itemVehicle.replace('TRN-', '').trim();
-        
-        // Normalize edilmiş karşılaştırma
-        if (normalizedItemVehicle === normalizedCode || 
-            normalizedItemVehicle.includes(normalizedCode) || 
-            normalizedCode.includes(normalizedItemVehicle) ||
-            itemVehicle === vehicleCode) {
+    setInterval(updateTime, 1000);
+    updateTime();
+
+    // Tramvay seçimi ve arıza filtreleme
+    let selectedVehicle = null;
+
+    function filterArizalar(vehicleCode) {
+        // Tüm tramvay kartlarından selected sınıfını kaldır
+        document.querySelectorAll('.tramvay-card').forEach(card => {
+            card.classList.remove('selected');
+        });
+
+        // Seçili tramvay kartına selected sınıfı ekle
+        const selectedCard = document.querySelector(`.tramvay-card[data-vehicle="${vehicleCode}"]`);
+        if (selectedCard) {
+            selectedCard.classList.add('selected');
+        }
+
+        selectedVehicle = vehicleCode;
+
+        // Normalize edilmiş vehicle code (TRN- olmadan)
+        const normalizedCode = vehicleCode.replace('TRN-', '').trim();
+
+        // Arızaları filtrele
+        const arizaItems = document.querySelectorAll('.ariza-item');
+        let visibleCount = 0;
+
+        arizaItems.forEach(item => {
+            const itemVehicle = item.getAttribute('data-vehicle') || '';
+            const normalizedItemVehicle = itemVehicle.replace('TRN-', '').trim();
+
+            // Normalize edilmiş karşılaştırma
+            if (normalizedItemVehicle === normalizedCode ||
+                normalizedItemVehicle.includes(normalizedCode) ||
+                normalizedCode.includes(normalizedItemVehicle) ||
+                itemVehicle === vehicleCode) {
+                item.classList.remove('hidden');
+                visibleCount++;
+            } else {
+                item.classList.add('hidden');
+            }
+        });
+
+        // Badge'leri güncelle
+        document.getElementById('ariza-count').textContent = visibleCount;
+        document.getElementById('filtered-vehicle-badge').textContent = normalizedCode;
+        document.getElementById('filtered-vehicle-badge').style.display = 'inline';
+        document.getElementById('clear-filter-btn').style.display = 'inline';
+
+        // Eğer hiç arıza yoksa mesaj göster
+        const container = document.getElementById('ariza-container');
+        let noDataMsg = container.querySelector('.no-data-msg');
+
+        if (visibleCount === 0) {
+            if (!noDataMsg) {
+                noDataMsg = document.createElement('div');
+                noDataMsg.className = 'no-data-msg text-center py-4';
+                noDataMsg.innerHTML = '<i class="bi bi-check-circle text-success" style="font-size: 48px;"></i><p class="text-muted mt-3">Bu araçta açık arıza yok</p>';
+                container.appendChild(noDataMsg);
+            }
+            noDataMsg.style.display = 'block';
+        } else if (noDataMsg) {
+            noDataMsg.style.display = 'none';
+        }
+    }
+
+    function clearFilter() {
+        selectedVehicle = null;
+
+        // Tramvay kartlarından selected sınıfını kaldır
+        document.querySelectorAll('.tramvay-card').forEach(card => {
+            card.classList.remove('selected');
+        });
+
+        // Tüm arızaları göster
+        const arizaItems = document.querySelectorAll('.ariza-item');
+        arizaItems.forEach(item => {
             item.classList.remove('hidden');
-            visibleCount++;
-        } else {
-            item.classList.add('hidden');
-        }
-    });
-    
-    // Badge'leri güncelle
-    document.getElementById('ariza-count').textContent = visibleCount;
-    document.getElementById('filtered-vehicle-badge').textContent = normalizedCode;
-    document.getElementById('filtered-vehicle-badge').style.display = 'inline';
-    document.getElementById('clear-filter-btn').style.display = 'inline';
-    
-    // Eğer hiç arıza yoksa mesaj göster
-    const container = document.getElementById('ariza-container');
-    let noDataMsg = container.querySelector('.no-data-msg');
-    
-    if (visibleCount === 0) {
-        if (!noDataMsg) {
-            noDataMsg = document.createElement('div');
-            noDataMsg.className = 'no-data-msg text-center py-4';
-            noDataMsg.innerHTML = '<i class="bi bi-check-circle text-success" style="font-size: 48px;"></i><p class="text-muted mt-3">Bu araçta açık arıza yok</p>';
-            container.appendChild(noDataMsg);
-        }
-        noDataMsg.style.display = 'block';
-    } else if (noDataMsg) {
-        noDataMsg.style.display = 'none';
-    }
-}
+        });
 
-function clearFilter() {
-    selectedVehicle = null;
-    
-    // Tramvay kartlarından selected sınıfını kaldır
-    document.querySelectorAll('.tramvay-card').forEach(card => {
-        card.classList.remove('selected');
-    });
-    
-    // Tüm arızaları göster
-    const arizaItems = document.querySelectorAll('.ariza-item');
-    arizaItems.forEach(item => {
-        item.classList.remove('hidden');
-    });
-    
-    // Badge'leri güncelle
-    document.getElementById('ariza-count').textContent = arizaItems.length;
-    document.getElementById('filtered-vehicle-badge').style.display = 'none';
-    document.getElementById('clear-filter-btn').style.display = 'none';
-    
-    // No data mesajını gizle
-    const noDataMsg = document.querySelector('.no-data-msg');
-    if (noDataMsg) {
-        noDataMsg.style.display = 'none';
+        // Badge'leri güncelle
+        document.getElementById('ariza-count').textContent = arizaItems.length;
+        document.getElementById('filtered-vehicle-badge').style.display = 'none';
+        document.getElementById('clear-filter-btn').style.display = 'none';
+
+        // No data mesajını gizle
+        const noDataMsg = document.querySelector('.no-data-msg');
+        if (noDataMsg) {
+            noDataMsg.style.display = 'none';
+        }
     }
-}
 </script>
 {% endblock %}
