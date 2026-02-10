@@ -527,11 +527,15 @@
                     {% for tram_id in tram_ids %}<tr class="tram-row">
                         <td class="tram-id-cell"><strong>{{ tram_id }}</strong></td>
                         {% for date in dates %}{%- set si = status_matrix.get(tram_id, {}).get(date) %}
+                        {%- if si and si[0] == 'Servis Dışı' %}{%- set aciklama_text = si[3].replace('(Dünden
+                        kopyalandı)', '').strip() if si[3] else '' %}{%- set tooltip_text = (si[1] or '') + ((' / ' +
+                        si[2]) if si[2] else '') + ((' - ' + aciklama_text) if aciklama_text else '') %}{%- endif %}
                         {%- if si and si[0] == 'Servis' %}<td class="status-cell status-service"><i
                                 class="bi bi-check-lg" style="font-size: 1rem; color: white; font-weight: bold;"></i>
                         </td>
-                        {%- elif si and si[0] == 'Servis Dışı' %}<td class="status-cell status-out"><i
-                                class="bi bi-x-lg" style="font-size: 1rem; color: white; font-weight: bold;"></i></td>
+                        {%- elif si and si[0] == 'Servis Dışı' %}<td class="status-cell status-out"
+                            title="{{ tooltip_text if si else '' }}" data-bs-toggle="tooltip"><i class="bi bi-x-lg"
+                                style="font-size: 1rem; color: white; font-weight: bold;"></i></td>
                         {%- elif si and si[0] == 'İşletme Kaynaklı Servis Dışı' %}<td class="status-cell"
                             style="background-color: #ff9800 !important; border: 1px solid #e68900;"><i
                                 class="bi bi-exclamation-triangle-fill"
@@ -975,6 +979,14 @@
             console.error('Hata:', error);
             alert('❌ İndirme sırasında hata oluştu');
         }
+    });
+
+    // Sayfa yüklendiğinde tooltip'leri başlat
+    document.addEventListener('DOMContentLoaded', function () {
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
     });
 </script>
 {% endblock %}

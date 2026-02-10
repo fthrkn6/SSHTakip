@@ -601,10 +601,30 @@
                     <td><strong>{{ eq.equipment_code }}</strong></td>
                     <td>{{ eq.name }}</td>
                     <td>
-                        <span class="badge bg-{{ eq.status_color }}">{{ eq.status_badge }}</span>
+                        <span class="badge bg-{{ eq.status_color }}"
+                            title="{% if eq.status_record %}{{ eq.status_record.sistem or '' }}{% if eq.status_record.alt_sistem %} / {{ eq.status_record.alt_sistem }}{% endif %}{% if eq.status_record.aciklama %} - {{ eq.status_record.aciklama }}{% endif %}{% endif %}"
+                            data-bs-toggle="tooltip">
+                            {{ eq.status_badge }}
+                        </span>
                     </td>
-                    <td>{{ eq.latest_log.sistem if eq.latest_log else '-' }}</td>
-                    <td>{{ eq.latest_log.alt_sistem if eq.latest_log else '-' }}</td>
+                    <td>
+                        {% if eq.status_record and eq.status_record.sistem %}
+                        <span title="{{ eq.status_record.aciklama or '' }}" data-bs-toggle="tooltip">
+                            {{ eq.status_record.sistem }}
+                        </span>
+                        {% else %}
+                        {{ eq.latest_log.sistem if eq.latest_log else '-' }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if eq.status_record and eq.status_record.alt_sistem %}
+                        <span title="{{ eq.status_record.aciklama or '' }}" data-bs-toggle="tooltip">
+                            {{ eq.status_record.alt_sistem }}
+                        </span>
+                        {% else %}
+                        {{ eq.latest_log.alt_sistem if eq.latest_log else '-' }}
+                        {% endif %}
+                    </td>
                     <td>{{ eq.latest_log.log_date.strftime('%d.%m.%Y %H:%M') if eq.latest_log else '-' }}</td>
                     <td><strong>{{ "%.1f"|format(eq.availability) }}%</strong></td>
                     <td>{{ "%.1f"|format(eq.downtime) }} saat</td>
@@ -855,6 +875,12 @@
     document.addEventListener('DOMContentLoaded', function () {
         refreshTable();
         loadRootCauseSummary();
+
+        // Tooltip'leri başlat
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
 
         // 30 saniyede bir yenile
         setInterval(refreshTable, 30000);

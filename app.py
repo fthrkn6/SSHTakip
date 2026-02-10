@@ -1163,9 +1163,12 @@ def create_app():
                             date=tarih
                         ).first()
                         
+                        alt_sistem = request.form.get('alt_sistem', '')
+                        
                         if existing:
                             existing.status = durum
                             existing.sistem = sistem
+                            existing.alt_sistem = alt_sistem
                             existing.aciklama = aciklama
                         else:
                             new_status = ServiceStatus(
@@ -1173,6 +1176,7 @@ def create_app():
                                 date=tarih,
                                 status=durum,
                                 sistem=sistem,
+                                alt_sistem=alt_sistem,
                                 aciklama=aciklama
                             )
                             db.session.add(new_status)
@@ -1436,6 +1440,7 @@ def create_app():
                                 status_matrix[tram_id][date] = (
                                     status_record.status if hasattr(status_record, 'status') else 'Unknown',
                                     status_record.sistem if hasattr(status_record, 'sistem') else '',
+                                    status_record.alt_sistem if hasattr(status_record, 'alt_sistem') else '',
                                     status_record.aciklama if hasattr(status_record, 'aciklama') else ''
                                 )
                 except:
@@ -1451,6 +1456,7 @@ def create_app():
                     yesterday_data[record.tram_id] = {
                         'status': record.status if hasattr(record, 'status') else '',
                         'sistem': record.sistem if hasattr(record, 'sistem') else '',
+                        'alt_sistem': record.alt_sistem if hasattr(record, 'alt_sistem') else '',
                         'aciklama': record.aciklama if hasattr(record, 'aciklama') else ''
                     }
             except:
@@ -1485,8 +1491,15 @@ def create_app():
                 from models import ServiceStatus
                 
                 today_str = datetime.now().strftime('%Y-%m-%d')
-                data = request.get_json()
+                data = request.get_json(force=True, silent=True)
+                
+                if not data:
+                    return jsonify({'success': False, 'message': 'Geçersiz istek (JSON gerekli)'}), 400
+                
                 tram_ids = data.get('tram_ids', [])
+                
+                if not tram_ids:
+                    return jsonify({'success': False, 'message': 'Araç listesi boş'}), 400
                 
                 for tram_id in tram_ids:
                     # Mevcut kaydı kontrol et
@@ -1497,12 +1510,14 @@ def create_app():
                     
                     if existing:
                         existing.status = 'Servis'
+                        existing.alt_sistem = ''
                     else:
                         new_status = ServiceStatus(
                             tram_id=str(tram_id),
                             date=today_str,
                             status='Servis',
                             sistem='',
+                            alt_sistem='',
                             aciklama='Toplu servise alındı'
                         )
                         db.session.add(new_status)
@@ -1511,6 +1526,7 @@ def create_app():
                 return jsonify({'success': True, 'message': f'{len(tram_ids)} araç servise alındı'}), 200
             except Exception as e:
                 db.session.rollback()
+                logger.error(f'toplu-servise-al error: {str(e)}')
                 return jsonify({'success': False, 'message': str(e)}), 400
 
         @app.route('/api/copy_previous_day', methods=['POST'])

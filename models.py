@@ -1526,6 +1526,7 @@ class ServiceStatus(db.Model):
     date = db.Column(db.String(10), nullable=False)  # YYYY-MM-DD format
     status = db.Column(db.String(50), nullable=False)  # Servis, Servis Dışı, İşletme Kaynaklı Servis Dışı
     sistem = db.Column(db.String(100), default='')
+    alt_sistem = db.Column(db.String(100), default='')
     aciklama = db.Column(db.Text, default='')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
