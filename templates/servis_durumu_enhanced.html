@@ -595,12 +595,33 @@
                 </tr>
             </thead>
             <tbody id="statusTableBody">
-                <tr>
-                    <td colspan="9" style="text-align: center; padding: 40px;">
-                        <div class="spinner"></div>
-                        <p>Veriler yükleniyor...</p>
+                {% if equipment_list %}
+                {% for eq in equipment_list %}
+                <tr data-vehicle="{{ eq.equipment_code }}">
+                    <td><strong>{{ eq.equipment_code }}</strong></td>
+                    <td>{{ eq.name }}</td>
+                    <td>
+                        <span class="badge bg-{{ eq.status_color }}">{{ eq.status_badge }}</span>
+                    </td>
+                    <td>{{ eq.latest_log.sistem if eq.latest_log else '-' }}</td>
+                    <td>{{ eq.latest_log.alt_sistem if eq.latest_log else '-' }}</td>
+                    <td>{{ eq.latest_log.log_date.strftime('%d.%m.%Y %H:%M') if eq.latest_log else '-' }}</td>
+                    <td><strong>{{ "%.1f"|format(eq.availability) }}%</strong></td>
+                    <td>{{ "%.1f"|format(eq.downtime) }} saat</td>
+                    <td>
+                        <button class="btn btn-sm btn-info" onclick="viewDetails('{{ eq.equipment_code }}')">
+                            <i class="bi bi-eye"></i> Detay
+                        </button>
                     </td>
                 </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="9" style="text-align: center; padding: 40px;">
+                        <p>Veri bulunamadı</p>
+                    </td>
+                </tr>
+                {% endif %}
             </tbody>
         </table>
     </div>

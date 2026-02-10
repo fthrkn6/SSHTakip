@@ -7,6 +7,7 @@ from flask import Blueprint, render_template, request, jsonify, session, flash, 
 from flask_login import login_required, current_user
 from models import db, ServiceLog, AvailabilityMetrics, RootCauseAnalysis, Failure, Equipment
 from datetime import datetime, timedelta, date
+from sqlalchemy import desc
 from utils_availability import (
     log_service_status_change
 )
@@ -26,37 +27,84 @@ def service_status_page():
     """Servis durumu dashboard sayfası"""
     try:
         # Tüm araçları getir
-        equipment_list = Equipment.query.all()
-        tram_ids = [eq.equipment_code for eq in equipment_list]
+        equipment_list = Equipment.query.filter_by(parent_id=None).all()
         
-        # Son 30 gün verilerini hazırla
-        start_date = date.today() - timedelta(days=30)
-        end_date = date.today()
+        # Her tramvay için durumunu getir
+        tram_status_data = []
+        for equipment in equipment_list:
+            # En son ServiceLog kaydını getir
+            latest_log = ServiceLog.query.filter_by(
+                tram_id=equipment.equipment_code
+            ).order_by(desc(ServiceLog.log_date)).first()
+            
+            # Durum belirle
+            status_color = 'success'  # Default yeşil
+            status_display = 'aktif'
+            status_badge = 'Aktif'
+            
+            if latest_log:
+                reason = latest_log.reason.lower() if latest_log.reason else ''
+                new_status = latest_log.new_status.lower() if latest_log.new_status else ''
+                
+                if 'işletme' in reason:
+                    status_color = 'warning'
+                    status_display = 'bakim'
+                    status_badge = 'İşletme Kaynaklı'
+                elif any(x in new_status for x in ['servis dışı', 'offline', 'down']):
+                    status_color = 'danger'
+                    status_display = 'ariza'
+                    status_badge = 'Servis Dışı'
+                else:
+                    status_color = 'success'
+                    status_display = 'aktif'
+                    status_badge = 'Aktif'
+            else:
+                # Equipment status'unu kullan
+                eq_status = equipment.status.lower() if equipment.status else 'active'
+                if 'active' in eq_status or 'operational' in eq_status:
+                    status_color = 'success'
+                    status_display = 'aktif'
+                    status_badge = 'Aktif'
+                elif 'maintenance' in eq_status or 'bakım' in eq_status:
+                    status_color = 'warning'
+                    status_display = 'bakim'
+                    status_badge = 'Bakımda'
+                else:
+                    status_color = 'danger'
+                    status_display = 'ariza'
+                    status_badge = 'Arızalı'
+            
+            # Availability metrikleri getir
+            latest_metric = AvailabilityMetrics.query.filter_by(
+                tram_id=equipment.equipment_code
+            ).order_by(AvailabilityMetrics.metric_date.desc()).first()
+            
+            tram_status_data.append({
+                'equipment_code': equipment.equipment_code,
+                'name': equipment.name,
+                'location': equipment.location if hasattr(equipment, 'location') else '',
+                'total_km': equipment.total_km if hasattr(equipment, 'total_km') else 0,
+                'status': status_display,
+                'status_color': status_color,
+                'status_badge': status_badge,
+                'latest_log': latest_log,
+                'latest_metric': latest_metric,
+                'availability': latest_metric.availability_percentage if latest_metric else 0,
+                'downtime': latest_metric.downtime_hours if latest_metric else 0,
+                'operational': latest_metric.operational_hours if latest_metric else 0
+            })
         
-        # Seçili dönem (query parameter'dan al)
+        # Son servis durumu loglarını getir (tüm araçlar)
+        recent_logs = ServiceLog.query.order_by(
+            desc(ServiceLog.log_date)
+        ).limit(100).all()
+        
+        # Seçili dönem
         period = request.args.get('period', 'monthly')
         
-        # Son availability raporlarını getir
-        availability_data = []
-        for tram_id in tram_ids:
-            latest_metric = AvailabilityMetrics.query.filter_by(tram_id=tram_id).order_by(
-                AvailabilityMetrics.created_at.desc()
-            ).first()
-            
-            if latest_metric:
-                availability_data.append({
-                    'tram_id': tram_id,
-                    'availability': latest_metric.availability_percentage,
-                    'downtime': latest_metric.downtime_hours,
-                    'operational': latest_metric.operational_hours
-                })
-        
-        # Son servis durumu loglarını getir
-        recent_logs = ServiceLog.query.order_by(ServiceLog.log_date.desc()).limit(50).all()
-        
         return render_template('servis_durumu_enhanced.html', 
-                             tram_ids=tram_ids,
-                             availability_data=availability_data,
+                             equipment_list=tram_status_data,
+                             tram_ids=[eq['equipment_code'] for eq in tram_status_data],
                              recent_logs=recent_logs,
                              period=period,
                              current_date=datetime.now())
