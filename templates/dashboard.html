@@ -2,6 +2,8 @@
 
 {% block title %}Dashboard - SSH Takip{% endblock %}
 
+<!-- DEBUG: tramvaylar count = {{ tramvaylar|length }} -->
+
 {% block extra_css %}
 <style>
     .kpi-card {
@@ -288,11 +290,11 @@
     </div>
     <div class="col-12 col-lg-3 col-md-6">
         <div class="kpi-card blue">
-            <i class="bi bi-check-circle kpi-icon"></i>
-            <div class="kpi-value">{{ kpi.failure_resolution_rate if kpi else 100 }}%</div>
-            <div class="kpi-label">Arıza Çözüm Oranı</div>
+            <i class="bi bi-exclamation-triangle kpi-icon"></i>
+            <div class="kpi-value">{{ total_failures_last_30_days or 0 }}</div>
+            <div class="kpi-label">Son 30 Günde Toplam Arıza</div>
             <div class="kpi-trend">
-                <i class="bi bi-graph-up"></i> Son 30 Gün
+                <i class="bi bi-calendar3"></i> Son Ay
             </div>
         </div>
     </div>
@@ -360,22 +362,29 @@
 
 <!-- Metrics Row -->
 <div class="row g-4 mb-4">
+    <!-- Toplam Arıza Sınıfları -->
     <div class="col-6 col-lg-2">
         <div class="metric-card">
-            <h6>Açık Arıza</h6>
-            <div class="metric-value text-danger">{{ stats.aktif_ariza }}</div>
+            <h6>Toplam Arıza<br><small>(A-Kritik)</small></h6>
+            <div class="metric-value text-danger">{{ ariza_sinif_counts.A.count }}</div>
         </div>
     </div>
     <div class="col-6 col-lg-2">
         <div class="metric-card">
-            <h6>Bekleyen İş</h6>
-            <div class="metric-value text-warning">{{ stats.bekleyen_is_emri }}</div>
+            <h6>Toplam Arıza<br><small>(B-Yüksek)</small></h6>
+            <div class="metric-value text-danger">{{ ariza_sinif_counts.B.count }}</div>
         </div>
     </div>
     <div class="col-6 col-lg-2">
         <div class="metric-card">
-            <h6>Devam Eden</h6>
-            <div class="metric-value text-primary">{{ stats.devam_eden_is_emri }}</div>
+            <h6>Toplam Arıza<br><small>(C-Hafif)</small></h6>
+            <div class="metric-value text-warning">{{ ariza_sinif_counts.C.count }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-2">
+        <div class="metric-card">
+            <h6>Toplam Arıza<br><small>(D-Diğer)</small></h6>
+            <div class="metric-value text-info">{{ ariza_sinif_counts.D.count }}</div>
         </div>
     </div>
     <div class="col-6 col-lg-2">
@@ -386,15 +395,8 @@
     </div>
     <div class="col-6 col-lg-2">
         <div class="metric-card">
-            <h6>Kritik Arıza</h6>
-            <div class="metric-value text-danger">{{ kpi.critical_failures if kpi else 0 }}</div>
-        </div>
-    </div>
-    <div class="col-6 col-lg-2">
-        <div class="metric-card">
-            <h6>Aylık Maliyet</h6>
-            <div class="metric-value" style="font-size:1.2rem">{{ "%.0f"|format(kpi.total_cost if kpi else 0) }}<span
-                    class="metric-unit"> TND</span></div>
+            <h6>Toplam Arızalar</h6>
+            <div class="metric-value text-danger">{{ total_failures_last_30_days }}</div>
         </div>
     </div>
 </div>
@@ -430,7 +432,7 @@
                             {% endif %}
                         </div>
                         <div class="mt-1">
-                            <small class="text-muted">{{ "%.0f"|format(tramvay.total_km) }} km</small>
+                            <small class="text-muted">{{ "%.0f"|format(tramvay.current_km or 0) }} km</small>
                         </div>
                     </div>
                     {% endfor %}
@@ -443,20 +445,28 @@
     <div class="col-12 col-xl-4">
         <div class="card h-100">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-bell me-2 text-danger"></i>Açık Arızalar</span>
+                <span><i class="bi bi-exclamation-triangle me-2 text-danger"></i>Toplam Arızalar</span>
                 <div>
                     <span id="filtered-vehicle-badge" class="badge bg-primary me-1" style="display: none;"></span>
-                    <span id="ariza-count" class="badge bg-danger">{{ son_arizalar|length if son_arizalar else 0
+                    <span id="ariza-count" class="badge bg-danger">{{ total_failures_last_30_days or 0
                         }}</span>
                     <button id="clear-filter-btn" class="btn btn-sm btn-outline-secondary ms-1" style="display: none;"
                         onclick="clearFilter()"><i class="bi bi-x"></i></button>
                 </div>
             </div>
             <div id="ariza-container" class="card-body" style="max-height: 400px; overflow-y: auto;">
+                <!-- En Son 5 Arıza Başlığı -->
+                <div class="d-flex align-items-center mb-3">
+                    <h6 class="mb-0 text-danger fw-bold">
+                        <i class="bi bi-exclamation-circle me-2"></i>En Son 5 Arıza
+                    </h6>
+                </div>
+
                 {% if son_arizalar %}
                 {% for ariza in son_arizalar %}
                 <div class="ariza-item d-flex align-items-start p-3 mb-2 rounded-3" style="background: #fef2f2;"
                     data-vehicle="{% if excel_data %}{{ ariza.vehicle }}{% else %}{{ ariza.equipment.equipment_code if ariza.equipment else '' }}{% endif %}">
+                    >
                     <div class="me-3">
                         <span class="badge bg-danger">Açık</span>
                     </div>
@@ -670,47 +680,57 @@
         // Normalize edilmiş vehicle code (TRN- olmadan)
         const normalizedCode = vehicleCode.replace('TRN-', '').trim();
 
-        // Arızaları filtrele
-        const arizaItems = document.querySelectorAll('.ariza-item');
-        let visibleCount = 0;
+        // API'den o araçla ilgili arızaları getir
+        fetch(`/dashboard/api/failures/${vehicleCode}`)
+            .then(response => response.json())
+            .then(data => {
+                const arizaContainer = document.getElementById('ariza-container');
 
-        arizaItems.forEach(item => {
-            const itemVehicle = item.getAttribute('data-vehicle') || '';
-            const normalizedItemVehicle = itemVehicle.replace('TRN-', '').trim();
+                if (data.failures && data.failures.length > 0) {
+                    // Arızaları göster
+                    let html = '';
+                    data.failures.forEach(ariza => {
+                        html += `
+                            <div class="ariza-item d-flex align-items-start p-3 mb-2 rounded-3" style="background: #fef2f2;">
+                                <div class="me-3">
+                                    <span class="badge bg-danger">Açık</span>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1 text-dark">${ariza.fracas_id}</h6>
+                                    <small class="text-muted">
+                                        <i class="bi bi-train-front me-1"></i>${ariza.arac_no}
+                                    </small>
+                                    <br>
+                                    <small class="text-muted">${ariza.sistem}: ${ariza.ariza_tanimi}</small>
+                                    <br>
+                                    <small class="text-muted">Tarih: ${ariza.tarih}</small>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    arizaContainer.innerHTML = html;
+                } else {
+                    // Arıza yok
+                    arizaContainer.innerHTML = `
+                        <div class="text-center py-5">
+                            <i class="bi bi-check-circle text-success" style="font-size: 48px;"></i>
+                            <p class="text-muted mt-3">Bu araçla ilgili açık arıza yok</p>
+                        </div>
+                    `;
+                }
 
-            // Normalize edilmiş karşılaştırma
-            if (normalizedItemVehicle === normalizedCode ||
-                normalizedItemVehicle.includes(normalizedCode) ||
-                normalizedCode.includes(normalizedItemVehicle) ||
-                itemVehicle === vehicleCode) {
-                item.classList.remove('hidden');
-                visibleCount++;
-            } else {
-                item.classList.add('hidden');
-            }
-        });
-
-        // Badge'leri güncelle
-        document.getElementById('ariza-count').textContent = visibleCount;
-        document.getElementById('filtered-vehicle-badge').textContent = normalizedCode;
-        document.getElementById('filtered-vehicle-badge').style.display = 'inline';
-        document.getElementById('clear-filter-btn').style.display = 'inline';
-
-        // Eğer hiç arıza yoksa mesaj göster
-        const container = document.getElementById('ariza-container');
-        let noDataMsg = container.querySelector('.no-data-msg');
-
-        if (visibleCount === 0) {
-            if (!noDataMsg) {
-                noDataMsg = document.createElement('div');
-                noDataMsg.className = 'no-data-msg text-center py-4';
-                noDataMsg.innerHTML = '<i class="bi bi-check-circle text-success" style="font-size: 48px;"></i><p class="text-muted mt-3">Bu araçta açık arıza yok</p>';
-                container.appendChild(noDataMsg);
-            }
-            noDataMsg.style.display = 'block';
-        } else if (noDataMsg) {
-            noDataMsg.style.display = 'none';
-        }
+                // Badge'leri güncelle
+                const count = data.failures ? data.failures.length : 0;
+                document.getElementById('ariza-count').textContent = count;
+                document.getElementById('filtered-vehicle-badge').textContent = normalizedCode;
+                document.getElementById('filtered-vehicle-badge').style.display = 'inline';
+                document.getElementById('clear-filter-btn').style.display = 'inline';
+            })
+            .catch(error => {
+                console.error('Hata:', error);
+                const arizaContainer = document.getElementById('ariza-container');
+                arizaContainer.innerHTML = '<div class="text-danger">Veri yüklenirken hata oluştu</div>';
+            });
     }
 
     function clearFilter() {
@@ -721,22 +741,51 @@
             card.classList.remove('selected');
         });
 
-        // Tüm arızaları göster
-        const arizaItems = document.querySelectorAll('.ariza-item');
-        arizaItems.forEach(item => {
-            item.classList.remove('hidden');
-        });
+        // API'den TÜM arızaları getir (boş araç kodu = hep son 5)
+        fetch(`/dashboard/api/failures/`)
+            .then(response => response.json())
+            .then(data => {
+                const arizaContainer = document.getElementById('ariza-container');
 
-        // Badge'leri güncelle
-        document.getElementById('ariza-count').textContent = arizaItems.length;
-        document.getElementById('filtered-vehicle-badge').style.display = 'none';
-        document.getElementById('clear-filter-btn').style.display = 'none';
+                if (data.failures && data.failures.length > 0) {
+                    let html = '';
+                    data.failures.forEach(ariza => {
+                        html += `
+                            <div class="ariza-item d-flex align-items-start p-3 mb-2 rounded-3" style="background: #fef2f2;">
+                                <div class="me-3">
+                                    <span class="badge bg-danger">Açık</span>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1 text-dark">${ariza.fracas_id}</h6>
+                                    <small class="text-muted">
+                                        <i class="bi bi-train-front me-1"></i>${ariza.arac_no}
+                                    </small>
+                                    <br>
+                                    <small class="text-muted">${ariza.sistem}: ${ariza.ariza_tanimi}</small>
+                                    <br>
+                                    <small class="text-muted">Tarih: ${ariza.tarih}</small>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    arizaContainer.innerHTML = html;
+                    document.getElementById('ariza-count').textContent = data.failures.length;
+                } else {
+                    arizaContainer.innerHTML = `
+                        <div class="text-center py-5">
+                            <i class="bi bi-check-circle text-success" style="font-size: 48px;"></i>
+                            <p class="text-muted mt-3">Açık arıza yok</p>
+                        </div>
+                    `;
+                    document.getElementById('ariza-count').textContent = '0';
+                }
 
-        // No data mesajını gizle
-        const noDataMsg = document.querySelector('.no-data-msg');
-        if (noDataMsg) {
-            noDataMsg.style.display = 'none';
-        }
+                document.getElementById('filtered-vehicle-badge').style.display = 'none';
+                document.getElementById('clear-filter-btn').style.display = 'none';
+            })
+            .catch(error => {
+                console.error('Hata:', error);
+            });
     }
 </script>
 {% endblock %}

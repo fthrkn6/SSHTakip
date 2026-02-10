@@ -617,7 +617,8 @@
         <nav class="sidebar-menu">
             <div class="sidebar-menu-title">Ana Menü</div>
 
-            <a href="{{ url_for('dashboard') }}" class="sidebar-link {{ 'active' if request.endpoint == 'dashboard' }}">
+            <a href="{{ url_for('dashboard.index') }}"
+                class="sidebar-link {{ 'active' if request.endpoint == 'dashboard.index' }}">
                 <i class="bi bi-grid-1x2-fill"></i>
                 <span>Dashboard</span>
             </a>
@@ -634,12 +635,6 @@
                 class="sidebar-link {{ 'active' if 'ariza_listesi_veriler' in request.endpoint|string }}">
                 <i class="bi bi-list-check"></i>
                 <span>Arıza Listesi - Veriler</span>
-            </a>
-
-            <a href="{{ url_for('ariza_listesi') }}"
-                class="sidebar-link {{ 'active' if 'ariza_listesi' in request.endpoint|string and 'veriler' not in request.endpoint|string }}">
-                <i class="bi bi-exclamation-triangle-fill"></i>
-                <span>Arızalar (Eski)</span>
             </a>
 
             <a href="{{ url_for('bakim_planlari') }}"

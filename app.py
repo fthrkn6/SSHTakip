@@ -12,6 +12,7 @@ from werkzeug.utils import secure_filename
 from routes.fracas import bp as fracas_bp, get_excel_path, get_column
 from routes.kpi import bp as kpi_bp
 from routes.service_status import bp as service_status_bp
+from routes.dashboard import bp as dashboard_bp
 import os
 import shutil
 import tempfile
@@ -63,13 +64,14 @@ def create_app():
         app.register_blueprint(fracas_bp)
         app.register_blueprint(kpi_bp)
         app.register_blueprint(service_status_bp)
+        app.register_blueprint(dashboard_bp)
 
         # ==================== ROUTES ====================
 
         @app.route('/')
         def index():
             if current_user.is_authenticated:
-                return redirect(url_for('dashboard'))
+                return redirect(url_for('dashboard.index'))
             return redirect(url_for('login'))
 
         @app.route('/login', methods=['GET', 'POST'])
@@ -78,28 +80,39 @@ def create_app():
                 return redirect(url_for('dashboard'))
             
             if request.method == 'POST':
-                username = request.form.get('username')
-                password = request.form.get('password')
-                
-                user = User.query.filter_by(username=username).first()
-                
-                if user and user.check_password(password):
-                    login_user(user, remember=request.form.get('remember'))
-                    user.last_login = datetime.now()
-                    db.session.commit()
+                try:
+                    username = request.form.get('username')
+                    password = request.form.get('password')
+                    print(f"[LOGIN] Attempting login with username: {username}")
                     
-                    # Set default project if not set
-                    if 'current_project' not in session:
-                        session['current_project'] = 'belgrad'
-                        session['project_code'] = 'belgrad'
-                        session['project_name'] = '🇷🇸 Belgrad'
+                    user = User.query.filter_by(username=username).first()
+                    print(f"[LOGIN] User found: {user is not None}")
                     
-                    next_page = request.args.get('next')
-                    if next_page and next_page.startswith('/'):
-                        return redirect(next_page)
-                    return redirect(url_for('dashboard'))
-                else:
-                    flash('Invalid username or password', 'danger')
+                    if user and user.check_password(password):
+                        print(f"[LOGIN] Password correct for {username}")
+                        login_user(user, remember=request.form.get('remember'))
+                        user.last_login = datetime.now()
+                        db.session.commit()
+                        print(f"[LOGIN] User {username} logged in successfully")
+                        
+                        # Set default project if not set
+                        if 'current_project' not in session:
+                            session['current_project'] = 'belgrad'
+                            session['project_code'] = 'belgrad'
+                            session['project_name'] = '🇷🇸 Belgrad'
+                        
+                        next_page = request.args.get('next')
+                        if next_page and next_page.startswith('/'):
+                            return redirect(next_page)
+                        return redirect(url_for('dashboard.index'))
+                    else:
+                        print(f"[LOGIN] Invalid password for {username}")
+                        flash('Invalid username or password', 'danger')
+                except Exception as e:
+                    print(f"[LOGIN] Error during login: {type(e).__name__}: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+                    flash(f'Login error: {str(e)}', 'danger')
             
             return render_template('login.html')
 
@@ -109,158 +122,6 @@ def create_app():
             logout_user()
             flash('You have been logged out.', 'success')
             return redirect(url_for('login'))
-
-        @app.route('/dashboard')
-        @login_required
-        def dashboard():
-            """Main dashboard"""
-            from datetime import datetime
-            
-            # Ensure project is selected
-            if 'current_project' not in session:
-                session['current_project'] = 'belgrad'
-                session['project_code'] = 'belgrad'
-                session['project_name'] = '🇷🇸 Belgrad'
-            
-            # ServiceStatus'ten Bugünün durumunu çek
-            today = datetime.now().strftime('%Y-%m-%d')
-            today_service_status = ServiceStatus.query.filter_by(date=today).all()
-            
-            # Status'a göre sayımlar
-            aktif_tramvay = len([s for s in today_service_status if s.status and 'Servis' in s.status and 'Dışı' not in s.status])
-            arizali_tramvay = len([s for s in today_service_status if s.status and 'Dışı' in s.status])
-            bakimda_tramvay = 0  # ServiceStatus'ta bakım durumu ayrı değil
-            
-            # Tüm tramvaylar (Excel'den)
-            import pandas as pd
-            import os
-            current_project = session.get('current_project', 'belgrad')
-            veriler_path = os.path.join(app.root_path, 'data', current_project, 'Veriler.xlsx')
-            toplam_tramvay = 0
-            
-            if os.path.exists(veriler_path):
-                try:
-                    df = pd.read_excel(veriler_path, sheet_name=1, header=0, engine='openpyxl')
-                    if 'tram_id' in df.columns:
-                        toplam_tramvay = len(df['tram_id'].dropna())
-                except Exception as e:
-                    print(f"Excel okuma hatası: {e}")
-            
-            # Fleet availability oranı = aktif tramvay / toplam tramvay * 100
-            fleet_availability = (aktif_tramvay / toplam_tramvay * 100) if toplam_tramvay > 0 else 0
-            
-            stats = {
-                'total_equipment': Equipment.query.count(),
-                'total_failures': Failure.query.count(),
-                'total_workorders': WorkOrder.query.count(),
-                'total_maintenance_plans': MaintenancePlan.query.count(),
-                'total_tramvay': toplam_tramvay,
-                'aktif_servis': aktif_tramvay,
-                'bakimda': bakimda_tramvay,
-                'arizali': arizali_tramvay,
-                'aktif_ariza': Failure.query.filter(Failure.status.ilike('open')).count() if Failure.query.count() > 0 else 0,
-                'bekleyen_is_emri': WorkOrder.query.filter(WorkOrder.status.ilike('pending')).count() if WorkOrder.query.count() > 0 else 0,
-                'devam_eden_is_emri': WorkOrder.query.filter(WorkOrder.status.ilike('in_progress')).count() if WorkOrder.query.count() > 0 else 0,
-                'bugun_tamamlanan': WorkOrder.query.filter(WorkOrder.status.ilike('completed')).count() if WorkOrder.query.count() > 0 else 0,
-            }
-            
-            # Get equipment (tramvaylar) - Veriler.xlsx'ten Sayfa2'den tram_id sütununu oku
-            import pandas as pd
-            import os
-            
-            current_project = session.get('current_project', 'belgrad')
-            veriler_path = os.path.join(app.root_path, 'data', current_project, 'Veriler.xlsx')
-            tramvaylar = []
-            
-            if os.path.exists(veriler_path):
-                try:
-                    # Sayfa2 (index 1) oku
-                    df = pd.read_excel(veriler_path, sheet_name=1, header=0, engine='openpyxl')
-                    if 'tram_id' in df.columns:
-                        # Excel'den tram_id'leri al
-                        tram_ids = df['tram_id'].dropna().astype(str).tolist()
-                        
-                        # Her tram_id için database'den equipment bilgisini çek
-                        for tram_id in tram_ids:
-                            tram_id_clean = tram_id.strip()
-                            
-                            # Database'den ara
-                            equipment = Equipment.query.filter(
-                                db.or_(
-                                    Equipment.id == tram_id_clean,
-                                    Equipment.id == int(tram_id_clean) if tram_id_clean.isdigit() else None,
-                                    Equipment.equipment_code == tram_id_clean
-                                )
-                            ).first()
-                            
-                            if equipment:
-                                # Database'den gerçek veriler
-                                tramvaylar.append({
-                                    'id': equipment.id,
-                                    'code': equipment.equipment_code or f'TRN-{tram_id_clean}',
-                                    'name': equipment.name or f'Tramvay {tram_id_clean}',
-                                    'location': current_project.capitalize(),
-                                    'status': getattr(equipment, 'status', 'aktif'),
-                                    'total_km': getattr(equipment, 'current_km', 0) or 0,
-                                    'total_failures': Failure.query.filter(Failure.equipment_id == equipment.id).count() if Failure.query.count() > 0 else 0,
-                                    'open_failures': Failure.query.filter(Failure.equipment_id == equipment.id, Failure.status.ilike('open')).count() if Failure.query.count() > 0 else 0,
-                                    'equipment_code': equipment.equipment_code or f'TRN-{tram_id_clean}',
-                                    'get_status_badge': lambda: ('success', 'Aktif')
-                                })
-                            else:
-                                # Database'de yoksa dummy object oluştur
-                                tramvaylar.append({
-                                    'id': tram_id_clean,
-                                    'code': f'TRN-{tram_id_clean}',
-                                    'name': f'Tramvay {tram_id_clean}',
-                                    'location': current_project.capitalize(),
-                                    'status': 'aktif',
-                                    'total_km': 0,
-                                    'total_failures': 0,
-                                    'open_failures': 0,
-                                    'equipment_code': f'TRN-{tram_id_clean}',
-                                    'get_status_badge': lambda: ('success', 'Aktif')
-                                })
-                except Exception as e:
-                    print(f"Veriler.xlsx okuma hatası: {e}")
-                    tramvaylar = []
-            
-            # Fallback: Database'ten al (eğer Excel yoksa)
-            if not tramvaylar:
-                tramvaylar = Equipment.query.all() if Equipment.query.count() > 0 else []
-            
-            # Get recent failures
-            son_arizalar = Failure.query.order_by(Failure.created_at.desc()).limit(10).all() if Failure.query.count() > 0 else []
-            
-            # KPI metrics - Gerçek verilerden hesapla
-            total_workorders = stats['total_workorders']
-            completed_workorders = stats['bugun_tamamlanan']
-            wo_completion_rate = (completed_workorders / total_workorders * 100) if total_workorders > 0 else 0
-            
-            # Koruyucu bakım oranı (MaintenancePlan'lar)
-            total_plans = stats['total_maintenance_plans']
-            preventive_ratio = (total_plans / total_workorders * 100) if total_workorders > 0 else 0
-            
-            # Arıza çözüm oranı (open vs total failures)
-            total_failures = stats['total_failures']
-            open_failures = stats['aktif_ariza']
-            failure_resolution_rate = ((total_failures - open_failures) / total_failures * 100) if total_failures > 0 else 100
-            
-            kpi = {
-                'fleet_availability': round(fleet_availability, 1),
-                'failure_resolution_rate': round(failure_resolution_rate, 1),
-                'wo_completion_rate': round(wo_completion_rate, 1),
-                'preventive_ratio': round(preventive_ratio, 1),
-                'critical_failures': open_failures,
-                'total_cost': 0  # Bu veri database'de yok
-            }
-            
-            return render_template('dashboard.html', 
-                                 stats=stats, 
-                                 tramvaylar=tramvaylar,
-                                 son_arizalar=son_arizalar,
-                                 kpi=kpi,
-                                 excel_data=False)
 
         @app.route('/profile')
         @login_required
@@ -300,17 +161,16 @@ def create_app():
                         break
             
             if request.method == 'GET':
-                # Son FRACAS ID'yi Arıza Listesi'nden bul (temp'te)
+                # Son FRACAS ID'yi Arıza Listesi'nden bul
                 import tempfile
                 import time
                 next_fracas_id = 1
                 
                 ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
                 os.makedirs(ariza_listesi_dir, exist_ok=True)
-                today_date = datetime.now().strftime('%Y%m%d')
                 temp_dir = tempfile.gettempdir()
                 
-                ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_BELGRAD_{today_date}.xlsx")
+                ariza_listesi_file = os.path.join(ariza_listesi_dir, "Ariza_Listesi_BELGRAD.xlsx")
                 
                 if os.path.exists(ariza_listesi_file):
                     try:
@@ -492,16 +352,15 @@ def create_app():
                     ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
                     os.makedirs(ariza_listesi_dir, exist_ok=True)
                     
-                    today_date = datetime.now().strftime('%Y%m%d')
                     temp_dir = tempfile.gettempdir()
-                    ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_BELGRAD_{today_date}.xlsx")
+                    ariza_listesi_file = os.path.join(ariza_listesi_dir, "Ariza_Listesi_BELGRAD.xlsx")
                     
                     # FRACAS ID hesapla (YALNIzCA Arıza Listesi'nden - TEMP'TEN OKU)
                     next_fracas_num = 1
                     if os.path.exists(ariza_listesi_file):
                         try:
                             # Main dosyayı temp'e kopyala (lock'u çözmek için)
-                            temp_read_file = os.path.join(temp_dir, f"Ariza_check_{today_date}_{int(time.time())}.xlsx")
+                            temp_read_file = os.path.join(temp_dir, f"Ariza_check_{int(time.time())}.xlsx")
                             shutil.copy(ariza_listesi_file, temp_read_file)
                             time.sleep(0.2)
                             
@@ -542,7 +401,7 @@ def create_app():
                     
                     # Güncellik Arıza Listesi dosyasını bul
                     today_date = datetime.now().strftime('%Y%m%d')
-                    ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_BELGRAD_{today_date}.xlsx")
+                    ariza_listesi_file = os.path.join(ariza_listesi_dir, "Ariza_Listesi_BELGRAD.xlsx")
                     
                     # Temp klasörü tanımla (tüm işlemler için)
                     import tempfile
@@ -551,7 +410,7 @@ def create_app():
                     
                     # Yoksa yeni dosya oluştur (temp'te, sonra taşı)
                     if not os.path.exists(ariza_listesi_file):
-                        temp_file = os.path.join(temp_dir, f"Ariza_Listesi_BELGRAD_{today_date}_temp.xlsx")
+                        temp_file = os.path.join(temp_dir, f"Ariza_Listesi_BELGRAD_temp_{int(time.time())}.xlsx")
                         
                         from openpyxl import Workbook
                         wb_new = Workbook()
@@ -717,8 +576,7 @@ def create_app():
             ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
             os.makedirs(ariza_listesi_dir, exist_ok=True)
             
-            today_date = datetime.now().strftime('%Y%m%d')
-            ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_BELGRAD_{today_date}.xlsx")
+            ariza_listesi_file = os.path.join(ariza_listesi_dir, "Ariza_Listesi_BELGRAD.xlsx")
             
             rows = []
             row_count = 0
@@ -765,8 +623,7 @@ def create_app():
             
             try:
                 ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
-                today_date = datetime.now().strftime('%Y%m%d')
-                ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_BELGRAD_{today_date}.xlsx")
+                ariza_listesi_file = os.path.join(ariza_listesi_dir, "Ariza_Listesi_BELGRAD.xlsx")
                 
                 if not os.path.exists(ariza_listesi_file):
                     flash('❌ Arıza Listesi dosyası bulunamadı', 'danger')
@@ -786,8 +643,7 @@ def create_app():
             import pandas as pd
             
             ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
-            today_date = datetime.now().strftime('%Y%m%d')
-            ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_BELGRAD_{today_date}.xlsx")
+            ariza_listesi_file = os.path.join(ariza_listesi_dir, "Ariza_Listesi_BELGRAD.xlsx")
             
             if not os.path.exists(ariza_listesi_file):
                 flash('❌ Dosya bulunamadı', 'danger')
@@ -798,7 +654,7 @@ def create_app():
                 return send_file(
                     ariza_listesi_file,
                     as_attachment=True,
-                    download_name=f"Ariza_Listesi_BELGRAD_{today_date}.xlsx",
+                    download_name="Ariza_Listesi_BELGRAD.xlsx",
                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 )
             except Exception as e:
@@ -854,148 +710,8 @@ def create_app():
         @app.route('/arizalar')
         @login_required
         def arizalar():
-            """Arıza listesi - Excel'den FRACAS verilerini yükle (Hibrid - Dinamik Sütunlar)"""
-            import pandas as pd
-            from routes.fracas import get_excel_path
-            from datetime import datetime
-            
-            # Helper function
-            def get_column(df, possible_names):
-                """Olası kolon isimlerinden birini bul"""
-                for col in df.columns:
-                    for name in possible_names:
-                        if name.lower() in col.lower():
-                            return col
-                return None
-            
-            def safe_get(row, possible_names, default='-'):
-                """Satırdan güvenli şekilde değer getir"""
-                for name in possible_names:
-                    val = row.get(name)
-                    if pd.notna(val) and str(val).strip() and str(val) != 'nan':
-                        return str(val).strip()
-                return default
-            
-            # Excel'den FRACAS verilerini yükle
-            excel_path = get_excel_path()
-            excel_data = False
-            failures_list = []
-            all_columns = []  # Tüm sütun adlarını tut
-            column_display_names = {}  # Sütun gösterim adları
-            
-            if excel_path and os.path.exists(excel_path):
-                try:
-                    df = pd.read_excel(excel_path, sheet_name='FRACAS', header=0, engine='openpyxl')
-                    df.columns = df.columns.astype(str).str.replace('\n', ' ', regex=False).str.strip()
-                    
-                    # Boş satırları temizle
-                    fracas_col = get_column(df, ['FRACAS ID', 'Fracas Id', 'fracas_id'])
-                    if fracas_col:
-                        # Sadece FRACAS ID'si olan satırları tut
-                        df = df[df[fracas_col].notna()].copy()
-                    
-                    if len(df) > 0:
-                        excel_data = True
-                        all_columns = list(df.columns)
-                        
-                        # Sütun gösterim adlarını oluştur (yeni temiz başlıklar)
-                        display_mapping = {
-                            'Proje': 'Proje',
-                            'Araç Numarası': 'Araç No',
-                            'Araç Modülü': 'Modül',
-                            'Araç Kilometresi': 'Km',
-                            'FRACAS ID': 'Arıza Kodu',
-                            'Hata Tarih Saat': 'Tarih',
-                            'Sistem': 'Sistem',
-                            'Alt Sistemler': 'Alt Sistem',
-                            'İlgili Tedarikçi': 'Tedarikçi',
-                            'Arıza Tanımı': 'Açıklama',
-                            'Arıza Sınıfı': 'Sınıf',
-                            'Arıza Kaynağı': 'Kaynak',
-                            'Arıza Tespitini Takiben Yapılan İşlem': 'İşlem',
-                            'Aksiyon': 'Aksiyon',
-                            'Garanti Kapsamı': 'Garanti',
-                            'Tamir Süresi (dakika)': 'Tamir Süresi',
-                            'Araç MTTR': 'MTTR Araç',
-                            'Kompanent MTTR': 'MTTR Komponent',
-                            'Parça Kodu': 'Parça Kodu',
-                            'Parça Adı': 'Parça Adı',
-                            'Adeti': 'Adet',
-                            'İşçilik Maliyeti': 'Maliyet',
-                            'Arıza Tipi': 'Tip',
-                        }
-                        
-                        for col in all_columns:
-                            if col in display_mapping:
-                                column_display_names[col] = display_mapping[col]
-                            else:
-                                # Bilinmeyen sütunlar için otomatik gösterim
-                                column_display_names[col] = col[:30]
-                        
-                        # DataFrame'i dictionary listesine dönüştür
-                        for idx, (_, row) in enumerate(df.iterrows(), 1):
-                            # Her sütunun değerini alalım
-                            failure_dict = {'idx': idx, 'raw_data': {}}
-                            
-                            for col in all_columns:
-                                val = row.get(col)
-                                if pd.notna(val) and str(val).strip() and str(val) != 'nan':
-                                    failure_dict['raw_data'][col] = str(val).strip()
-                                else:
-                                    failure_dict['raw_data'][col] = '-'
-                            
-                            # Özel işlemler (tarih, tamir süresi, vb)
-                            date_val = '-'
-                            for col in ['Hata Tarih Saat', 'Tarih', 'Date', '.']:
-                                val = row.get(col)
-                                if pd.notna(val):
-                                    try:
-                                        date_val = pd.Timestamp(val).strftime('%d.%m.%Y %H:%M')
-                                    except:
-                                        date_val = str(val).strip()
-                                    if date_val != '-':
-                                        break
-                            failure_dict['detection_date'] = date_val
-                            
-                            # Tamir süresi formatlaması
-                            repair_col = get_column(df, ['Tamir Süresi', 'Repair Time'])
-                            if repair_col:
-                                repair_time = failure_dict['raw_data'].get(repair_col, '-')
-                                if repair_time != '-':
-                                    try:
-                                        repair_time = f"{int(float(repair_time))} dakika"
-                                    except:
-                                        pass
-                                failure_dict['repair_time'] = repair_time
-                            else:
-                                failure_dict['repair_time'] = '-'
-                            
-                            failures_list.append(failure_dict)
-                except Exception as e:
-                    # Excel okuma hatası - veri işlenmedi
-                    excel_data = False
-            
-            # Excel yoksa database'den çek
-            if not excel_data:
-                failures = Failure.query.all()
-                failures_list = failures
-            
-            # Stats for page header
-            stats = {
-                'toplam': len(failures_list),
-                'acik': len(failures_list),  # Excel'den tümü açık kabul et
-                'devam_ediyor': 0,
-                'cozuldu': 0,
-            }
-            
-            return render_template('arizalar.html', arizalar=failures_list, failures=failures_list, excel_data=excel_data, stats=stats, columns=all_columns, column_display_names=column_display_names)
-
-        # Alias for template compatibility
-        @app.route('/ariza-listesi')
-        @login_required
-        def ariza_listesi():
-            """Alias for arizalar"""
-            return arizalar()
+            """Redirect to ariza_listesi_veriler page"""
+            return redirect(url_for('ariza_listesi_veriler'))
 
         @app.route('/is-emirleri')
         @login_required
@@ -1238,7 +954,7 @@ def create_app():
             else:
                 flash('Geçersiz proje!', 'error')
             
-            return redirect(url_for('dashboard'))
+            return redirect(url_for('dashboard.index'))
 
         @app.route('/profil-guncelle', methods=['POST'])
         @login_required
@@ -1886,8 +1602,43 @@ def create_app():
 
         @app.errorhandler(500)
         def internal_error(error):
+            import traceback
+            # Log the full error
+            print("\n" + "="*80)
+            print("INTERNAL SERVER ERROR (500)")
+            print("="*80)
+            print(f"Error Type: {type(error)}")
+            print(f"Error Message: {str(error)}")
+            print(f"\nFull Traceback:")
+            print(traceback.format_exc())
+            print("="*80 + "\n")
+            
             db.session.rollback()
-            return render_template('500.html'), 500
+            
+            # Try to render the error template, if that fails, show plain text
+            try:
+                return render_template('500.html'), 500
+            except:
+                return f"""
+                <html>
+                    <body>
+                        <h1>500 - Internal Server Error</h1>
+                        <p>An error occurred. Check the server logs for details.</p>
+                        <p><a href="/">Go back</a></p>
+                    </body>
+                </html>
+                """, 500
+
+        @app.before_request
+        def log_request():
+            """Log all incoming requests"""
+            print(f"\n>> {request.method} {request.path} - IP: {request.remote_addr}")
+
+        @app.after_request
+        def log_response(response):
+            """Log all responses"""
+            print(f"<< {response.status_code} {response.status} - {request.path}")
+            return response
 
         print('create_app finished')
         print(f'App object type: {type(app)}')
@@ -1928,4 +1679,4 @@ if __name__ == '__main__':
         init_sample_data(app)
     # Cloud ve local deployment için PORT ayarı
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
+    app.run(host='0.0.0.0', port=port, debug=True, threaded=True)

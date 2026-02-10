@@ -5,7 +5,7 @@ Araç servis durumunu yönet, raporla ve analiz et
 
 from flask import Blueprint, render_template, request, jsonify, session, flash, redirect, url_for, send_file
 from flask_login import login_required, current_user
-from models import db, ServiceLog, AvailabilityMetrics, RootCauseAnalysis, Failure, Equipment
+from models import db, ServiceStatus, AvailabilityMetrics, RootCauseAnalysis, Failure, Equipment
 from datetime import datetime, timedelta, date
 from sqlalchemy import desc
 from utils_availability import (
@@ -29,31 +29,39 @@ def service_status_page():
         # Tüm araçları getir
         equipment_list = Equipment.query.filter_by(parent_id=None).all()
         
+        # Bugünün tarihi
+        today_date = str(date.today())
+        
         # Her tramvay için durumunu getir
         tram_status_data = []
         for equipment in equipment_list:
-            # En son ServiceLog kaydını getir
-            latest_log = ServiceLog.query.filter_by(
-                tram_id=equipment.equipment_code
-            ).order_by(desc(ServiceLog.log_date)).first()
+            # ServiceStatus'ten bugünün kaydını getir
+            status_record = ServiceStatus.query.filter_by(
+                tram_id=equipment.equipment_code,
+                date=today_date
+            ).first()
             
             # Durum belirle
             status_color = 'success'  # Default yeşil
             status_display = 'aktif'
             status_badge = 'Aktif'
             
-            if latest_log:
-                reason = latest_log.reason.lower() if latest_log.reason else ''
-                new_status = latest_log.new_status.lower() if latest_log.new_status else ''
+            if status_record:
+                status_value = status_record.status.lower() if status_record.status else ''
+                aciklama = status_record.aciklama if status_record.aciklama else ''
                 
-                if 'işletme' in reason:
+                if 'işletme kaynaklı' in status_value:
                     status_color = 'warning'
-                    status_display = 'bakim'
+                    status_display = 'aktif'  # İşletme kaynaklı = aktif göster
                     status_badge = 'İşletme Kaynaklı'
-                elif any(x in new_status for x in ['servis dışı', 'offline', 'down']):
+                elif 'servis dışı' in status_value:
                     status_color = 'danger'
                     status_display = 'ariza'
                     status_badge = 'Servis Dışı'
+                elif 'servis' in status_value:
+                    status_color = 'success'
+                    status_display = 'aktif'
+                    status_badge = 'Aktif'
                 else:
                     status_color = 'success'
                     status_display = 'aktif'
@@ -67,7 +75,7 @@ def service_status_page():
                     status_badge = 'Aktif'
                 elif 'maintenance' in eq_status or 'bakım' in eq_status:
                     status_color = 'warning'
-                    status_display = 'bakim'
+                    status_display = 'aktif'
                     status_badge = 'Bakımda'
                 else:
                     status_color = 'danger'
@@ -87,16 +95,16 @@ def service_status_page():
                 'status': status_display,
                 'status_color': status_color,
                 'status_badge': status_badge,
-                'latest_log': latest_log,
+                'status_record': status_record,
                 'latest_metric': latest_metric,
                 'availability': latest_metric.availability_percentage if latest_metric else 0,
                 'downtime': latest_metric.downtime_hours if latest_metric else 0,
                 'operational': latest_metric.operational_hours if latest_metric else 0
             })
         
-        # Son servis durumu loglarını getir (tüm araçlar)
-        recent_logs = ServiceLog.query.order_by(
-            desc(ServiceLog.log_date)
+        # Son servis durumu kayıtlarını getir (tüm araçlar)
+        recent_statuses = ServiceStatus.query.order_by(
+            desc(ServiceStatus.updated_at)
         ).limit(100).all()
         
         # Seçili dönem
@@ -105,7 +113,7 @@ def service_status_page():
         return render_template('servis_durumu_enhanced.html', 
                              equipment_list=tram_status_data,
                              tram_ids=[eq['equipment_code'] for eq in tram_status_data],
-                             recent_logs=recent_logs,
+                             recent_logs=recent_statuses,
                              period=period,
                              current_date=datetime.now())
     

@@ -5,7 +5,7 @@ Araç kullanılabilirlik hesaplamaları ve raporlar
 
 from datetime import datetime, timedelta, date
 from sqlalchemy import func
-from models import db, ServiceLog, AvailabilityMetrics, RootCauseAnalysis, Failure, Equipment
+from models import db, ServiceLog, ServiceStatus, AvailabilityMetrics, RootCauseAnalysis, Failure, Equipment
 import json
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -439,9 +439,9 @@ class ExcelReportGenerator:
 
 
 def log_service_status_change(tram_id, new_status, sistem=None, alt_sistem=None, reason=None, duration_hours=0, user_id=None):
-    """Servis durumu değişikliğini log'la"""
+    """Servis durumu değişikliğini log'la - BOTH ServiceLog ve ServiceStatus'e yaz"""
     
-    # Son durumu bul
+    # ===== ServiceLog'a yaz (compatibility için) =====
     last_log = ServiceLog.query.filter_by(tram_id=tram_id).order_by(ServiceLog.log_date.desc()).first()
     previous_status = last_log.new_status if last_log else None
     
@@ -457,10 +457,37 @@ def log_service_status_change(tram_id, new_status, sistem=None, alt_sistem=None,
         created_by=user_id,
         notes=f"Status changed from {previous_status} to {new_status}"
     )
-    
     db.session.add(log)
+    
+    # ===== ServiceStatus'e yaz (PRIMARY) =====
+    today_date = datetime.now().strftime('%Y-%m-%d')
+    status_record = ServiceStatus.query.filter_by(
+        tram_id=tram_id,
+        date=today_date
+    ).first()
+    
+    if status_record:
+        # Mevcut kaydı güncelle
+        status_record.status = new_status
+        status_record.sistem = sistem
+        status_record.aciklama = reason
+        status_record.created_by = user_id
+        status_record.updated_at = datetime.utcnow()
+    else:
+        # Yeni kayıt oluştur
+        status_record = ServiceStatus(
+            tram_id=tram_id,
+            date=today_date,
+            status=new_status,
+            sistem=sistem,
+            aciklama=reason,
+            created_by=user_id
+        )
+        db.session.add(status_record)
+    
     db.session.commit()
     
-    logger.info(f"Service status logged for {tram_id}: {previous_status} -> {new_status}")
+    logger.info(f"Service status logged for {tram_id}: {previous_status} -> {new_status} (ServiceLog & ServiceStatus)")
+    
     
     return log
