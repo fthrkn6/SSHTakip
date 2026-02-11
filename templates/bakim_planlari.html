@@ -1,120 +1,500 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
-{% block title %}Bakım Planları - SSH Takip{% endblock %}
+{% block title %}Bakım Planlaması{% endblock %}
+
+{% block extra_css %}
+<style>
+    .km-cell {
+        font-weight: bold;
+        font-size: 1.1em;
+        padding: 12px 8px;
+        border-radius: 4px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    .km-normal {
+        background-color: #d4edda;
+        color: #155724;
+        border: 2px solid #28a745;
+    }
+
+    .km-warning {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 2px solid #ffc107;
+    }
+
+    .km-urgent {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 2px solid #dc3545;
+    }
+
+    .km-overdue {
+        background-color: #e2e3e5;
+        color: #383d41;
+        border: 2px solid #6c757d;
+    }
+
+    .status-badge {
+        font-size: 0.9em;
+        padding: 6px 12px;
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: #f5f5f5;
+        cursor: pointer;
+    }
+
+    .next-maintenance-box {
+        padding: 12px;
+        border-radius: 4px;
+        margin: 8px 0;
+        background-color: #f8f9fa;
+        border-left: 4px solid #007bff;
+    }
+
+    .modal-body .list-group-item {
+        border-left: 4px solid #dee2e6;
+        padding: 12px;
+        margin-bottom: 8px;
+    }
+
+    .modal-body .list-group-item.urgent {
+        border-left-color: #dc3545;
+        background-color: #fff5f5;
+    }
+
+    .modal-body .list-group-item.warning {
+        border-left-color: #ffc107;
+        background-color: #fffbf0;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h1 class="page-title">Bakım Planları</h1>
-        <p class="page-subtitle">Periyodik ve koruyucu bakım planlaması</p>
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>
+                    <i class="bi bi-tools me-2"></i>Bakım Planlaması
+                </h2>
+                <button class="btn btn-outline-primary btn-sm" onclick="exportToExcel()">
+                    <i class="bi bi-download me-2"></i>Rapor İndir
+                </button>
+            </div>
+
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                Tabloyu kullanmak için: <strong>Araçların satırına tıklayın</strong> → Hangi bakımları yaptığınızı seçin
+                → Kaydet
+            </div>
+        </div>
     </div>
-    <a href="{{ url_for('bakim_plani_ekle') }}" class="btn btn-warning">
-        <i class="bi bi-plus-lg me-2"></i>Yeni Bakım Planı
-    </a>
+
+    <!-- Filtreler -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-secondary btn-sm active" onclick="filterTable('all')">
+                    Tümü <span id="count-all" class="badge bg-secondary ms-2">0</span>
+                </button>
+                <button type="button" class="btn btn-outline-danger btn-sm" onclick="filterTable('urgent')">
+                    Acil <span id="count-urgent" class="badge bg-danger ms-2">0</span>
+                </button>
+                <button type="button" class="btn btn-outline-warning btn-sm" onclick="filterTable('warning')">
+                    Uyarı <span id="count-warning" class="badge bg-warning text-dark ms-2">0</span>
+                </button>
+                <button type="button" class="btn btn-outline-success btn-sm" onclick="filterTable('normal')">
+                    Normal <span id="count-normal" class="badge bg-success ms-2">0</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tablo -->
+    <div class="table-responsive">
+        <table class="table table-hover table-striped" id="maintenanceTable">
+            <thead class="table-dark">
+                <tr>
+                    <th style="width: 200px;">Araç</th>
+                    <th style="width: 150px;" class="text-center">
+                        Mevcut KM
+                        <div style="font-size: 0.8em; font-weight: normal; margin-top: 5px;">
+                            (Renkle yakınlık görün)
+                        </div>
+                    </th>
+                    <th style="width: 120px;" class="text-center">Sonraki Bakım</th>
+                    <th style="width: 120px;" class="text-center">KM Farkı</th>
+                    <th style="width: 150px;" class="text-center">Durum</th>
+                    <th style="width: 200px;" class="text-center">İşlem</th>
+                </tr>
+            </thead>
+            <tbody id="tbody">
+                <!-- Dinamik olarak doldurulacak -->
+            </tbody>
+        </table>
+    </div>
 </div>
 
-<!-- Stats -->
-<div class="row g-3 mb-4">
-    <div class="col-md-4">
-        <div class="stat-card">
-            <div class="stat-icon primary">
-                <i class="bi bi-calendar-check"></i>
+<!-- Bakım Detay Modal -->
+<div class="modal fade" id="maintenanceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTramName">Tramvay XXX</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="stat-content">
-                <h3>{{ stats.toplam }}</h3>
-                <p>Aktif Plan</p>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Araç Bilgileri</h6>
+                        <p><strong>Araç ID:</strong> <span id="modalTramId"></span></p>
+                        <p><strong>Mevcut KM:</strong> <span id="modalCurrentKm"></span></p>
+                        <p><strong>Genel Durum:</strong> <span id="modalStatus"></span></p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Bakım Özeti</h6>
+                        <p><strong>Acil Bakımlar:</strong> <span class="badge bg-danger" id="modalUrgentCount">0</span>
+                        </p>
+                        <p><strong>Uyarılı Bakımlar:</strong> <span class="badge bg-warning text-dark"
+                                id="modalWarningCount">0</span></p>
+                        <p><strong>Tamamlanan:</strong> <span class="badge bg-success" id="modalCompletedCount">0</span>
+                        </p>
+                    </div>
+                </div>
+
+                <hr>
+
+                <h6>Bakım Seviyelerine Göre Durum</h6>
+                <div id="maintenanceDetails" style="max-height: 400px; overflow-y: auto;">
+                    <!-- Dinamik olarak doldurulacak -->
+                </div>
             </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="stat-card">
-            <div class="stat-icon danger">
-                <i class="bi bi-exclamation-circle"></i>
-            </div>
-            <div class="stat-content">
-                <h3>{{ stats.geciken }}</h3>
-                <p>Geciken</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="stat-card">
-            <div class="stat-icon warning">
-                <i class="bi bi-clock-history"></i>
-            </div>
-            <div class="stat-content">
-                <h3>{{ stats.bu_hafta }}</h3>
-                <p>Bu Hafta</p>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                <button type="button" class="btn btn-primary" onclick="saveMaintenanceState()">Değişiklikleri
+                    Kaydet</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Plan List -->
-<div class="card">
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead>
-                    <tr>
-                        <th>Plan Kodu</th>
-                        <th>Ekipman</th>
-                        <th>Bakım Adı</th>
-                        <th>Tip</th>
-                        <th>Periyot</th>
-                        <th>Sonraki Tarih</th>
-                        <th>Durum</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for plan in planlar %}
-                    <tr class="{{ 'table-danger' if plan.is_overdue() else '' }}">
-                        <td><strong>{{ plan.plan_code }}</strong></td>
-                        <td>
-                            {% if plan.equipment %}
-                            <a href="{{ url_for('ekipman_detay', id=plan.equipment.id) }}" class="text-decoration-none">
-                                {{ plan.equipment.equipment_code }}
-                            </a>
-                            {% else %}
-                            -
-                            {% endif %}
-                        </td>
-                        <td>{{ plan.name }}</td>
-                        <td>{{ plan.maintenance_type }}</td>
-                        <td>{{ plan.frequency_days }} gün</td>
-                        <td>
-                            <span class="{% if plan.is_overdue() %}text-danger fw-bold{% endif %}">
-                                {{ plan.next_due_date.strftime('%d.%m.%Y') if plan.next_due_date else '-' }}
-                            </span>
-                            {% if plan.days_until_due() is not none %}
-                                {% if plan.is_overdue() %}
-                                    <br><small class="text-danger">{{ plan.days_until_due()|abs }} gün gecikmiş</small>
-                                {% else %}
-                                    <br><small class="text-muted">{{ plan.days_until_due() }} gün kaldı</small>
-                                {% endif %}
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if plan.is_overdue() %}
-                                <span class="badge bg-danger">Gecikmiş</span>
-                            {% elif plan.is_active %}
-                                <span class="badge bg-success">Aktif</span>
-                            {% else %}
-                                <span class="badge bg-secondary">Pasif</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="7" class="text-center py-5">
-                            <i class="bi bi-calendar text-muted" style="font-size: 48px;"></i>
-                            <p class="text-muted mt-3">Bakım planı bulunamadı</p>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
+<script>
+    let maintenanceData = null;
+    let maintenanceState = {}; // {tram_id: {level: {completed: bool, works: []}}}
+    let currentTramId = null;
+    let currentFilter = 'all';
+
+    // Sayfa yüklendiğinde veri çek
+    document.addEventListener('DOMContentLoaded', function () {
+        loadData();
+        loadState();
+    });
+
+    function loadState() {
+        // localStorage'dan bakım tamamlanma durumunu yükle
+        try {
+            const saved = localStorage.getItem('maintenanceState');
+            if (saved) {
+                maintenanceState = JSON.parse(saved);
+            }
+        } catch (e) {
+            console.error('State yüklenirken hata:', e);
+        }
+    }
+
+    function saveState() {
+        // localStorage'a bakım durumunu kaydet
+        localStorage.setItem('maintenanceState', JSON.stringify(maintenanceState));
+    }
+
+    function loadData() {
+        fetch('/api/bakim-verileri')
+            .then(r => r.json())
+            .then(data => {
+                maintenanceData = data;
+                renderTable();
+                updateCounts();
+            })
+            .catch(err => {
+                console.error('Veri yüklenirken hata:', err);
+                alert('Bakım verileri yüklenemedi');
+            });
+    }
+
+    function renderTable() {
+        if (!maintenanceData) return;
+
+        const tbody = document.getElementById('tbody');
+        tbody.innerHTML = '';
+
+        maintenanceData.tramps.forEach(tram => {
+            const row = createTableRow(tram);
+            tbody.appendChild(row);
+        });
+
+        if (currentFilter !== 'all') {
+            filterTable(currentFilter);
+        }
+    }
+
+    function createTableRow(tram) {
+        const row = document.createElement('tr');
+        const tram_id = tram.tram_id;
+
+        // En yakın bakımı kullan (API'dan zaten hesaplanmış)
+        const nearest = tram.nearest_maintenance;
+        const closestStatus = nearest.status;
+        const closestKmLeft = nearest.km_left;
+        const nextKm = nearest.next_km;
+        const level = nearest.level;
+
+        row.className = `status-${closestStatus}`;
+        row.setAttribute('data-status', closestStatus);
+
+        const kmCellClass = `km-cell km-${closestStatus}`;
+
+        row.innerHTML = `
+            <td>
+                <strong>${tram.tram_name}</strong>
+                <br>
+                <small class="text-muted">ID: ${tram_id}</small>
+            </td>
+            <td class="text-center">
+                <div class="${kmCellClass}">
+                    ${tram.current_km.toLocaleString('tr-TR')} KM
+                    <div style="font-size: 0.75em; font-weight: normal; margin-top: 3px;">
+                        (${level} sonraki)
+                    </div>
+                </div>
+            </td>
+            <td class="text-center">
+                <strong>${nextKm === Infinity ? '∞' : nextKm.toLocaleString('tr-TR')}</strong> KM
+            </td>
+            <td class="text-center">
+                <span class="badge ${getKmLeftBadgeClass(closestKmLeft)}">
+                    ${closestKmLeft.toLocaleString('tr-TR')} KM
+                </span>
+            </td>
+            <td class="text-center">
+                <span class="status-badge ${getStatusBadgeClass(closestStatus)}">
+                    ${getStatusText(closestStatus)}
+                </span>
+            </td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-primary" onclick="openMaintenanceModal('${tram_id}')">
+                    <i class="bi bi-pencil-square me-1"></i>Detaylar
+                </button>
+            </td>
+        `;
+
+        row.onclick = function () {
+            openMaintenanceModal(tram_id);
+        };
+
+        return row;
+    }
+
+    function getKmLeftBadgeClass(kmLeft) {
+        if (kmLeft <= 0) return 'bg-dark';
+        else if (kmLeft <= 500) return 'bg-danger';
+        else if (kmLeft <= 2000) return 'bg-warning text-dark';
+        else return 'bg-success';
+    }
+
+    function getStatusText(status) {
+        const texts = {
+            'normal': 'Normal ✓',
+            'warning': 'Uyarı ⚠️',
+            'urgent': 'Acil 🔴',
+            'overdue': 'Geçmiş ✘'
+        };
+        return texts[status] || status;
+    }
+
+    function getStatusBadgeClass(status) {
+        const classes = {
+            'normal': 'bg-success',
+            'warning': 'bg-warning text-dark',
+            'urgent': 'bg-danger',
+            'overdue': 'bg-dark'
+        };
+        return classes[status] || 'bg-secondary';
+    }
+
+    function updateCounts() {
+        const counts = {
+            all: 0,
+            normal: 0,
+            warning: 0,
+            urgent: 0
+        };
+
+        maintenanceData.tramps.forEach(tram => {
+            counts.all++;
+            const closestStatus = tram.nearest_maintenance.status;
+            counts[closestStatus]++;
+        });
+
+        document.getElementById('count-all').textContent = counts.all;
+        document.getElementById('count-normal').textContent = counts.normal;
+        document.getElementById('count-warning').textContent = counts.warning;
+        document.getElementById('count-urgent').textContent = counts.urgent;
+    }
+
+    function filterTable(filter) {
+        currentFilter = filter;
+
+        // Düğmeleri güncelle
+        document.querySelectorAll('.btn-group button').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        event.target.classList.add('active');
+
+        // Satırları filtrele
+        document.querySelectorAll('#tbody tr').forEach(row => {
+            if (filter === 'all') {
+                row.style.display = '';
+            } else {
+                const status = row.getAttribute('data-status');
+                row.style.display = status === filter ? '' : 'none';
+            }
+        });
+    }
+
+    function openMaintenanceModal(tramId) {
+        currentTramId = tramId;
+        const tram = maintenanceData.tramps.find(t => t.tram_id === tramId);
+
+        if (!tram) return;
+
+        // Başlık ve bilgiler
+        document.getElementById('modalTramName').textContent = tram.tram_name;
+        document.getElementById('modalTramId').textContent = tramId;
+        document.getElementById('modalCurrentKm').textContent = tram.current_km.toLocaleString('tr-TR') + ' KM';
+
+        // Durum özeti
+        let urgentCount = 0, warningCount = 0;
+
+        // İnitialize tram state if not exists
+        if (!maintenanceState[tramId]) {
+            maintenanceState[tramId] = {};
+        }
+
+        // Bakım detayları - tüm bakımları göster
+        const detailsDiv = document.getElementById('maintenanceDetails');
+        detailsDiv.innerHTML = '';
+
+        for (const level in tram.all_maintenances) {
+            const maint = tram.all_maintenances[level];
+            const levelDiv = createMaintenanceLevel(tramId, level, maint);
+            detailsDiv.appendChild(levelDiv);
+
+            // Duruma göre say
+            if (maint.status === 'urgent') urgentCount++;
+            if (maint.status === 'warning') warningCount++;
+        }
+
+        document.getElementById('modalUrgentCount').textContent = urgentCount;
+        document.getElementById('modalWarningCount').textContent = warningCount;
+
+        // Genel durum
+        const overallStatus = urgentCount > 0 ? 'Acil Bakım Gereklidir' :
+            warningCount > 0 ? 'Uyarılı' : 'Normal';
+        document.getElementById('modalStatus').innerHTML = `<span class="badge ${urgentCount > 0 ? 'bg-danger' : warningCount > 0 ? 'bg-warning text-dark' : 'bg-success'
+            }">${overallStatus}</span>`;
+
+        // Modal aç
+        const modal = new bootstrap.Modal(document.getElementById('maintenanceModal'));
+        modal.show();
+    }
+
+    function createMaintenanceLevel(tramId, level, maint) {
+        const div = document.createElement('div');
+        const statusClass = maint.status === 'urgent' ? 'urgent' : maint.status === 'warning' ? 'warning' : '';
+
+        div.className = `list-group-item ${statusClass}`;
+
+        const isCompleted = maintenanceState[tramId] && maintenanceState[tramId][level] && maintenanceState[tramId][level].completed;
+
+        div.innerHTML = `
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                    <div class="d-flex align-items-center">
+                        <h6 class="mb-0">${level} Bakımı</h6>
+                        <span class="badge bg-info ms-2">${parseInt(level) * 1000} KM</span>
+                        <span class="badge ${getStatusBadgeClass(maint.status)} ms-2">
+                            ${getStatusText(maint.status)}
+                        </span>
+                    </div>
+                    <div class="next-maintenance-box">
+                        <small>
+                            <strong>Sonraki Bakım:</strong> ${maint.next_km.toLocaleString('tr-TR')} KM 
+                            (${maint.km_left.toLocaleString('tr-TR')} KM kaldı)
+                        </small>
+                    </div>
+                    <div>
+                        <strong style="font-size: 0.9em;">İşler:</strong>
+                        <ul style="margin: 8px 0; padding-left: 20px; font-size: 0.85em;">
+                            ${maint.works.map((w, idx) => `<li>${w}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+                <button class="btn btn-sm ${isCompleted ? 'btn-success' : 'btn-outline-success'}" 
+                        onclick="toggleMaintenanceComplete('${tramId}', '${level}')">
+                    ${isCompleted ? '✓ Tamamlandı' : 'Tamamla'}
+                </button>
+            </div>
+        `;
+
+        return div;
+    }
+
+    function toggleMaintenanceComplete(tramId, level) {
+        if (!maintenanceState[tramId]) {
+            maintenanceState[tramId] = {};
+        }
+
+        if (!maintenanceState[tramId][level]) {
+            maintenanceState[tramId][level] = { completed: false, works: [] };
+        }
+
+        maintenanceState[tramId][level].completed = !maintenanceState[tramId][level].completed;
+        saveState();
+
+        // Modal'ı yenile
+        openMaintenanceModal(tramId);
+    }
+
+    function saveMaintenanceState() {
+        saveState();
+
+        // Modal'ı kapat
+        const modal = bootstrap.Modal.getInstance(document.getElementById('maintenanceModal'));
+        modal.hide();
+
+        // Tabloyu yenile
+        renderTable();
+
+        // Alert göster
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-success alert-dismissible fade show';
+        alert.innerHTML = `
+            <i class="bi bi-check-circle me-2"></i>
+            Bakım durumu kaydedildi
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.querySelector('.container-fluid').insertBefore(alert, document.querySelector('.row').nextSibling);
+
+        setTimeout(() => alert.remove(), 3000);
+    }
+
+    function exportToExcel() {
+        alert('Excel raporu indirme özelliği yakında eklenecektir');
+    }
+</script>
+
 {% endblock %}

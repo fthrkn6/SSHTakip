@@ -527,7 +527,7 @@
                     {% for tram_id in tram_ids %}<tr class="tram-row">
                         <td class="tram-id-cell"><strong>{{ tram_id }}</strong></td>
                         {% for date in dates %}{%- set si = status_matrix.get(tram_id, {}).get(date) %}
-                        {%- if si and si[0] == 'Servis Dışı' %}{%- set aciklama_text = si[3].replace('(Dünden
+                        {%- if si and si[0] == 'Servis Dışı' %}{%- set aciklama_text = si[3].replace(' (Dünden
                         kopyalandı)', '').strip() if si[3] else '' %}{%- set tooltip_text = (si[1] or '') + ((' / ' +
                         si[2]) if si[2] else '') + ((' - ' + aciklama_text) if aciklama_text else '') %}{%- endif %}
                         {%- if si and si[0] == 'Servis' %}<td class="status-cell status-service"><i

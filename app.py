@@ -728,32 +728,144 @@ def create_app():
         @app.route('/bakim-planlari')
         @login_required
         def bakim_planlari():
-            from datetime import datetime, timedelta
+            import json
             
-            plans = MaintenancePlan.query.all()
+            # Bakım verilerini yükle
+            maintenance_file = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'maintenance.json')
+            maintenance_data = {}
             
-            # Tarih hesaplamaları
-            today = datetime.now()
-            week_later = today + timedelta(days=7)
+            if os.path.exists(maintenance_file):
+                with open(maintenance_file, 'r', encoding='utf-8') as f:
+                    maintenance_data = json.load(f)
             
-            # İstatistikler
-            geciken_plans = []
-            bu_hafta_plans = []
+            return render_template('bakim_planlari.html', maintenance_data=maintenance_data)
+        
+        @app.route('/api/bakim-verileri')
+        @login_required
+        def bakim_verileri():
+            """Tüm araçların bakım durumunu tablo formatında döndür"""
+            import json
+            from datetime import datetime
             
-            for plan in plans:
-                if hasattr(plan, 'next_maintenance_date') and plan.next_maintenance_date:
-                    if plan.next_maintenance_date < today:
-                        geciken_plans.append(plan)
-                    elif plan.next_maintenance_date <= week_later:
-                        bu_hafta_plans.append(plan)
+            # Bakım verilerini yükle
+            maintenance_file = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'maintenance.json')
+            maintenance_data = {}
             
-            stats = {
-                'toplam': len(plans),
-                'geciken': len(geciken_plans),
-                'bu_hafta': len(bu_hafta_plans),
-            }
+            if os.path.exists(maintenance_file):
+                with open(maintenance_file, 'r', encoding='utf-8') as f:
+                    maintenance_data = json.load(f)
             
-            return render_template('bakim_planlari.html', plans=plans, stats=stats)
+            # Bakım KM'lerini sırayla al
+            maintenance_levels = sorted([k for k in maintenance_data.keys()], 
+                                       key=lambda x: int(x.replace('K', '')) * 1000)
+            
+            # KM verilerini al
+            km_file = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'km_data.json')
+            tram_km = {}
+            
+            if os.path.exists(km_file):
+                with open(km_file, 'r', encoding='utf-8') as f:
+                    try:
+                        km_data = json.load(f)
+                        # KM verileri doğrudan tram ID'leri içeriyor
+                        tram_km = {k: v for k, v in km_data.items() if k and isinstance(v, dict) and 'current_km' in v}
+                    except:
+                        pass
+            
+            # Tüm araçları ekipman tablosundan al, yoksa KM verilerinden al
+            result = []
+            equipment_list = Equipment.query.all()
+            
+            # Eğer Equipment boşsa, KM verilerinden tram ID'lerini al
+            if not equipment_list and tram_km:
+                equipment_list = []
+                for tram_id in sorted(tram_km.keys()):
+                    tram_obj = type('Equipment', (), {
+                        'id': tram_id,
+                        'name': f'Tramvay {tram_id}'
+                    })()
+                    equipment_list.append(tram_obj)
+            
+            for eq in equipment_list:
+                tram_id = str(eq.id)
+                current_km = 0
+                
+                # KM verilerinden currentkm'yi al
+                if tram_id in tram_km:
+                    current_km = tram_km[tram_id].get('current_km', 0)
+                
+                # Tüm bakım seviyelerini hesapla ve en yakınını bul
+                all_maintenances = {}
+                nearest_maintenance = None
+                min_km_left = float('inf')
+                
+                for level in maintenance_levels:
+                    level_km = int(level.replace('K', '')) * 1000
+                    
+                    # Bu bakımın katları: 6K = 6, 12, 18, 24... (limit 300K)
+                    max_km = 300000  # 300K
+                    multiples = []
+                    
+                    for i in range(1, (max_km // level_km) + 2):
+                        km_value = level_km * i
+                        multiples.append(km_value)
+                    
+                    # Sonraki bakım tarihi bul
+                    next_due = None
+                    for km_value in multiples:
+                        if km_value > current_km:
+                            next_due = km_value
+                            break
+                    
+                    # Status belirle
+                    if next_due is None:
+                        # Tüm katları geçmiş
+                        status = 'overdue'
+                        km_left = current_km - multiples[-1]
+                    else:
+                        km_left = next_due - current_km
+                        if km_left <= 0:
+                            status = 'overdue'
+                        elif km_left <= 500:
+                            status = 'urgent'
+                        elif km_left <= 2000:
+                            status = 'warning'
+                        else:
+                            status = 'normal'
+                    
+                    maint_info = {
+                        'level': level,
+                        'next_km': next_due or multiples[-1],
+                        'km_left': km_left if km_left > 0 else 0,
+                        'status': status,
+                        'multiples': multiples,
+                        'works': maintenance_data.get(level, {}).get('works', [])
+                    }
+                    
+                    all_maintenances[level] = maint_info
+                    
+                    # En yakını bul (pozitif km_left ile en küçük olanı)
+                    if km_left > 0 and km_left < min_km_left:
+                        min_km_left = km_left
+                        nearest_maintenance = maint_info
+                
+                # Eğer hiç pozitif km_left yoksa (tümü geçmiş), en son bakımı al
+                if nearest_maintenance is None:
+                    nearest_maintenance = all_maintenances[maintenance_levels[-1]]
+                
+                result.append({
+                    'tram_id': tram_id,
+                    'tram_name': eq.name if hasattr(eq, 'name') else tram_id,
+                    'current_km': current_km,
+                    'nearest_maintenance': nearest_maintenance,
+                    'all_maintenances': all_maintenances
+                })
+            
+            return jsonify({
+                'tramps': result,
+                'levels': maintenance_levels,
+                'headers': maintenance_levels
+            })
 
         @app.route('/yedek-parca')
         @login_required
@@ -1565,7 +1677,7 @@ def create_app():
                         # Mevcut kaydı güncelle
                         existing.status = yesterday_record.get('status', '')
                         existing.sistem = yesterday_record.get('sistem', '')
-                        existing.aciklama = yesterday_record.get('aciklama', '') + ' (Dünden kopyalandı)'
+                        existing.aciklama = yesterday_record.get('aciklama', '')
                     else:
                         # Yeni kayıt oluştur
                         new_record = ServiceStatus(
@@ -1573,7 +1685,7 @@ def create_app():
                             date=today_str,
                             status=yesterday_record.get('status', ''),
                             sistem=yesterday_record.get('sistem', ''),
-                            aciklama=yesterday_record.get('aciklama', '') + ' (Dünden kopyalandı)'
+                            aciklama=yesterday_record.get('aciklama', '')
                         )
                         db.session.add(new_record)
                     count += 1

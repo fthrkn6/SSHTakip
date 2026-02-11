@@ -1,0 +1,207 @@
+{
+  "6K": {
+    "km": 6000,
+    "label": "6K KM Bakımı",
+    "works": [
+      "BOZ-BEL25-MM-00-03",
+      "BOZ-BEL25-MM-01-01",
+      "BOZ-BEL25-MM-01-02",
+      "BOZ-BEL25-MM-01-03",
+      "BOZ-BEL25-MM-01-04",
+      "BOZ-BEL25-MM-01-05",
+      "BOZ-BEL25-MM-01-06",
+      "BOZ-BEL25-MM-01-07",
+      "BOZ-BEL25-MM-01-08",
+      "BOZ-BEL25-MM-01-09",
+      "BOZ-BEL25-MM-01-11",
+      "BOZ-BEL25-MM-02-01",
+      "BOZ-BEL25-MM-04-01",
+      "BOZ-BEL25-MM-07-01",
+      "BOZ-BEL25-MM-26-01",
+      "Notes and Measurements",
+      "Material",
+      "Notes"
+    ]
+  },
+  "18K": {
+    "km": 18000,
+    "label": "18K KM Bakımı",
+    "works": [
+      "BOZ-BEL25-MM-05-01",
+      "BOZ-BEL25-MM-05-02",
+      "BOZ-BEL25-MM-06-01",
+      "BOZ-BEL25-MM-08-02",
+      "BOZ-BEL25-MM-08-03",
+      "BOZ-BEL25-MM-18-07",
+      "BOZ-BEL25-MM-24-01",
+      "Notes and Measurements",
+      "Material",
+      "Notes"
+    ]
+  },
+  "24K": {
+    "km": 24000,
+    "label": "24K KM Bakımı",
+    "works": [
+      "BOZ-BEL25-MM-04-02",
+      "BOZ-BEL25-MM-07-02",
+      "BOZ-BEL25-MM-07-03",
+      "BOZ-BEL25-MM-12-01",
+      "BOZ-BEL25-MM-14-01",
+      "BOZ-BEL25-MM-15-01",
+      "BOZ-BEL25-MM-16-01",
+      "BOZ-BEL25-MM-16-02",
+      "BOZ-BEL25-MM-16-03",
+      "BOZ-BEL25-MM-17-01",
+      "BOZ-BEL25-MM-17-02",
+      "Notes and Measurements",
+      "Material",
+      "Notes"
+    ]
+  },
+  "36K": {
+    "km": 36000,
+    "label": "36K KM Bakımı",
+    "works": [
+      "BOZ-BEL25-MM-00-02",
+      "BOZ-BEL25-MM-04-04",
+      "BOZ-BEL25-MM-09-01",
+      "BOZ-BEL25-MM-09-02",
+      "BOZ-BEL25-MM-12-02",
+      "BOZ-BEL25-MM-13-01",
+      "BOZ-BEL25-MM-13-02",
+      "BOZ-BEL25-MM-14-02",
+      "BOZ-BEL25-MM-15-02",
+      "BOZ-BEL25-MM-17-03",
+      "BOZ-BEL25-MM-17-04",
+      "BOZ-BEL25-MM-17-05",
+      "BOZ-BEL25-MM-18-06",
+      "BOZ-BEL25-MM-26-02",
+      "BOZ-BEL25-MM-27-01",
+      "Notes and Measurements",
+      "Material",
+      "Notes"
+    ]
+  },
+  "60K": {
+    "km": 60000,
+    "label": "60K KM Bakımı",
+    "works": [
+      "BOZ-BEL25-MM-24-02",
+      "BOZ-BEL25-MM-24-03",
+      "BOZ-BEL25-MM-24-04",
+      "BOZ-BEL25-MM-24-05",
+      "BOZ-BEL25-MM-24-06",
+      "BOZ-BEL25-MM-24-07",
+      "BOZ-BEL25-MM-24-08",
+      "BOZ-BEL25-MM-24-09",
+      "Notes and Measurements",
+      "Material",
+      "Notes"
+    ]
+  },
+  "70K": {
+    "km": 70000,
+    "label": "70K KM Bakımı",
+    "works": [
+      "BOZ-BEL25-MM-01-12",
+      "BOZ-BEL25-MM-01-13",
+      "BOZ-BEL25-MM-01-14",
+      "BOZ-BEL25-MM-01-15",
+      "BOZ-BEL25-MM-01-16",
+      "BOZ-BEL25-MM-01-17",
+      "BOZ-BEL25-MM-02-02",
+      "BOZ-BEL25-MM-02-03",
+      "BOZ-BEL25-MM-03-01",
+      "BOZ-BEL25-MM-03-02",
+      "BOZ-BEL25-MM-04-05",
+      "BOZ-BEL25-MM-04-06",
+      "BOZ-BEL25-MM-04-07",
+      "BOZ-BEL25-MM-04-08",
+      "BOZ-BEL25-MM-05-03",
+      "BOZ-BEL25-MM-05-04",
+      "BOZ-BEL25-MM-05-05",
+      "BOZ-BEL25-MM-06-02",
+      "BOZ-BEL25-MM-06-03",
+      "BOZ-BEL25-MM-06-04",
+      "BOZ-BEL25-MM-11-01",
+      "BOZ-BEL25-MM-17-06",
+      "BOZ-BEL25-MM-17-07",
+      "BOZ-BEL25-MM-17-08",
+      "BOZ-BEL25-MM-17-09",
+      "BOZ-BEL25-MM-18-01",
+      "BOZ-BEL25-MM-18-04",
+      "BOZ-BEL25-MM-18-05",
+      "BOZ-BEL25-MM-18-09",
+      "BOZ-BEL25-MM-20-01"
+    ]
+  },
+  "100K": {
+    "km": 100000,
+    "label": "100K KM Bakımı",
+    "works": [
+      "BOZ-BEL25-MM-08-04",
+      "BOZ-BEL25-MM-08-05",
+      "BOZ-BEL25-MM-08-06",
+      "BOZ-BEL25-MM-12-03",
+      "BOZ-BEL25-MM-14-03",
+      "BOZ-BEL25-MM-15-03",
+      "BOZ-BEL25-MM-15-04",
+      "BOZ-BEL25-MM-23-01",
+      "BOZ-BEL25-MM-25-01",
+      "BOZ-BEL25-MM-25-02",
+      "BOZ-BEL25-MM-25-03",
+      "Notes and Measurements",
+      "Material",
+      "Notes"
+    ]
+  },
+  "140K": {
+    "km": 140000,
+    "label": "140K KM Bakımı",
+    "works": [
+      "BOZ-BEL25-MM-04-09",
+      "BOZ-BEL25-MM-04-10",
+      "BOZ-BEL25-MM-09-03",
+      "BOZ-BEL25-MM-11-02",
+      "BOZ-BEL25-MM-11-03",
+      "BOZ-BEL25-MM-18-03",
+      "BOZ-BEL25-MM-18-08",
+      "Notes and Measurements",
+      "Material",
+      "Notes"
+    ]
+  },
+  "210K": {
+    "km": 210000,
+    "label": "210K KM Bakımı",
+    "works": [
+      "BOZ-BEL25-MM-04-11",
+      "BOZ-BEL25-MM-04-12",
+      "BOZ-BEL25-MM-04-13",
+      "BOZ-BEL25-MM-04-14",
+      "BOZ-BEL25-MM-04-15",
+      "BOZ-BEL25-MM-19-01",
+      "BOZ-BEL25-MM-25-04",
+      "BOZ-BEL25-MM-25-05",
+      "BOZ-BEL25-MM-25-06",
+      "BOZ-BEL25-MM-25-07",
+      "Notes and Measurements",
+      "Material",
+      "Notes"
+    ]
+  },
+  "300K": {
+    "km": 300000,
+    "label": "300K KM Bakımı",
+    "works": [
+      "BOZ-BEL25-MM-12-04",
+      "BOZ-BEL25-MM-12-05",
+      "BOZ-BEL25-MM-13-03",
+      "BOZ-BEL25-MM-13-04",
+      "Notes and Measurements",
+      "Material",
+      "Notes"
+    ]
+  }
+}
