@@ -572,6 +572,7 @@ def create_app():
         def ariza_listesi_veriler():
             """Arıza Listesi sayfası - logs/ariza_listesi/'nden verileri oku ve göster"""
             import pandas as pd
+            import numpy as np
             
             ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
             os.makedirs(ariza_listesi_dir, exist_ok=True)
@@ -592,7 +593,21 @@ def create_app():
                         row_data = list(row)
                         # Boş satırları atla
                         if any(row_data):  # Eğer satırda herhangi bir veri varsa
-                            rows.append(row_data)
+                            # NaN değerlerini 'Yok' ile değiştir, sayıları int'e çevir
+                            processed_row = []
+                            for i, val in enumerate(row_data):
+                                # NaN değerlerini kontrol et
+                                if pd.isna(val) or (isinstance(val, float) and np.isnan(val)):
+                                    processed_row.append('Yok')
+                                # Parça adedi (index 19) NaN ise 0 yap
+                                elif i == 19 and (pd.isna(val) or (isinstance(val, float) and np.isnan(val))):
+                                    processed_row.append(0)
+                                # Float değerini int'e çevir (1.0 → 1)
+                                elif isinstance(val, float) and val == int(val):
+                                    processed_row.append(int(val))
+                                else:
+                                    processed_row.append(val)
+                            rows.append(processed_row)
                     
                     row_count = len(rows)
                     

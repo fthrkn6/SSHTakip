@@ -143,11 +143,13 @@
                                     </div>
                                     <div class="col-md-6 col-lg-4 mb-2">
                                         <dt class="fw-bold small">Parça Kodu</dt>
-                                        <dd class="small mb-0">{{ row[16] or '-' }}</dd>
+                                        <dd class="small mb-0">{% if 'Yok' in (row[16]|string) or row[16]|string ==
+                                            'nan' %}Yok{% else %}{{ row[16] or 'Yok' }}{% endif %}</dd>
                                     </div>
                                     <div class="col-md-6 col-lg-4 mb-2">
                                         <dt class="fw-bold small">Parça Adı</dt>
-                                        <dd class="small mb-0">{{ row[17] or '-' }}</dd>
+                                        <dd class="small mb-0">{% if 'Yok' in (row[17]|string) or row[17]|string ==
+                                            'nan' %}Yok{% else %}{{ row[17] or 'Yok' }}{% endif %}</dd>
                                     </div>
                                     <div class="col-md-6 col-lg-4 mb-2">
                                         <dt class="fw-bold small">Parça Seri No</dt>
@@ -155,7 +157,9 @@
                                     </div>
                                     <div class="col-md-6 col-lg-4 mb-2">
                                         <dt class="fw-bold small">Adedi</dt>
-                                        <dd class="small mb-0">{{ row[19] or '-' }}</dd>
+                                        <dd class="small mb-0">{% if row[19] == 'Yok' or row[19]|string == 'nan' %}0{%
+                                            elif row[19]|float == row[19]|float|int %}{{ row[19]|int }}{% else %}{{
+                                            row[19] }}{% endif %}</dd>
                                     </div>
                                     <div class="col-md-6 col-lg-4 mb-2">
                                         <dt class="fw-bold small">Tamir Başlama Tarihi</dt>
@@ -193,6 +197,11 @@
                                         <dt class="fw-bold small">Durum</dt>
                                         <dd class="small mb-0"><span class="badge bg-success">{{ row[28] or '-'
                                                 }}</span></dd>
+                                    </div>
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <dt class="fw-bold small">Personel Sayısı</dt>
+                                        <dd class="small mb-0">{% if row|length > 29 %}{{ row[29] or '-' }}{% else %}-{%
+                                            endif %}</dd>
                                     </div>
                                 </div>
                         </td>
