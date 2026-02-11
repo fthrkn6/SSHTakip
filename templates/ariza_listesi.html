@@ -52,9 +52,34 @@
 
 <!-- Failure List -->
 <div class="card">
+    <div class="card-body">
+        <!-- Filters -->
+        <div class="row mb-3 g-2">
+            <div class="col-12 col-md-4">
+                <label class="form-label fw-bold">Araç No</label>
+                <select id="filterAracNo" class="form-select form-select-sm">
+                    <option value="">Tümü</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label fw-bold">Tedarikçi</label>
+                <select id="filterTedarikci" class="form-select form-select-sm">
+                    <option value="">Tümü</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label fw-bold">Arıza Sınıfı</label>
+                <select id="filterArizaSinifi" class="form-select form-select-sm">
+                    <option value="">Tümü</option>
+                </select>
+            </div>
+        </div>
+        <hr class="my-2">
+    </div>
+
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover table-striped mb-0 table-sm">
+            <table class="table table-hover table-striped mb-0 table-sm" id="failureTable">
                 <thead class="table-dark sticky-top">
                     <tr>
                         <th style="width: 5%; min-width: 40px;">#</th>
@@ -65,8 +90,8 @@
                         <th style="min-width: 100px;">Tarih</th>
                         <th style="min-width: 80px;">Saat</th>
                         <th style="min-width: 100px;">Arıza Sınıfı</th>
+                        <th style="min-width: 150px;">Garanti Kapsamı</th>
                         <th style="min-width: 150px;">Arıza Tanımı</th>
-                        <th style="min-width: 100px;">Aksiyon</th>
                         <th style="width: 5%; min-width: 40px;">Detay</th>
                     </tr>
                 </thead>
@@ -86,11 +111,35 @@
                         <td><small>{{ row[4] or '-' }}</small></td>
                         <td><small>{{ row[5] or '-' }}</small></td>
                         <td>
+                            {% set sinif = row[9]|string %}
+                            {% if sinif.startswith('A') %}
                             <span class="badge bg-danger">{{ row[9] or '-' }}</span>
+                            {% elif sinif.startswith('B') %}
+                            <span class="badge" style="background-color: #FF8C00; color: white;">{{ row[9] or '-'
+                                }}</span>
+                            {% elif sinif.startswith('C') %}
+                            <span class="badge" style="background-color: #FFD700; color: #333;">{{ row[9] or '-'
+                                }}</span>
+                            {% elif sinif.startswith('D') %}
+                            <span class="badge" style="background-color: #28a745; color: white;">{{ row[9] or '-'
+                                }}</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ row[9] or '-' }}</span>
+                            {% endif %}
                         </td>
                         <td>
                             <small>
-                                {% set desc = row[12]|string %}
+                                {% set warranty = row[12]|string %}
+                                {% if warranty|length > 40 %}
+                                {{ warranty[:35] }}...
+                                {% else %}
+                                {{ warranty or '-' }}
+                                {% endif %}
+                            </small>
+                        </td>
+                        <td>
+                            <small>
+                                {% set desc = row[13]|string %}
                                 {% if desc|length > 50 %}
                                 {{ desc[:45] }}...
                                 {% else %}
@@ -98,7 +147,6 @@
                                 {% endif %}
                             </small>
                         </td>
-                        <td><small>{{ row[14] or '-' }}</small></td>
                         <td style="text-align: center;">
                             <i class="bi bi-chevron-down text-muted"></i>
                         </td>
@@ -111,7 +159,24 @@
                                 <div class="row">
                                     <div class="col-md-6 col-lg-4 mb-2">
                                         <dt class="fw-bold small">Arıza Sınıfı</dt>
-                                        <dd class="small mb-0">{{ row[9] or '-' }}</dd>
+                                        <dd class="small mb-0">
+                                            {% set sinif = row[9]|string %}
+                                            {% if sinif.startswith('A') %}
+                                            <span class="badge bg-danger">{{ row[9] or '-' }}</span>
+                                            {% elif sinif.startswith('B') %}
+                                            <span class="badge" style="background-color: #FF8C00; color: white;">{{
+                                                row[9] or '-'
+                                                }}</span>
+                                            {% elif sinif.startswith('C') %}
+                                            <span class="badge" style="background-color: #FFD700; color: #333;">{{
+                                                row[9] or '-' }}</span>
+                                            {% elif sinif.startswith('D') %}
+                                            <span class="badge" style="background-color: #28a745; color: white;">{{
+                                                row[9] or '-' }}</span>
+                                            {% else %}
+                                            <span class="badge bg-secondary">{{ row[9] or '-' }}</span>
+                                            {% endif %}
+                                        </dd>
                                     </div>
                                     <div class="col-md-6 col-lg-4 mb-2">
                                         <dt class="fw-bold small">Arıza Kaynağı</dt>
@@ -153,13 +218,12 @@
                                     </div>
                                     <div class="col-md-6 col-lg-4 mb-2">
                                         <dt class="fw-bold small">Parça Seri No</dt>
-                                        <dd class="small mb-0">{{ row[18] or '-' }}</dd>
+                                        <dd class="small mb-0">{% if 'Yok' in (row[18]|string) or row[18]|string ==
+                                            'nan' %}Yok{% else %}{{ row[18] or '-' }}{% endif %}</dd>
                                     </div>
                                     <div class="col-md-6 col-lg-4 mb-2">
                                         <dt class="fw-bold small">Adedi</dt>
-                                        <dd class="small mb-0">{% if row[19] == 'Yok' or row[19]|string == 'nan' %}0{%
-                                            elif row[19]|float == row[19]|float|int %}{{ row[19]|int }}{% else %}{{
-                                            row[19] }}{% endif %}</dd>
+                                        <dd class="small mb-0">{{ row[19] if row[19] != 0 else '-' }}</dd>
                                     </div>
                                     <div class="col-md-6 col-lg-4 mb-2">
                                         <dt class="fw-bold small">Tamir Başlama Tarihi</dt>
@@ -200,8 +264,8 @@
                                     </div>
                                     <div class="col-md-6 col-lg-4 mb-2">
                                         <dt class="fw-bold small">Personel Sayısı</dt>
-                                        <dd class="small mb-0">{% if row|length > 29 %}{{ row[29] or '-' }}{% else %}-{%
-                                            endif %}</dd>
+                                        <dd class="small mb-0">{% if row|length > 29 and row[29] %}{{ row[29] }}{% else
+                                            %}-{% endif %}</dd>
                                     </div>
                                 </div>
                         </td>
@@ -238,11 +302,113 @@
 </style>
 
 <script>
+    // Toggle detail row
     function toggleRow(idx) {
         const detailRow = document.getElementById('details-' + idx);
         if (detailRow) {
             detailRow.classList.toggle('show');
         }
     }
+
+    // Filter functionality
+    const rows = document.querySelectorAll('#failureTable tbody tr:not(.detail-row)');
+    const detailRows = document.querySelectorAll('#failureTable tbody tr.detail-row');
+
+    // Collect unique values for filters
+    const aracNoSet = new Set();
+    const tedarikciSet = new Set();
+    const arizaSinifiSet = new Set();
+
+    // Build filter options from table data
+    rows.forEach((row, idx) => {
+        const badges = row.querySelectorAll('span.badge');
+
+        // Araç No is second badge
+        if (badges.length >= 2) {
+            const aracNo = badges[1]?.textContent?.trim();
+            if (aracNo) aracNoSet.add(aracNo);
+        }
+
+        // Arıza Sınıfı is third badge
+        if (badges.length >= 3) {
+            const arizaSinifi = badges[2]?.textContent?.trim();
+            if (arizaSinifi) arizaSinifiSet.add(arizaSinifi);
+        }
+
+        // Tedarikçi from detail row
+        const detailRow = row.nextElementSibling;
+        if (detailRow && detailRow.classList.contains('detail-row')) {
+            const ddElements = detailRow.querySelectorAll('dd.small');
+            if (ddElements.length > 3) {
+                const tedarikci = ddElements[3]?.textContent?.trim();
+                if (tedarikci && tedarikci !== '-') tedarikciSet.add(tedarikci);
+            }
+        }
+    });
+
+    // Populate dropdowns
+    const aracNoSelect = document.getElementById('filterAracNo');
+    const tedarikciSelect = document.getElementById('filterTedarikci');
+    const arizaSinifiSelect = document.getElementById('filterArizaSinifi');
+
+    [...aracNoSet].sort().forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        aracNoSelect.appendChild(option);
+    });
+
+    [...tedarikciSet].sort().forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        tedarikciSelect.appendChild(option);
+    });
+
+    [...arizaSinifiSet].sort().forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        arizaSinifiSelect.appendChild(option);
+    });
+
+    // Filter function
+    function applyFilters() {
+        const filterAracNo = document.getElementById('filterAracNo').value;
+        const filterTedarikci = document.getElementById('filterTedarikci').value;
+        const filterArizaSinifi = document.getElementById('filterArizaSinifi').value;
+
+        rows.forEach((row, idx) => {
+            const badges = row.querySelectorAll('span.badge');
+            const aracNo = badges.length >= 2 ? badges[1]?.textContent?.trim() : '';
+            const arizaSinifi = badges.length >= 3 ? badges[2]?.textContent?.trim() : '';
+
+            // Get tedarikçi from detail row
+            const detailRow = row.nextElementSibling;
+            let tedarikci = '';
+            if (detailRow && detailRow.classList.contains('detail-row')) {
+                const ddElements = detailRow.querySelectorAll('dd.small');
+                if (ddElements.length > 3) {
+                    tedarikci = ddElements[3]?.textContent?.trim() || '';
+                }
+            }
+
+            // Apply filters
+            let show = true;
+            if (filterAracNo && !aracNo.includes(filterAracNo)) show = false;
+            if (filterTedarikci && !tedarikci.includes(filterTedarikci)) show = false;
+            if (filterArizaSinifi && !arizaSinifi.includes(filterArizaSinifi)) show = false;
+
+            row.style.display = show ? '' : 'none';
+            if (detailRow && detailRow.classList.contains('detail-row')) {
+                detailRow.style.display = show ? '' : 'none';
+            }
+        });
+    }
+
+    // Add event listeners to filters
+    aracNoSelect.addEventListener('change', applyFilters);
+    tedarikciSelect.addEventListener('change', applyFilters);
+    arizaSinifiSelect.addEventListener('change', applyFilters);
 </script>
 {% endblock %}

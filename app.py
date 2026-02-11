@@ -596,17 +596,22 @@ def create_app():
                             # NaN değerlerini 'Yok' ile değiştir, sayıları int'e çevir
                             processed_row = []
                             for i, val in enumerate(row_data):
-                                # NaN değerlerini kontrol et
-                                if pd.isna(val) or (isinstance(val, float) and np.isnan(val)):
-                                    processed_row.append('Yok')
-                                # Parça adedi (index 19) NaN ise 0 yap
-                                elif i == 19 and (pd.isna(val) or (isinstance(val, float) and np.isnan(val))):
+                                # Personel Sayısı (index 29) ve Parça Adedi (index 19) NaN ise 0 yap
+                                if (i == 19 or i == 29) and (pd.isna(val) or (isinstance(val, float) and np.isnan(val))):
                                     processed_row.append(0)
-                                # Float değerini int'e çevir (1.0 → 1)
-                                elif isinstance(val, float) and val == int(val):
+                                # Parça Kodu (16) ve Parça Adı (17) NaN ise 'Yok' yap
+                                elif (i == 16 or i == 17) and (pd.isna(val) or (isinstance(val, float) and np.isnan(val))):
+                                    processed_row.append('Yok')
+                                # Float değerini int'e çevir (1.0 → 1) - NaN değilse
+                                elif isinstance(val, float) and not (pd.isna(val) or np.isnan(val)) and val == int(val):
                                     processed_row.append(int(val))
                                 else:
                                     processed_row.append(val)
+                            
+                            # Eğer Parça Kodu (16) ve Parça Adı (17) her ikisi de 'Yok' ise, Adedi (19) 0 yap
+                            if processed_row[16] == 'Yok' and processed_row[17] == 'Yok':
+                                processed_row[19] = 0
+                            
                             rows.append(processed_row)
                     
                     row_count = len(rows)
