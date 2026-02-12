@@ -6,11 +6,21 @@
 <div class="container-fluid">
     <div class="row mb-4">
         <div class="col-12">
-            <h1 class="mb-3">
-                <i class="bi bi-speedometer2"></i> KPI Dashboard
-                <small class="text-muted">(EN 15341 Uyumlu)</small>
-            </h1>
-            <p class="text-muted">{{ project_name }} - Performans Göstergeleri</p>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="mb-3">
+                        <i class="bi bi-speedometer2"></i> KPI Dashboard
+                        <small class="text-muted">(EN 15341 Uyumlu)</small>
+                    </h1>
+                    <p class="text-muted">{{ project_name }} - Performans Göstergeleri</p>
+                </div>
+                <div class="alert alert-info mb-0">
+                    <small>
+                        <i class="bi bi-info-circle"></i>
+                        Veri Kaynağı: <strong>{{ kpi.data_source }}</strong>
+                    </small>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -157,7 +167,8 @@
                                 <td>{{ item.count }}</td>
                                 <td>
                                     <div class="progress" style="height: 20px;">
-                                        <div class="progress-bar bg-danger" style="width: {{ (item.count / max_count * 100)|int }}%">
+                                        <div class="progress-bar bg-danger"
+                                            style="width: {{ (item.count / max_count * 100)|int }}%">
                                             {{ item.count }}
                                         </div>
                                     </div>
@@ -197,68 +208,68 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-{% if kpi.failure_by_category %}
-// Kategori Pasta Grafiği
-const categoryData = {{ kpi.failure_by_category | tojson }};
-const categoryLabels = Object.keys(categoryData);
-const categoryValues = Object.values(categoryData);
+    {% if kpi.failure_by_category %}
+    // Kategori Pasta Grafiği
+    const categoryData = {{ kpi.failure_by_category | tojson }};
+    const categoryLabels = Object.keys(categoryData);
+    const categoryValues = Object.values(categoryData);
 
-new Chart(document.getElementById('categoryChart'), {
-    type: 'doughnut',
-    data: {
-        labels: categoryLabels,
-        datasets: [{
-            data: categoryValues,
-            backgroundColor: [
-                '#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
-                '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'
-            ]
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: {
-            legend: {
-                position: 'right'
-            }
-        }
-    }
-});
-{% endif %}
-
-{% if kpi.monthly_trend %}
-// Aylık Trend Grafiği
-const trendData = {{ kpi.monthly_trend | tojson }};
-const trendLabels = trendData.map(d => d.month);
-const trendValues = trendData.map(d => d.count);
-
-new Chart(document.getElementById('trendChart'), {
-    type: 'line',
-    data: {
-        labels: trendLabels,
-        datasets: [{
-            label: 'Arıza Sayısı',
-            data: trendValues,
-            borderColor: '#2563eb',
-            backgroundColor: 'rgba(37, 99, 235, 0.1)',
-            fill: true,
-            tension: 0.3
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: {
-            legend: {
-                display: false
-            }
+    new Chart(document.getElementById('categoryChart'), {
+        type: 'doughnut',
+        data: {
+            labels: categoryLabels,
+            datasets: [{
+                data: categoryValues,
+                backgroundColor: [
+                    '#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
+                    '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'
+                ]
+            }]
         },
-        scales: {
-            y: {
-                beginAtZero: true
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'right'
+                }
             }
         }
-    }
-});
-{% endif %}
+    });
+    {% endif %}
+
+    {% if kpi.monthly_trend %}
+    // Aylık Trend Grafiği
+    const trendData = {{ kpi.monthly_trend | tojson }};
+    const trendLabels = trendData.map(d => d.month);
+    const trendValues = trendData.map(d => d.count);
+
+    new Chart(document.getElementById('trendChart'), {
+        type: 'line',
+        data: {
+            labels: trendLabels,
+            datasets: [{
+                label: 'Arıza Sayısı',
+                data: trendValues,
+                borderColor: '#2563eb',
+                backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+    {% endif %}
 </script>
 {% endblock %}

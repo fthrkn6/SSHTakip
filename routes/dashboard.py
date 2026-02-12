@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, jsonify
+from flask import Blueprint, render_template, jsonify, session
 from flask_login import login_required, current_user
 from models import db, Equipment, WorkOrder, KPISnapshot, Failure, ServiceLog, ServiceStatus
 from sqlalchemy import func, desc
@@ -10,11 +10,21 @@ bp = Blueprint('dashboard', __name__, url_prefix='/dashboard')
 
 
 def get_failures_from_excel():
-    """Excel dosyasından arıza verilerini oku"""
-    ariza_listesi_dir = os.path.join(os.path.dirname(__file__), '..', 'logs', 'ariza_listesi')
-    ariza_listesi_file = os.path.join(ariza_listesi_dir, "Ariza_Listesi_BELGRAD.xlsx")
+    """Excel dosyasından arıza verilerini oku - Proje-dinamik"""
+    from flask import current_app
     
-    if not os.path.exists(ariza_listesi_file):
+    current_project = session.get('current_project', 'belgrad')
+    ariza_listesi_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
+    
+    # Arıza Listesi dosyasını bul
+    ariza_listesi_file = None
+    if os.path.exists(ariza_listesi_dir):
+        for file in os.listdir(ariza_listesi_dir):
+            if file.endswith('.xlsx') and not file.startswith('~$'):
+                ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
+                break
+    
+    if not ariza_listesi_file:
         return [], {}
     
     try:
@@ -25,8 +35,10 @@ def get_failures_from_excel():
         
         # Arıza sınıfı istatistikleri
         sinif_counts = {}
-        if 'Arıza Sınıfı' in df.columns:
-            sinif_counts = df['Arıza Sınıfı'].value_counts().to_dict()
+        for col in df.columns:
+            if 'arıza' in col.lower() and 'sınıf' in col.lower():
+                sinif_counts = df[col].value_counts().to_dict()
+                break
         
         return recent, sinif_counts
     except Exception as e:
@@ -34,12 +46,91 @@ def get_failures_from_excel():
         return [], {}
 
 
-def get_ariza_counts_by_class():
-    """Excel'den arızaları sınıflara göre say (A, B, C, D)"""
-    ariza_listesi_dir = os.path.join(os.path.dirname(__file__), '..', 'logs', 'ariza_listesi')
-    ariza_listesi_file = os.path.join(ariza_listesi_dir, "Ariza_Listesi_BELGRAD.xlsx")
+def get_today_completed_failures_count():
+    """Excel Arıza Listesi'nden bugünün tamamlanan arızalarını say - Proje-dinamik"""
+    from flask import current_app
     
-    # Sınıf tanımları (Veriler.xlsx'den)
+    current_project = session.get('current_project', 'belgrad')
+    ariza_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
+    
+    # Arıza Listesi dosyasını bul
+    ariza_listesi_file = None
+    if os.path.exists(ariza_dir):
+        for file in os.listdir(ariza_dir):
+            if file.endswith('.xlsx') and not file.startswith('~$'):
+                ariza_listesi_file = os.path.join(ariza_dir, file)
+                break
+    
+    if not ariza_listesi_file:
+        return 0
+    
+    try:
+        df = pd.read_excel(ariza_listesi_file, sheet_name='Ariza Listesi', header=3)
+        
+        # Bugünün tarihi
+        today = date.today()
+        today_str = today.strftime('%Y-%m-%d')
+        
+        # Tarih ve durum sütunlarını bul
+        tarih_col = None
+        durum_col = None
+        
+        for col in df.columns:
+            col_lower = col.lower()
+            if tarih_col is None and ('tarih' in col_lower or 'date' in col_lower):
+                tarih_col = col
+            if durum_col is None and ('durum' in col_lower or 'status' in col_lower):
+                durum_col = col
+        
+        if tarih_col is None or durum_col is None:
+            return 0
+        
+        # Bugünün verileri ve "Kaydedildi" durumundaki arızaları filtrele
+        today_completed = 0
+        for idx, row in df.iterrows():
+            try:
+                # Tarih kontrolü
+                tarih = row[tarih_col]
+                if pd.isna(tarih):
+                    continue
+                
+                # Tarih stringine çevir
+                tarih_str = pd.Timestamp(tarih).strftime('%Y-%m-%d')
+                
+                # Bugünün mü?
+                if tarih_str == today_str:
+                    # Durum kontrolü
+                    durum = str(row[durum_col]).strip() if not pd.isna(row[durum_col]) else ''
+                    
+                    # "Kaydedildi" statusu = tamamlanan
+                    if durum == 'Kaydedildi':
+                        today_completed += 1
+            except Exception as e:
+                print(f"Satır işlenirken hata ({idx}): {e}")
+                continue
+        
+        return today_completed
+    except Exception as e:
+        print(f"Excel'den bugünün tamamlanan arıza sayısı alınırken hata: {e}")
+        return 0
+
+
+def get_ariza_counts_by_class():
+    """Excel'den arızaları sınıflara göre say (A, B, C, D) - Proje-dinamik"""
+    from flask import current_app
+    
+    current_project = session.get('current_project', 'belgrad')
+    ariza_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
+    
+    # Arıza Listesi dosyasını bul
+    ariza_listesi_file = None
+    if os.path.exists(ariza_dir):
+        for file in os.listdir(ariza_dir):
+            if file.endswith('.xlsx') and not file.startswith('~$'):
+                ariza_listesi_file = os.path.join(ariza_dir, file)
+                break
+    
+    # Sınıf tanımları
     class_definitions = {
         'A': 'A-Kritik/Emniyet Riski',
         'B': 'B-Yüksek/Operasyon Engeller',
@@ -55,15 +146,22 @@ def get_ariza_counts_by_class():
         'D': {'label': 'D-Arıza Değildir', 'count': 0}
     }
     
-    if not os.path.exists(ariza_listesi_file):
+    if not ariza_listesi_file:
         return counts
     
     try:
         df = pd.read_excel(ariza_listesi_file, sheet_name='Ariza Listesi', header=3)
         
-        if 'Arıza Sınıfı' in df.columns:
+        # Arıza sınıfı sütununu bul
+        sinif_col = None
+        for col in df.columns:
+            if 'arıza' in col.lower() and 'sınıf' in col.lower():
+                sinif_col = col
+                break
+        
+        if sinif_col:
             # Her arızayı kategorize et
-            for sinif in df['Arıza Sınıfı'].dropna():
+            for sinif in df[sinif_col].dropna():
                 sinif_str = str(sinif).strip()
                 
                 # Sınıfın ilk harfini al (A, B, C, D)
@@ -182,12 +280,21 @@ def index():
     son_arizalar_list, _ = get_failures_from_excel()
     son_arizalar = son_arizalar_list
     
-    # Excel'deki TOPLAM arıza sayısı
-    ariza_listesi_dir = os.path.join(os.path.dirname(__file__), '..', 'logs', 'ariza_listesi')
-    ariza_listesi_file = os.path.join(ariza_listesi_dir, "Ariza_Listesi_BELGRAD.xlsx")
+    # Excel'deki TOPLAM arıza sayısı - Proje-dinamik
+    from flask import current_app
+    current_project = session.get('current_project', 'belgrad')
+    ariza_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
+    
+    # Arıza Listesi dosyasını bul
+    ariza_listesi_file = None
+    if os.path.exists(ariza_dir):
+        for file in os.listdir(ariza_dir):
+            if file.endswith('.xlsx') and not file.startswith('~$'):
+                ariza_listesi_file = os.path.join(ariza_dir, file)
+                break
     
     total_failures_last_30_days = 0
-    if os.path.exists(ariza_listesi_file):
+    if ariza_listesi_file:
         try:
             df_for_count = pd.read_excel(ariza_listesi_file, sheet_name='Ariza Listesi', header=3)
             # Tüm arıza sayısı (filtreleme yok, sadece excel'deki tüm)
@@ -219,7 +326,7 @@ def index():
         'aktif_ariza': len(son_arizalar),
         'bekleyen_is_emri': wo_summary.get('pending', 0),
         'devam_eden_is_emri': wo_summary.get('in_progress', 0),
-        'bugun_tamamlanan': wo_summary.get('completed', 0),
+        'bugun_tamamlanan': get_today_completed_failures_count(),  # Excel Arıza Listesi'nden bugünün tamamlanan arızaları
     }
     
     return render_template('dashboard.html',

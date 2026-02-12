@@ -14,11 +14,16 @@ import os
 import logging
 
 # Logging konfigürasyonu
+import os
+log_dir = os.path.join(os.path.dirname(__file__), 'logs', 'belgrad')
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, 'availability.log')
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('logs/availability.log'),
+        logging.FileHandler(log_file),
         logging.StreamHandler()
     ]
 )

@@ -166,11 +166,11 @@ def create_app():
                 import time
                 next_fracas_id = 1
                 
-                ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
+                ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'ariza_listesi')
                 os.makedirs(ariza_listesi_dir, exist_ok=True)
                 temp_dir = tempfile.gettempdir()
                 
-                ariza_listesi_file = os.path.join(ariza_listesi_dir, "Ariza_Listesi_BELGRAD.xlsx")
+                ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_{project.upper()}.xlsx")
                 
                 if os.path.exists(ariza_listesi_file):
                     try:
@@ -349,11 +349,11 @@ def create_app():
                     import tempfile
                     import time
                     
-                    ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
+                    ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'ariza_listesi')
                     os.makedirs(ariza_listesi_dir, exist_ok=True)
                     
                     temp_dir = tempfile.gettempdir()
-                    ariza_listesi_file = os.path.join(ariza_listesi_dir, "Ariza_Listesi_BELGRAD.xlsx")
+                    ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_{project.upper()}.xlsx")
                     
                     # FRACAS ID hesapla (YALNIzCA Arıza Listesi'nden - TEMP'TEN OKU)
                     next_fracas_num = 1
@@ -396,12 +396,12 @@ def create_app():
                     from openpyxl.styles import Border, Side, Font, PatternFill, Alignment
                     import shutil
                     
-                    ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
+                    ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'ariza_listesi')
                     os.makedirs(ariza_listesi_dir, exist_ok=True)
                     
                     # Güncellik Arıza Listesi dosyasını bul
                     today_date = datetime.now().strftime('%Y%m%d')
-                    ariza_listesi_file = os.path.join(ariza_listesi_dir, "Ariza_Listesi_BELGRAD.xlsx")
+                    ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_{project.upper()}.xlsx")
                     
                     # Temp klasörü tanımla (tüm işlemler için)
                     import tempfile
@@ -410,7 +410,7 @@ def create_app():
                     
                     # Yoksa yeni dosya oluştur (temp'te, sonra taşı)
                     if not os.path.exists(ariza_listesi_file):
-                        temp_file = os.path.join(temp_dir, f"Ariza_Listesi_BELGRAD_temp_{int(time.time())}.xlsx")
+                        temp_file = os.path.join(temp_dir, f"Ariza_Listesi_{project.upper()}_temp_{int(time.time())}.xlsx")
                         
                         from openpyxl import Workbook
                         wb_new = Workbook()
@@ -422,7 +422,8 @@ def create_app():
                         header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
                         header_font = Font(bold=True, color="FFFFFF", size=11)
                         
-                        ws_new['A1'] = "ARIZA LİSTESİ - BELGRAD PROJESİ"
+                        project_display = [p['name'] for p in PROJECTS if p['code'] == project][0] if project in [p['code'] for p in PROJECTS] else project.upper()
+                        ws_new['A1'] = f"ARIZA LİSTESİ - {project_display.upper()} PROJESİ"
                         ws_new.merge_cells('A1:U1')
                         ws_new['A1'].font = title_font
                         ws_new['A1'].fill = title_fill
@@ -438,10 +439,10 @@ def create_app():
                                   'Sistem', 'Alt Sistem', 'Tedarikçi', 'Arıza Sınıfı', 'Arıza Kaynağı', 'Arıza Tipi',
                                   'Garanti Kapsamı', 'Arıza Tanımı', 'Yapılan İşlem', 'Aksiyon', 'Parça Kodu', 'Parça Adı', 'Parça Seri No', 'Adet',
                                   'Tamir Başlama Tarihi', 'Tamir Başlama Saati', 'Tamir Bitişi Tarihi', 'Tamir Bitişi Saati', 'Tamir Süresi', 'MTTR (dk)',
-                                  'Servise Veriliş Tarihi', 'Servise Veriliş Saati', 'Durum']
+                                  'Servise Veriliş Tarihi', 'Servise Veriliş Saati', 'Durum', 'Personel Sayısı']
                         
-                        # Sütun genişlikleri (29 sütun)
-                        column_widths = [13, 10, 12, 10, 12, 10, 12, 12, 12, 14, 14, 18, 12, 20, 14, 10, 12, 12, 12, 10, 15, 14, 14, 14, 14, 12, 14, 14, 10]
+                        # Sütun genişlikleri (30 sütun)
+                        column_widths = [13, 10, 12, 10, 12, 10, 12, 12, 12, 14, 14, 18, 12, 20, 14, 10, 12, 12, 12, 10, 15, 14, 14, 14, 14, 12, 14, 14, 10, 12]
                         for idx, width in enumerate(column_widths, 1):
                             ws_new.column_dimensions[get_column_letter(idx)].width = width
                         border = Border(left=Side(style='thin'), right=Side(style='thin'), 
@@ -525,7 +526,8 @@ def create_app():
                             form_data.get('mttr', ''),
                             form_data.get('servise_verilis_tarih', ''),
                             form_data.get('servise_verilis_saat', ''),
-                            'Kaydedildi'
+                            'Kaydedildi',
+                            form_data.get('personel_sayisi', '')
                         ]
                         
                         border = Border(left=Side(style='thin'), right=Side(style='thin'), 
@@ -570,14 +572,15 @@ def create_app():
         @app.route('/ariza-listesi-veriler')
         @login_required
         def ariza_listesi_veriler():
-            """Arıza Listesi sayfası - logs/ariza_listesi/'nden verileri oku ve göster"""
+            """Arıza Listesi sayfası - logs/{project}/ariza_listesi/'nden verileri oku ve göster"""
             import pandas as pd
             import numpy as np
             
-            ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
+            project = session.get('current_project', 'belgrad')
+            ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'ariza_listesi')
             os.makedirs(ariza_listesi_dir, exist_ok=True)
             
-            ariza_listesi_file = os.path.join(ariza_listesi_dir, "Ariza_Listesi_BELGRAD.xlsx")
+            ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_{project.upper()}.xlsx")
             
             rows = []
             row_count = 0
@@ -642,8 +645,9 @@ def create_app():
             print("📤 Arıza Listesi işlem başlıyor...")
             
             try:
-                ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
-                ariza_listesi_file = os.path.join(ariza_listesi_dir, "Ariza_Listesi_BELGRAD.xlsx")
+                project = session.get('current_project', 'belgrad')
+                ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'ariza_listesi')
+                ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_{project.upper()}.xlsx")
                 
                 if not os.path.exists(ariza_listesi_file):
                     flash('❌ Arıza Listesi dosyası bulunamadı', 'danger')
@@ -662,8 +666,9 @@ def create_app():
             """Arıza Listesi Excel dosyasını indir"""
             import pandas as pd
             
-            ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', 'ariza_listesi')
-            ariza_listesi_file = os.path.join(ariza_listesi_dir, "Ariza_Listesi_BELGRAD.xlsx")
+            project = session.get('current_project', 'belgrad')
+            ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'ariza_listesi')
+            ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_{project.upper()}.xlsx")
             
             if not os.path.exists(ariza_listesi_file):
                 flash('❌ Dosya bulunamadı', 'danger')
@@ -674,7 +679,7 @@ def create_app():
                 return send_file(
                     ariza_listesi_file,
                     as_attachment=True,
-                    download_name="Ariza_Listesi_BELGRAD.xlsx",
+                    download_name=f"Ariza_Listesi_{project.upper()}.xlsx",
                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 )
             except Exception as e:
@@ -760,10 +765,82 @@ def create_app():
             
             return render_template('bakim_planlari.html', maintenance_data=maintenance_data)
         
+        @app.route('/api/bakim-plani-tablosu')
+        @login_required
+        def bakim_plani_tablosu():
+            """Tüm KM noktalarında yapılması gereken bakımları döndür"""
+            import json
+            
+            # maintenance.json'u yükle
+            maintenance_file = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'maintenance.json')
+            maintenance_data = {}
+            
+            if os.path.exists(maintenance_file):
+                with open(maintenance_file, 'r', encoding='utf-8') as f:
+                    maintenance_data = json.load(f)
+            
+            # Bakım seviyelerini sırala (70K ve 140K hariç - bunlar sadece specific KM'lerde)
+            sorted_levels = sorted([(k, v['km']) for k, v in maintenance_data.items() 
+                                   if k not in ['70K', '140K']], key=lambda x: x[1])
+            
+            # Tüm KM noktaları için bakımları hesapla
+            schedule = []
+            max_km = 300000
+            
+            for km in range(0, max_km + 1000, 1000):
+                applicable = []
+                
+                for level_name, level_km in sorted_levels:
+                    if km > 0 and km % level_km == 0:
+                        works = maintenance_data[level_name].get('works', [])
+                        works_count = len([w for w in works if w.startswith('BOZ')])
+                        applicable.append({
+                            'level': level_name,
+                            'km': level_km,
+                            'works': works_count,
+                            'ratio': km // level_km
+                        })
+                
+                # SPECIAL: 72000 KM'de 70K bakımını da ekle
+                if km == 72000:
+                    works = maintenance_data.get('70K', {}).get('works', [])
+                    works_count = len([w for w in works if w.startswith('BOZ')])
+                    applicable.append({
+                        'level': '70K',
+                        'km': 70000,
+                        'works': works_count,
+                        'ratio': 1  # Special case olduğu için 1
+                    })
+                
+                if applicable:
+                    total_works = sum(m['works'] for m in applicable)
+                    
+                    # Kapsamı belirle
+                    if total_works >= 30:
+                        scope = 'urgent'
+                        scope_label = 'ÇOK KAPSAMLI'
+                    elif total_works >= 20:
+                        scope = 'heavy'
+                        scope_label = 'KAPSAMLI'
+                    else:
+                        scope = 'normal'
+                        scope_label = 'ORTA'
+                    
+                    schedule.append({
+                        'km': km,
+                        'maintenances': [f"{m['level']} (×{m['ratio']})" for m in applicable],
+                        'maintenance_detail': applicable,
+                        'total_works': total_works,
+                        'scope': scope,
+                        'scope_label': scope_label
+                    })
+            
+            return jsonify(schedule)
+        
         @app.route('/api/bakim-verileri')
         @login_required
         def bakim_verileri():
-            """Tüm araçların bakım durumunu tablo formatında döndür"""
+            """Tüm araçların bakım durumunu tablo formatında döndür (Equipment.current_km'den dinamik olarak)"""
             import json
             from datetime import datetime
             
@@ -779,40 +856,42 @@ def create_app():
             maintenance_levels = sorted([k for k in maintenance_data.keys()], 
                                        key=lambda x: int(x.replace('K', '')) * 1000)
             
-            # KM verilerini al
+            # KM verilerini al - FALLBACK şu anda Equipment tablosundan priorite alıyor
             km_file = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'km_data.json')
-            tram_km = {}
+            tram_km_fallback = {}
             
             if os.path.exists(km_file):
                 with open(km_file, 'r', encoding='utf-8') as f:
                     try:
                         km_data = json.load(f)
                         # KM verileri doğrudan tram ID'leri içeriyor
-                        tram_km = {k: v for k, v in km_data.items() if k and isinstance(v, dict) and 'current_km' in v}
+                        tram_km_fallback = {k: v for k, v in km_data.items() if k and isinstance(v, dict) and 'current_km' in v}
                     except:
                         pass
             
-            # Tüm araçları ekipman tablosundan al, yoksa KM verilerinden al
+            # Tüm araçları ekipman tablosundan al (DİNAMİK KAYNAĞIMIZ)
             result = []
             equipment_list = Equipment.query.all()
             
-            # Eğer Equipment boşsa, KM verilerinden tram ID'lerini al
-            if not equipment_list and tram_km:
+            # Eğer Equipment boşsa, KM verilerinden tram ID'lerini al (fallback)
+            if not equipment_list and tram_km_fallback:
                 equipment_list = []
-                for tram_id in sorted(tram_km.keys()):
+                for tram_id in sorted(tram_km_fallback.keys()):
                     tram_obj = type('Equipment', (), {
                         'id': tram_id,
-                        'name': f'Tramvay {tram_id}'
+                        'name': f'Tramvay {tram_id}',
+                        'current_km': tram_km_fallback[tram_id].get('current_km', 0)
                     })()
                     equipment_list.append(tram_obj)
             
             for eq in equipment_list:
                 tram_id = str(eq.id)
-                current_km = 0
+                # Equipment tablosundan KM'yi al (DİNAMİK)
+                current_km = getattr(eq, 'current_km', 0) or 0
                 
-                # KM verilerinden currentkm'yi al
-                if tram_id in tram_km:
-                    current_km = tram_km[tram_id].get('current_km', 0)
+                # Fallback: Eğer Equipment.current_km boşsa, km_data.json'dan al
+                if not current_km and tram_id in tram_km_fallback:
+                    current_km = tram_km_fallback[tram_id].get('current_km', 0)
                 
                 # Tüm bakım seviyelerini hesapla ve en yakınını bul
                 all_maintenances = {}
@@ -855,6 +934,7 @@ def create_app():
                     
                     maint_info = {
                         'level': level,
+                        'level_km': level_km,
                         'next_km': next_due or multiples[-1],
                         'km_left': km_left if km_left > 0 else 0,
                         'status': status,
@@ -864,14 +944,34 @@ def create_app():
                     
                     all_maintenances[level] = maint_info
                     
-                    # En yakını bul (pozitif km_left ile en küçük olanı)
-                    if km_left > 0 and km_left < min_km_left:
-                        min_km_left = km_left
-                        nearest_maintenance = maint_info
+                    # En yakını bul (pozitif km_left ile en küçük olanı; eşitse en yüksek level olanı)
+                    if km_left > 0:
+                        if km_left < min_km_left:
+                            min_km_left = km_left
+                            nearest_maintenance = maint_info
+                        elif km_left == min_km_left and level_km > nearest_maintenance.get('level_km', 0):
+                            # Eşit km_left'te daha yüksek level bakımını seç (18K > 6K vs)
+                            nearest_maintenance = maint_info
                 
                 # Eğer hiç pozitif km_left yoksa (tümü geçmiş), en son bakımı al
                 if nearest_maintenance is None:
                     nearest_maintenance = all_maintenances[maintenance_levels[-1]]
+                
+                # SPECIAL: Eğer next_km 72K'nin katıysa (72, 144, 216, 288K), 70K işlerini ekle
+                next_km = nearest_maintenance.get('next_km', 0)
+                is_70k_due = False
+                if next_km > 0 and next_km % 72000 == 0 and 'all_maintenances' in locals():
+                    # 70K işlerini ekle
+                    is_70k_due = True
+                    # 70K works sayısını al
+                    seventy_k_works = len([w for w in maintenance_data.get('70K', {}).get('works', []) if w.startswith('BOZ')])
+                    
+                    # Eğer nearest_maintenance'da 70K yoksa, works sayısını artır
+                    if 'level' in nearest_maintenance and nearest_maintenance['level'] != '70K':
+                        # 70K'ı works'e not et (UI'da gösterilecek)
+                        original_works = nearest_maintenance.get('works', [])
+                        nearest_maintenance['has_70k'] = True
+                        nearest_maintenance['additional_70k_works'] = seventy_k_works
                 
                 result.append({
                     'tram_id': tram_id,

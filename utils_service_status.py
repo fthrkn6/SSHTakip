@@ -14,7 +14,8 @@ from models import db, ServiceLog, AvailabilityMetrics, RootCauseAnalysis, Equip
 
 logger = logging.getLogger(__name__)
 
-AVAILABILITY_LOG_DIR = 'logs/availability'
+# Availability log klasörü (proje-agnostic)
+AVAILABILITY_LOG_DIR = os.path.join(os.path.dirname(__file__), 'logs', 'belgrad', 'availability')
 os.makedirs(AVAILABILITY_LOG_DIR, exist_ok=True)
 
 

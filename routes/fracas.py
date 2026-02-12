@@ -3,7 +3,7 @@ FRACAS (Failure Reporting, Analysis and Corrective Action System) Analiz Modül�
 Raylı Sistemler için EN 50126 RAMS Standartlarına Uygun Analizler
 """
 
-from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, current_app
+from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, current_app, session
 from flask_login import login_required, current_user
 import pandas as pd
 import numpy as np
@@ -141,6 +141,47 @@ def load_fracas_data():
         return None
 
 
+def load_ariza_listesi_data():
+    """Arıza Listesi Excel'den verileri yükle - logs/{project}/ariza_listesi/"""
+    current_project = session.get('current_project', 'belgrad')
+    ariza_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
+    
+    # Arıza Listesi dosyasını bul
+    ariza_listesi_file = None
+    if os.path.exists(ariza_dir):
+        for file in os.listdir(ariza_dir):
+            if file.endswith('.xlsx') and not file.startswith('~$'):
+                ariza_listesi_file = os.path.join(ariza_dir, file)
+                break
+    
+    if not ariza_listesi_file:
+        return None
+    
+    try:
+        # Arıza Listesi sheet'i header 3 satırından başlıyor (row 4)
+        df = pd.read_excel(ariza_listesi_file, sheet_name='Ariza Listesi', header=3)
+        # Sütun isimlerini normalize et
+        df.columns = df.columns.str.replace('\n', ' ', regex=False).str.strip()
+        
+        # FRACAS ID kolonunu bul ve boş satırları filtrele
+        fracas_col = None
+        for col in df.columns:
+            if 'fracas' in col.lower() and 'id' in col.lower():
+                fracas_col = col
+                break
+        if fracas_col:
+            df = df[df[fracas_col].notna()]
+        
+        # Sadece doldurulmuş satırları al (FRACAS ID'si olan)
+        if len(df) > 0:
+            return df
+        
+        return None
+    except Exception as e:
+        print(f"Arıza Listesi okuma hatası: {e}")
+        return None
+
+
 def safe_numeric(value, default=0):
     """Güvenli sayısal dönüşüm"""
     try:
@@ -154,16 +195,23 @@ def safe_numeric(value, default=0):
 @bp.route('/')
 @login_required
 def index():
-    """FRACAS Ana Sayfa - Özet Dashboard"""
+    """FRACAS Ana Sayfa - Özet Dashboard - Arıza Listesi verileri kullanarak"""
     if current_user.role not in ['admin', 'manager']:
         flash('Bu sayfaya erişim yetkiniz yok.', 'error')
         return redirect(url_for('dashboard'))
     
-    df = load_fracas_data()
+    # Arıza Listesi'nden verileri yükle (tercih edilen)
+    df = load_ariza_listesi_data()
+    
+    # Eğer yoksa FRACAS verilerini kullan
+    if df is None:
+        df = load_fracas_data()
+    
+    data_source = 'Arıza Listesi' if df is not None and len(df) > 0 else 'FRACAS'
     
     if df is None:
-        flash('FRACAS verileri bulunamadı. Lütfen data klasörüne Excel dosyasını ekleyin.', 'warning')
-        return render_template('fracas/index.html', data_available=False)
+        flash('FRACAS verileri bulunamadı. Lütfen Arıza Listesi Excel dosyasını logs klasörüne ekleyin.', 'warning')
+        return render_template('fracas/index.html', data_available=False, data_source='Veri Yok')
     
     # Temel istatistikler
     stats = calculate_basic_stats(df)
@@ -175,6 +223,7 @@ def index():
     
     return render_template('fracas/index.html',
                          data_available=True,
+                         data_source=data_source,
                          stats=stats,
                          rams=rams_metrics,
                          pareto=pareto_data,
@@ -202,13 +251,13 @@ def get_column(df, possible_names):
 
 
 def calculate_basic_stats(df):
-    """Temel istatistikleri hesapla"""
-    # Kolon isimlerini dinamik bul - Excel'deki gerçek başlıklara göre
-    vehicle_col = get_column(df, ['araç numarası', 'tram_id', 'vehicle number'])
-    module_col = get_column(df, ['araç modülü', 'sistem', 'vehicle module'])
-    supplier_col = get_column(df, ['ilgili tedarikçi', 'tedarikçi', 'supplier'])
-    ncr_col = get_column(df, ['ncr numarası', 'ncr number'])
-    ncr_close_col = get_column(df, ['ncr kapanış', 'ncr closing'])
+    """Temel istatistikleri hesapla - Arıza Listesi verileriyle"""
+    # Kolon isimlerini dinamik bul
+    vehicle_col = get_column(df, ['araç', 'araç no', 'tram', 'vehicle'])
+    module_col = get_column(df, ['modül', 'sistem', 'module', 'system'])
+    supplier_col = get_column(df, ['tedarikçi', 'supplier', 'supplier name'])
+    class_col = get_column(df, ['arıza sınıfı', 'failure class', 'sınıf'])
+    date_col = get_column(df, ['tarih', 'date', 'hata tarih'])
     warranty_col = get_column(df, ['garanti', 'warranty'])
     
     stats = {
@@ -216,15 +265,25 @@ def calculate_basic_stats(df):
         'unique_vehicles': df[vehicle_col].nunique() if vehicle_col else 0,
         'unique_modules': df[module_col].nunique() if module_col else 0,
         'total_suppliers': df[supplier_col].nunique() if supplier_col else 0,
-        'open_ncr': 0,
+        'class_a': 0,
+        'class_b': 0,
+        'class_c': 0,
+        'class_d': 0,
         'warranty_claims': 0
     }
     
-    # NCR durumu
-    if ncr_col:
-        stats['total_ncr'] = df[ncr_col].notna().sum()
-        if ncr_close_col:
-            stats['open_ncr'] = df[df[ncr_col].notna() & df[ncr_close_col].isna()].shape[0]
+    # Arıza sınıfı dağılımı
+    if class_col:
+        for sinif in df[class_col].dropna():
+            sinif_str = str(sinif).strip()
+            if sinif_str.startswith('A'):
+                stats['class_a'] += 1
+            elif sinif_str.startswith('B'):
+                stats['class_b'] += 1
+            elif sinif_str.startswith('C'):
+                stats['class_c'] += 1
+            elif sinif_str.startswith('D'):
+                stats['class_d'] += 1
     
     # Garanti kapsamı
     if warranty_col:
@@ -235,7 +294,7 @@ def calculate_basic_stats(df):
 
 
 def calculate_rams_metrics(df):
-    """EN 50126 RAMS metriklerini hesapla"""
+    """EN 50126 RAMS metriklerini hesapla - Arıza Listesi verilerine göre"""
     rams = {
         'mtbf': None,
         'mttr': None,
@@ -245,38 +304,71 @@ def calculate_rams_metrics(df):
         'reliability': None
     }
     
-    # MTTR hesaplama - Tamir Süresi (dakika)
-    mttr_col = get_column(df, ['tamir süresi (dakika)', 'tamir süresi', 'repair time'])
+    if len(df) == 0:
+        return rams
+    
+    # MTTR hesaplama - Tamir Süresi (dakika veya saat)
+    mttr_col = get_column(df, ['tamir süresi (dakika)', 'tamir süresi (saat)', 'tamir süresi', 'repair time'])
     if mttr_col:
         valid_data = pd.to_numeric(df[mttr_col], errors='coerce').dropna()
         if len(valid_data) > 0:
-            rams['mttr'] = round(valid_data.mean(), 2)
+            # Eğer sütun "saat" ise dakikaya çevir
+            if 'saat' in str(mttr_col).lower():
+                rams['mttr'] = round(valid_data.mean() * 60, 2)  # Saat -> dakika
+            else:
+                rams['mttr'] = round(valid_data.mean(), 2)  # Zaten dakika
     
     # Bekleme süresi
-    wait_col = get_column(df, ['bekleme süresi', 'waiting'])
+    wait_col = get_column(df, ['bekleme süresi', 'waiting time', 'waiting'])
     if wait_col:
         valid_data = pd.to_numeric(df[wait_col], errors='coerce').dropna()
         if len(valid_data) > 0:
             rams['mwt'] = round(valid_data.mean(), 2)
     
-    # MDT = MTTR + MWT (Ortalama Tamir Süresi + Ortalama Bekleme Süresi)
-    if rams['mttr'] and rams['mwt']:
+    # MDT = MTTR + MWT
+    if rams['mttr'] is not None and rams['mwt'] is not None:
         rams['mdt'] = round(rams['mttr'] + rams['mwt'], 2)
-    elif rams['mttr']:
+    elif rams['mttr'] is not None:
         rams['mdt'] = rams['mttr']
     
-    # Kullanılabilirlik hesaplama
-    if rams['mttr'] and rams['mdt']:
-        # Kullanılabilirlik = MTBF / (MTBF + MTTR)
-        # MTBF hesaplaması: Toplam çalışma süresi / Arıza sayısı
-        total_operating_hours = 720 * len(df)  # Aylık çalışma saati tahmini
-        if len(df) > 0:
-            mtbf = total_operating_hours / len(df) * 60  # Dakikaya çevir
-            rams['mtbf'] = round(mtbf, 2)
-            availability = (mtbf / (mtbf + rams['mttr'])) * 100 if (mtbf + rams['mttr']) > 0 else 0
-            rams['availability'] = round(max(0, min(100, availability)), 2)
-        # Reliability = Başarılı onarım oranı (tüm onarımlar başarılı kabul)
-        rams['reliability'] = 99.0  # EN 50126 minimum gereksinim
+    # MTBF hesaplama
+    # Arıza Listesi'ndeki araçların çalışma süresi bilgisi varsa kullan
+    km_col = get_column(df, ['km', 'muhasebe km', 'kilometre'])
+    
+    if km_col:
+        # KM verilerinden MTBF hesapla: Araç başına ortalama KM / Araç başına ortalama arıza sayısı
+        vehicle_col = get_column(df, ['araç', 'araç no', 'tram', 'vehicle'])
+        if vehicle_col:
+            vehicle_km = df.groupby(vehicle_col)[km_col].apply(lambda x: pd.to_numeric(x, errors='coerce').max() - pd.to_numeric(x, errors='coerce').min())
+            avg_km_per_vehicle = vehicle_km[vehicle_km > 0].mean() if len(vehicle_km[vehicle_km > 0]) > 0 else 50000
+            
+            total_vehicles = df[vehicle_col].nunique()
+            failures_per_vehicle = len(df) / total_vehicles if total_vehicles > 0 else 1
+            
+            # MTBF = Ortalama araç KM / Arıza sayısı
+            mtbf_km = avg_km_per_vehicle / failures_per_vehicle if failures_per_vehicle > 0 else avg_km_per_vehicle
+            # KM'i saate çevir (100 km/saat varsayımı)
+            rams['mtbf'] = round((mtbf_km / 100) * 60, 2)  # dakika
+    else:
+        # KM verisi yoksa, aylık çalışma saati tahmini kullan (daha gerçekçi: 480 saat/ay)
+        total_vehicles = stats.get('unique_vehicles', 1) if 'stats' in dir() else 1
+        failures_per_vehicle = len(df) / total_vehicles if total_vehicles > 0 else 1
+        mtbf_hours = 480 / failures_per_vehicle if failures_per_vehicle > 0 else 480
+        rams['mtbf'] = round(mtbf_hours * 60, 2)  # Dakikaya çevir
+    
+    # Kullanılabilirlik = MTBF / (MTBF + MTTR)
+    if rams['mtbf'] and rams['mttr']:
+        availability = (rams['mtbf'] / (rams['mtbf'] + rams['mttr'])) * 100
+        rams['availability'] = round(max(0, min(100, availability)), 2)
+    
+    # Reliability (İtfaiye oranı) - Başarılı onarım yüzdesi
+    # Arıza Listesi'nde "Onarım Veya Onarım Dışı" veya benzeri sütun varsa kullan
+    repair_col = get_column(df, ['onarım', 'repair', 'onarım veya onarım dışı', 'status'])
+    if repair_col:
+        successful_repairs = df[repair_col].astype(str).str.lower().str.contains('onarım|repair|fixed|başarılı', na=False).sum()
+        rams['reliability'] = round((successful_repairs / len(df)) * 100, 1) if len(df) > 0 else 95.0
+    else:
+        rams['reliability'] = 95.0  # Varsayılan EN 50126 hedef
     
     return rams
 
@@ -507,7 +599,9 @@ def calculate_cost_analysis(df):
 @login_required
 def api_summary():
     """API: Özet veriler"""
-    df = load_fracas_data()
+    df = load_ariza_listesi_data()
+    if df is None:
+        df = load_fracas_data()
     if df is None:
         return jsonify({'error': 'Veri bulunamadı'}), 404
     
@@ -521,7 +615,9 @@ def api_summary():
 @login_required
 def api_pareto(category):
     """API: Pareto analizi"""
-    df = load_fracas_data()
+    df = load_ariza_listesi_data()
+    if df is None:
+        df = load_fracas_data()
     if df is None:
         return jsonify({'error': 'Veri bulunamadı'}), 404
     
@@ -537,7 +633,9 @@ def api_pareto(category):
 @login_required
 def api_trend():
     """API: Trend analizi"""
-    df = load_fracas_data()
+    df = load_ariza_listesi_data()
+    if df is None:
+        df = load_fracas_data()
     if df is None:
         return jsonify({'error': 'Veri bulunamadı'}), 404
     
@@ -548,7 +646,9 @@ def api_trend():
 @login_required
 def api_supplier():
     """API: Tedarikçi analizi"""
-    df = load_fracas_data()
+    df = load_ariza_listesi_data()
+    if df is None:
+        df = load_fracas_data()
     if df is None:
         return jsonify({'error': 'Veri bulunamadı'}), 404
     
@@ -559,7 +659,9 @@ def api_supplier():
 @login_required
 def api_cost():
     """API: Maliyet analizi"""
-    df = load_fracas_data()
+    df = load_ariza_listesi_data()
+    if df is None:
+        df = load_fracas_data()
     if df is None:
         return jsonify({'error': 'Veri bulunamadı'}), 404
     
@@ -570,39 +672,61 @@ def api_cost():
 @login_required
 def api_vehicle_detail(vehicle_id):
     """API: Araç detay analizi"""
-    df = load_fracas_data()
+    df = load_ariza_listesi_data()
+    if df is None:
+        df = load_fracas_data()
     if df is None:
         return jsonify({'error': 'Veri bulunamadı'}), 404
     
-    if 'tram_id' not in df.columns:
-        return jsonify({'error': 'Tram ID sütunu bulunamadı'}), 400
+    # Araç sütununu bul
+    vehicle_col = get_column(df, ['araç', 'araç no', 'tram', 'vehicle'])
+    if not vehicle_col:
+        return jsonify({'error': 'Araç sütunu bulunamadı'}), 400
     
-    vehicle_df = df[df['tram_id'].astype(str) == str(vehicle_id)]
+    vehicle_df = df[df[vehicle_col].astype(str) == str(vehicle_id)]
     
     if len(vehicle_df) == 0:
         return jsonify({'error': 'Araç bulunamadı'}), 404
     
-    return jsonify({
+    # Modül ve arıza sınıfı sütunlarını bul
+    module_col = get_column(vehicle_df, ['modül', 'sistem', 'module', 'system'])
+    class_col = get_column(vehicle_df, ['arıza sınıfı', 'failure class'])
+    
+    result = {
         'vehicle_id': vehicle_id,
         'total_failures': len(vehicle_df),
-        'modules': vehicle_df['Araç Module Vehicle Module'].value_counts().to_dict() if 'Araç Module Vehicle Module' in vehicle_df.columns else {},
-        'failure_classes': vehicle_df['Arıza Sınıfı Failure Class'].value_counts().to_dict() if 'Arıza Sınıfı Failure Class' in vehicle_df.columns else {}
-    })
+        'modules': {},
+        'failure_classes': {}
+    }
+    
+    if module_col:
+        result['modules'] = vehicle_df[module_col].value_counts().to_dict()
+    if class_col:
+        result['failure_classes'] = vehicle_df[class_col].value_counts().to_dict()
+    
+    return jsonify(result)
 
 
 @bp.route('/api/km-analysis')
 @login_required
 def api_km_analysis():
     """API: Kilometre bazlı arıza analizi"""
-    df = load_fracas_data()
+    df = load_ariza_listesi_data()
+    if df is None:
+        df = load_fracas_data()
     if df is None:
         return jsonify({'error': 'Veri bulunamadı'}), 404
     
-    if 'Araç Kilometresi Vehicle Kilometer' not in df.columns:
+    # KM sütununu bul
+    km_col = get_column(df, ['km', 'muhasebe km', 'kilometre'])
+    if not km_col:
         return jsonify({'error': 'Kilometre sütunu bulunamadı'}), 400
     
-    df['km'] = pd.to_numeric(df['Araç Kilometresi Vehicle Kilometer'], errors='coerce')
+    df['km'] = pd.to_numeric(df[km_col], errors='coerce')
     valid_km = df[df['km'].notna()]
+    
+    if len(valid_km) == 0:
+        return jsonify({'error': 'Geçerli kilometre verisi bulunamadı'}), 400
     
     # Kilometre aralıkları
     bins = [0, 10000, 25000, 50000, 75000, 100000, 150000, 200000, float('inf')]
@@ -625,13 +749,16 @@ def api_km_analysis():
 @login_required  
 def api_safety_analysis():
     """API: Emniyet analizi"""
-    df = load_fracas_data()
+    df = load_ariza_listesi_data()
+    if df is None:
+        df = load_fracas_data()
     if df is None:
         return jsonify({'error': 'Veri bulunamadı'}), 404
     
-    safety_col = 'Arızanın Emniyetle İlgili Şiddet Kategorisi Safety Related Severity Category of Failure'
+    # Emniyet sütununu bul
+    safety_col = get_column(df, ['emniyet', 'safety', 'şiddet kategorisi', 'severity'])
     
-    if safety_col not in df.columns:
+    if not safety_col:
         return jsonify({'error': 'Emniyet kategorisi sütunu bulunamadı'}), 400
     
     safety_counts = df[safety_col].value_counts()

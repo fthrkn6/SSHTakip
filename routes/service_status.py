@@ -558,8 +558,9 @@ def export_comprehensive_report():
     try:
         tram_ids = [eq.equipment_code for eq in Equipment.query.all()]
         
-        # Klasör oluştur
-        output_dir = 'logs/rapor_cikti'
+        # Projeden klasör oluştur
+        project = session.get('current_project', 'belgrad')
+        output_dir = os.path.join('logs', project, 'reports')
         os.makedirs(output_dir, exist_ok=True)
         
         # Dosya adı
@@ -583,10 +584,11 @@ def export_comprehensive_report():
 def export_root_cause_report():
     """Root cause analysis raporu"""
     try:
+        project = session.get('current_project', 'belgrad')
         tram_ids = [eq.equipment_code for eq in Equipment.query.all()]
         
         # Klasör oluştur
-        output_dir = 'logs/rapor_cikti'
+        output_dir = os.path.join('logs', project, 'reports')
         os.makedirs(output_dir, exist_ok=True)
         
         # Dosya adı
@@ -610,8 +612,9 @@ def export_root_cause_report():
 def export_daily_report(tram_id):
     """Günlük servis durumu raporu"""
     try:
+        project = session.get('current_project', 'belgrad')
         # Klasör oluştur
-        output_dir = 'logs/rapor_cikti'
+        output_dir = os.path.join('logs', project, 'reports')
         os.makedirs(output_dir, exist_ok=True)
         
         # Dosya adı
@@ -660,7 +663,8 @@ def get_root_cause_summary(tram_id):
 def test_export(report_type):
     """Test export endpoint - debug amaçlı (login gerektirmez)"""
     try:
-        output_dir = 'logs/rapor_cikti'
+        project = request.args.get('project', 'belgrad')
+        output_dir = os.path.join('logs', project, 'reports')
         os.makedirs(output_dir, exist_ok=True)
         
         if report_type == 'comprehensive':

@@ -12,12 +12,17 @@ def init_service_status_system():
     app = create_app()
     
     with app.app_context():
-        # Log klasörlerini oluştur
-        log_dirs = [
-            'logs',
-            'logs/availability',
-            'logs/rapor_cikti'
-        ]
+        # Tüm projeler için log klasörlerini oluştur
+        projects = ['belgrad', 'gebze', 'iasi', 'kayseri', 'kocaeli', 'timisoara']
+        
+        log_dirs = ['logs']
+        for project in projects:
+            log_dirs.extend([
+                f'logs/{project}',
+                f'logs/{project}/ariza_listesi',
+                f'logs/{project}/availability',
+                f'logs/{project}/reports'
+            ])
         
         for log_dir in log_dirs:
             os.makedirs(log_dir, exist_ok=True)
@@ -40,8 +45,8 @@ def init_service_status_system():
             print("  • 📈 Günlük, Haftalik, Aylık, 3 Aylık, 6 Aylık, Yıllık ve Total analiz")
             print("  • 🔍 Sistem ve alt sistem bazında Root Cause Analizi")
             print("  • 📋 Kapsamlı Excel raporlama")
-            print("  • 📁 Otomatik log kaydı (logs/availability/)")
-            print("  • 💾 Raporlar: logs/rapor_cikti/")
+            print("  • 📁 Otomatik log kaydı (logs/{project}/availability/)")
+            print("  • 💾 Raporlar: logs/{project}/reports/")
             print("  • 🎯 Sticky Export butonu (sol alt)")
             print("\nErişim: http://localhost:5000/servis/durumu")
             

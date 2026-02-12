@@ -4,61 +4,356 @@
 
 {% block extra_css %}
 <style>
+    /* ============================================
+       GENEL STIL VE LAYOUT
+       ============================================ */
+    .container-fluid {
+        background: linear-gradient(135deg, #f5f7fa 0%, #f0f4f8 100%);
+        min-height: 100vh;
+        padding-bottom: 2rem;
+    }
+
+    .page-title {
+        font-size: 2em;
+        font-weight: 700;
+        color: #1a2332;
+        letter-spacing: -0.5px;
+    }
+
+    .page-subtitle {
+        font-size: 0.95em;
+        color: #6c757d;
+        font-weight: 400;
+        margin-top: 0.25rem;
+    }
+
+    /* ============================================
+       STAT KARTLARI
+       ============================================ */
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        border: 1px solid #e7edf3;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .stat-card:hover {
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        transform: translateY(-2px);
+        border-color: #d0d8e0;
+    }
+
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5em;
+        font-weight: bold;
+        color: white;
+    }
+
+    .stat-icon.primary {
+        background: linear-gradient(135deg, #0d6efd, #0856ca);
+    }
+
+    .stat-icon.success {
+        background: linear-gradient(135deg, #198754, #145a3e);
+    }
+
+    .stat-icon.warning {
+        background: linear-gradient(135deg, #ffc107, #ff9800);
+    }
+
+    .stat-icon.danger {
+        background: linear-gradient(135deg, #dc3545, #c82333);
+    }
+
+    .stat-content h3 {
+        margin: 0;
+        font-size: 1.8em;
+        font-weight: 700;
+        color: #1a2332;
+    }
+
+    .stat-content p {
+        margin: 4px 0 0 0;
+        color: #6c757d;
+        font-size: 0.9em;
+        font-weight: 500;
+    }
+
+    /* ============================================
+       TABLO STILLERI
+       ============================================ */
+    .table-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        border: 1px solid #e7edf3;
+        overflow: hidden;
+    }
+
+    .table-card .table-responsive {
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .table-card .table {
+        margin-bottom: 0;
+        border-collapse: collapse;
+    }
+
+    .table-card thead {
+        background: linear-gradient(135deg, #1a2332 0%, #2c3e50 100%);
+    }
+
+    .table-card thead th {
+        font-size: 1.05em;
+        font-weight: 600;
+        padding: 16px 12px;
+        letter-spacing: 0.5px;
+        color: white;
+        border: none;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    .table-card tbody td {
+        padding: 14px 12px;
+        vertical-align: middle;
+        border-bottom: 1px solid #e7edf3;
+        font-size: 0.95em;
+    }
+
+    .table-card tbody tr {
+        transition: all 0.2s ease;
+        border-left: 3px solid transparent;
+    }
+
+    .table-card tbody tr:hover {
+        background-color: #f8fbff;
+        border-left-color: #0d6efd;
+        box-shadow: inset 0 0 8px rgba(13, 110, 253, 0.05);
+    }
+
+    .table-card .card-footer {
+        background-color: #f8fbff;
+        border-top: 1px solid #e7edf3;
+        padding: 12px 16px;
+        font-size: 0.85em;
+        color: #6c757d;
+    }
+
+    /* ============================================
+       KM CELL
+       ============================================ */
     .km-cell {
         font-weight: bold;
         font-size: 1.1em;
         padding: 12px 8px;
-        border-radius: 4px;
+        border-radius: 8px;
         text-align: center;
         transition: all 0.3s ease;
     }
 
     .km-normal {
-        background-color: #d4edda;
+        background: linear-gradient(135deg, #d4edda, #c3e6cb);
         color: #155724;
         border: 2px solid #28a745;
+        box-shadow: 0 2px 6px rgba(40, 167, 69, 0.15);
     }
 
     .km-warning {
-        background-color: #fff3cd;
+        background: linear-gradient(135deg, #fff3cd, #ffe5a3);
         color: #856404;
         border: 2px solid #ffc107;
+        box-shadow: 0 2px 6px rgba(255, 193, 7, 0.15);
     }
 
     .km-urgent {
-        background-color: #f8d7da;
+        background: linear-gradient(135deg, #f8d7da, #f5c2c7);
         color: #721c24;
         border: 2px solid #dc3545;
+        box-shadow: 0 2px 6px rgba(220, 53, 69, 0.15);
     }
 
     .km-overdue {
-        background-color: #e2e3e5;
+        background: linear-gradient(135deg, #e2e3e5, #d3d4d6);
         color: #383d41;
         border: 2px solid #6c757d;
+        box-shadow: 0 2px 6px rgba(108, 117, 125, 0.15);
     }
 
+    /* ============================================
+       DURUM CELL (STATUS CELL)
+       ============================================ */
+    .status-cell {
+        font-weight: bold;
+        font-size: 1em;
+        padding: 12px 8px !important;
+        border-radius: 8px;
+        text-align: center;
+        transition: all 0.3s ease;
+        display: inline-block !important;
+        border: 2px solid rgba(0, 0, 0, 0.15) !important;
+        color: white !important;
+    }
+
+    /* ============================================
+       BADGE STILLERI
+       ============================================ */
     .status-badge {
         font-size: 0.9em;
         padding: 6px 12px;
+        border-radius: 6px;
+        display: inline-block;
+        font-weight: 500;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(0, 0, 0, 0.08);
     }
 
-    .table-hover tbody tr:hover {
-        background-color: #f5f5f5;
+    /* ============================================
+       ARAÇ DURUMU TABLOSU
+       ============================================ */
+    #maintenanceTable {
+        font-size: 1.1em !important;
+    }
+
+    #maintenanceTable thead th {
+        font-size: 1.1em;
+        padding: 14px 8px !important;
+        color: #fff !important;
+        font-weight: 600 !important;
+        vertical-align: middle;
+        background: linear-gradient(135deg, #1a2332 0%, #2c3e50 100%) !important;
+        border-bottom: 3px solid #0d6efd !important;
+    }
+
+    #maintenanceTable tbody td {
+        padding: 12px 8px !important;
+        vertical-align: middle;
+        font-size: 1.1em;
+    }
+
+    /* ============================================
+       BAKIŞ PLANLAMASI TABLOSU
+       ============================================ */
+    .maintenance-schedule-table {
+        font-size: 1.1em;
+    }
+
+    .maintenance-schedule-table thead th {
+        font-size: 1.1em;
+        padding: 14px 8px !important;
+        color: #fff !important;
+        font-weight: 600 !important;
+        vertical-align: middle;
+        background: linear-gradient(135deg, #1a2332 0%, #2c3e50 100%) !important;
+        border-bottom: 3px solid #0d6efd !important;
+    }
+
+    .maintenance-schedule-table tbody td {
+        padding: 12px 8px;
+        vertical-align: middle;
+        font-size: 1.1em;
+    }
+
+    .schedule-scope-urgent {
+        background-color: #fff5f5;
+        border-left: 4px solid #dc3545;
+    }
+
+    .schedule-scope-heavy {
+        background-color: #fffbf0;
+        border-left: 4px solid #ffc107;
+    }
+
+    .schedule-scope-normal {
+        background-color: #f0f9ff;
+        border-left: 4px solid #0d6efd;
+    }
+
+    .badge-scope-urgent {
+        background-color: #dc3545;
+        box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2);
+    }
+
+    .badge-scope-heavy {
+        background-color: #ffc107;
+        color: #000;
+        box-shadow: 0 2px 4px rgba(255, 193, 7, 0.2);
+    }
+
+    .badge-scope-normal {
+        background-color: #0d6efd;
+        box-shadow: 0 2px 4px rgba(13, 110, 253, 0.2);
+    }
+
+    .schedule-km {
+        font-weight: 600;
+        font-size: 1.05em;
+        min-width: 80px;
+        color: #1a2332;
+    }
+
+    /* Sticky Table Headers */
+    .sticky-top {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 10 !important;
+    }
+
+    thead.table-dark.sticky-top {
+        background: linear-gradient(135deg, #1a2332 0%, #2c3e50 100%) !important;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        border-bottom: 3px solid #0d6efd;
+    }
+
+    thead.table-dark.sticky-top th {
+        color: #fff !important;
+        font-weight: 600;
+        border-color: #0d6efd;
+    }
+
+    .schedule-works {
+        font-size: 0.85em;
+        color: #666;
+        line-height: 1.4;
+    }
+
+    .filter-btn-schedule {
+        margin-bottom: 1rem;
+    }
+
+    #scheduleTable tbody tr {
         cursor: pointer;
+        transition: all 0.2s ease;
     }
 
-    .next-maintenance-box {
-        padding: 12px;
-        border-radius: 4px;
-        margin: 8px 0;
-        background-color: #f8f9fa;
-        border-left: 4px solid #007bff;
+    #scheduleTable tbody tr:hover {
+        box-shadow: inset 3px 0 0 #0d6efd;
+        background-color: rgba(13, 110, 253, 0.03);
     }
 
+    /* ============================================
+       MODAL VE UYARI
+       ============================================ */
     .modal-body .list-group-item {
         border-left: 4px solid #dee2e6;
-        padding: 12px;
+        padding: 12px 14px;
         margin-bottom: 8px;
+        border-radius: 6px;
+        background-color: #f8fbff;
+        border-top: 1px solid #e7edf3;
+        border-bottom: 1px solid #e7edf3;
+        border-right: 1px solid #e7edf3;
     }
 
     .modal-body .list-group-item.urgent {
@@ -70,6 +365,88 @@
         border-left-color: #ffc107;
         background-color: #fffbf0;
     }
+
+    .alert {
+        border-radius: 8px;
+        border-left: 4px solid;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    }
+
+    .alert-info {
+        border-left-color: #0d6efd;
+    }
+
+    /* ============================================
+       TAB VE BUTONLAR
+       ============================================ */
+    .nav-tabs {
+        border-bottom: 2px solid #e7edf3;
+    }
+
+    .nav-tabs .nav-link {
+        color: #6c757d;
+        border: none;
+        border-bottom: 3px solid transparent;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        margin-bottom: -2px;
+    }
+
+    .nav-tabs .nav-link:hover {
+        color: #0d6efd;
+        border-bottom-color: #e7edf3;
+    }
+
+    .nav-tabs .nav-link.active {
+        color: #0d6efd;
+        background-color: transparent;
+        border-bottom-color: #0d6efd;
+        font-weight: 600;
+    }
+
+    .btn-outline-secondary {
+        border-color: #dee2e6;
+        color: #6c757d;
+    }
+
+    .btn-outline-secondary:hover {
+        background-color: #f8fbff;
+        border-color: #0d6efd;
+        color: #0d6efd;
+    }
+
+    .btn-outline-secondary.active {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+        color: white;
+    }
+
+    /* ============================================
+       ADAPTIF TASARIM
+       ============================================ */
+    @media (max-width: 768px) {
+        .page-title {
+            font-size: 1.5em;
+        }
+
+        .stat-card {
+            padding: 16px;
+        }
+
+        .stat-content h3 {
+            font-size: 1.3em;
+        }
+
+        .table-card thead th {
+            font-size: 0.85em;
+            padding: 12px 8px;
+        }
+
+        .table-card tbody td {
+            font-size: 0.85em;
+            padding: 10px 8px;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -78,65 +455,217 @@
     <div class="row mb-4">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2>
-                    <i class="bi bi-tools me-2"></i>Bakım Planlaması
-                </h2>
-                <button class="btn btn-outline-primary btn-sm" onclick="exportToExcel()">
+                <div>
+                    <h1 class="page-title">
+                        <i class="bi bi-tools me-2"></i>Bakım Planlaması
+                    </h1>
+                    <p class="page-subtitle">Araç bakım durumunu yönetin ve planlayın</p>
+                </div>
+                <button class="btn btn-outline-primary" onclick="exportToExcel()">
                     <i class="bi bi-download me-2"></i>Rapor İndir
                 </button>
             </div>
 
-            <div class="alert alert-info">
+            <div class="alert alert-info alert-dismissible fade show">
                 <i class="bi bi-info-circle me-2"></i>
-                Tabloyu kullanmak için: <strong>Araçların satırına tıklayın</strong> → Hangi bakımları yaptığınızı seçin
-                → Kaydet
+                <strong>İpucu:</strong> Araçların satırına tıklayın veya "Detaylar" butonunu kullanarak bakım durumunu
+                güncelleyin.
             </div>
         </div>
     </div>
 
-    <!-- Filtreler -->
+    <!-- İstatistik Kartları -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon primary">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="count-all">0</h3>
+                    <p>Toplam Araç</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon success">
+                    <i class="bi bi-check2-all"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="count-normal">0</h3>
+                    <p>Normal Durum</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="count-warning">0</h3>
+                    <p>Uyarı Gereken</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon danger">
+                    <i class="bi bi-exclamation-octagon"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="count-urgent">0</h3>
+                    <p>Acil Bakım</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB SEÇİMİ -->
     <div class="row mb-3">
         <div class="col-12">
-            <div class="btn-group" role="group">
-                <button type="button" class="btn btn-outline-secondary btn-sm active" onclick="filterTable('all')">
-                    Tümü <span id="count-all" class="badge bg-secondary ms-2">0</span>
-                </button>
-                <button type="button" class="btn btn-outline-danger btn-sm" onclick="filterTable('urgent')">
-                    Acil <span id="count-urgent" class="badge bg-danger ms-2">0</span>
-                </button>
-                <button type="button" class="btn btn-outline-warning btn-sm" onclick="filterTable('warning')">
-                    Uyarı <span id="count-warning" class="badge bg-warning text-dark ms-2">0</span>
-                </button>
-                <button type="button" class="btn btn-outline-success btn-sm" onclick="filterTable('normal')">
-                    Normal <span id="count-normal" class="badge bg-success ms-2">0</span>
-                </button>
-            </div>
+            <ul class="nav nav-tabs" id="bakimTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="araç-status-tab" data-bs-toggle="tab"
+                        data-bs-target="#araç-status" type="button" role="tab" aria-controls="araç-status"
+                        aria-selected="true">
+                        <i class="bi bi-bus-front me-2"></i>Araç Durumu
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="bakim-tablosu-tab" data-bs-toggle="tab" data-bs-target="#bakim-tablosu"
+                        type="button" role="tab" aria-controls="bakim-tablosu" aria-selected="false">
+                        <i class="bi bi-table me-2"></i>Bakım Planı Tablosu
+                    </button>
+                </li>
+            </ul>
         </div>
     </div>
 
-    <!-- Tablo -->
-    <div class="table-responsive">
-        <table class="table table-hover table-striped" id="maintenanceTable">
-            <thead class="table-dark">
-                <tr>
-                    <th style="width: 200px;">Araç</th>
-                    <th style="width: 150px;" class="text-center">
-                        Mevcut KM
-                        <div style="font-size: 0.8em; font-weight: normal; margin-top: 5px;">
-                            (Renkle yakınlık görün)
-                        </div>
-                    </th>
-                    <th style="width: 120px;" class="text-center">Sonraki Bakım</th>
-                    <th style="width: 120px;" class="text-center">KM Farkı</th>
-                    <th style="width: 150px;" class="text-center">Durum</th>
-                    <th style="width: 200px;" class="text-center">İşlem</th>
-                </tr>
-            </thead>
-            <tbody id="tbody">
-                <!-- Dinamik olarak doldurulacak -->
-            </tbody>
-        </table>
+    <div class="tab-content" id="bakimTabContent">
+        <!-- TAB 1: Araç Durumu -->
+        <div class="tab-pane fade show active" id="araç-status" role="tabpanel" aria-labelledby="araç-status-tab">
+
+            <!-- Filtreler -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="btn-group w-100" role="group">
+                        <button type="button" class="btn btn-outline-secondary active" onclick="filterTable('all')">
+                            <i class="bi bi-funnel me-2"></i>Tümü
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" onclick="filterTable('urgent')">
+                            <i class="bi bi-exclamation-octagon me-2"></i>Acil
+                        </button>
+                        <button type="button" class="btn btn-outline-warning" onclick="filterTable('warning')">
+                            <i class="bi bi-exclamation-triangle me-2"></i>Uyarı
+                        </button>
+                        <button type="button" class="btn btn-outline-success" onclick="filterTable('normal')">
+                            <i class="bi bi-check2 me-2"></i>Normal
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tablo -->
+            <div class="card shadow-sm table-card">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="maintenanceTable">
+                        <thead class="table-dark sticky-top" style="top: 0;">
+                            <tr>
+                                <th style="width: 140px;" class="text-center">
+                                    <i class="bi bi-bus-front me-2"></i>Araç
+                                </th>
+                                <th style="width: 140px;" class="text-center">
+                                    <i class="bi bi-speedometer2 me-2"></i>KM
+                                </th>
+                                <th style="width: 130px;" class="text-center">
+                                    <i class="bi bi-speedometer2 me-2"></i>Sonraki
+                                </th>
+                                <th style="width: 110px;" class="text-center">
+                                    <i class="bi bi-subtract me-2"></i>Fark
+                                </th>
+                                <th style="width: 120px;" class="text-center">
+                                    <i class="bi bi-info-circle me-2"></i>Durum
+                                </th>
+                                <th style="width: 110px;" class="text-center">
+                                    <i class="bi bi-pencil me-2"></i>İşlem
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody">
+                            <!-- Dinamik olarak doldurulacak -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <!-- /TAB 1: Araç Durumu -->
+
+        <!-- TAB 2: Bakım Planı Tablosu -->
+        <div class="tab-pane fade" id="bakim-tablosu" role="tabpanel" aria-labelledby="bakim-tablosu-tab">
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="number" class="form-control" id="kmSearch"
+                            placeholder="KM'ye göre ara (örn: 36000)" min="0" max="300000">
+                        <button class="btn btn-outline-primary" onclick="searchScheduleByKm()">Ara</button>
+                        <button class="btn btn-outline-secondary" onclick="clearScheduleSearch()">Temizle</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="btn-group w-100 filter-btn-schedule" role="group">
+                        <button type="button" class="btn btn-outline-secondary active" onclick="filterSchedule('all')">
+                            <i class="bi bi-funnel me-2"></i>Tümü
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" onclick="filterSchedule('urgent')">
+                            <i class="bi bi-exclamation-octagon me-2"></i>ÇOK KAPSAMLI (30+ iş)
+                        </button>
+                        <button type="button" class="btn btn-outline-warning" onclick="filterSchedule('heavy')">
+                            <i class="bi bi-exclamation-triangle me-2"></i>KAPSAMLI (20-29 iş)
+                        </button>
+                        <button type="button" class="btn btn-outline-info" onclick="filterSchedule('normal')">
+                            <i class="bi bi-info-circle me-2"></i>ORTA (10-19 iş)
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm table-card">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 maintenance-schedule-table" id="scheduleTable">
+                        <thead class="table-dark sticky-top" style="top: 0;">
+                            <tr>
+                                <th style="width: 100px;" class="text-center">
+                                    <i class="bi bi-speedometer2 me-2"></i>KM
+                                </th>
+                                <th>Yapılacak Bakımlar</th>
+                                <th style="width: 120px;" class="text-center">
+                                    <i class="bi bi-hammer me-2"></i>İş Sayısı
+                                </th>
+                                <th style="width: 130px;" class="text-center">
+                                    <i class="bi bi-info-circle me-2"></i>Kapsamı
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="scheduleTableBody">
+                            <!-- Dinamik olarak doldurulacak -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer text-center text-muted small">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Tabloy satırına tıklayarak bakım detaylarını görebilirsiniz
+                </div>
+            </div>
+        </div>
+        <!-- /TAB 2: Bakım Planı Tablosu -->
     </div>
+    <!-- /Tab Content -->
 </div>
 
 <!-- Bakım Detay Modal -->
@@ -187,11 +716,14 @@
     let maintenanceState = {}; // {tram_id: {level: {completed: bool, works: []}}}
     let currentTramId = null;
     let currentFilter = 'all';
+    let scheduleData = null;
+    let scheduleFilter = 'all';
 
     // Sayfa yüklendiğinde veri çek
     document.addEventListener('DOMContentLoaded', function () {
         loadData();
         loadState();
+        loadSchedule();
     });
 
     function loadState() {
@@ -258,39 +790,42 @@
         const kmCellClass = `km-cell km-${closestStatus}`;
 
         row.innerHTML = `
-            <td>
-                <strong>${tram.tram_name}</strong>
-                <br>
-                <small class="text-muted">ID: ${tram_id}</small>
+            <td class="text-center">
+                <span class="badge bg-primary" style="font-size: 1.15em; font-weight: 600; padding: 6px 12px;">
+                    ${tram.tram_name}
+                </span>
             </td>
             <td class="text-center">
                 <div class="${kmCellClass}">
-                    ${tram.current_km.toLocaleString('tr-TR')} KM
-                    <div style="font-size: 0.75em; font-weight: normal; margin-top: 3px;">
-                        (${level} sonraki)
+                    <strong>${tram.current_km.toLocaleString('tr-TR')}</strong> KM
+                    <div style="font-size: 0.8em; font-weight: 600; margin-top: 4px; color: #333; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 4px;">
+                        📍 Sonraki: <strong>${level}</strong>
                     </div>
                 </div>
             </td>
             <td class="text-center">
-                <strong>${nextKm === Infinity ? '∞' : nextKm.toLocaleString('tr-TR')}</strong> KM
-            </td>
-            <td class="text-center">
-                <span class="badge ${getKmLeftBadgeClass(closestKmLeft)}">
-                    ${closestKmLeft.toLocaleString('tr-TR')} KM
+                <span class="fw-bold" style="font-size: 1em;">
+                    ${nextKm === Infinity ? '∞' : nextKm.toLocaleString('tr-TR')} KM
                 </span>
             </td>
             <td class="text-center">
-                <span class="status-badge ${getStatusBadgeClass(closestStatus)}">
+                <span class="badge ${getKmLeftBadgeClass(closestKmLeft)}" style="font-size: 0.9em; padding: 6px 10px;">
+                    ${closestKmLeft === 0 ? '0 KM' : (closestKmLeft > 0 ? '+' : '') + closestKmLeft.toLocaleString('tr-TR')} KM
+                </span>
+            </td>
+            <td class="text-center">
+                <span class="status-badge ${getStatusBadgeClass(closestStatus)} status-cell" style="font-size: 1em;">
                     ${getStatusText(closestStatus)}
                 </span>
             </td>
             <td class="text-center">
-                <button class="btn btn-sm btn-primary" onclick="openMaintenanceModal('${tram_id}')">
+                <button class="btn btn-sm btn-primary" onclick="openMaintenanceModal('${tram_id}')" style="cursor: pointer; padding: 5px 10px; font-size: 0.9em;">
                     <i class="bi bi-pencil-square me-1"></i>Detaylar
                 </button>
             </td>
         `;
 
+        row.style.cursor = 'pointer';
         row.onclick = function () {
             openMaintenanceModal(tram_id);
         };
@@ -490,6 +1025,143 @@
         document.querySelector('.container-fluid').insertBefore(alert, document.querySelector('.row').nextSibling);
 
         setTimeout(() => alert.remove(), 3000);
+    }
+
+    // BAKIŞ PLANLAMASI TABLOSU FONKSİYONLARI
+    function loadSchedule() {
+        fetch('/api/bakim-plani-tablosu')
+            .then(r => r.json())
+            .then(data => {
+                scheduleData = data;
+                renderScheduleTable();
+            })
+            .catch(err => {
+                console.error('Schedule yükleme hatası:', err);
+                const tbody = document.getElementById('scheduleTableBody');
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">Veri yüklenemedi</td></tr>`;
+            });
+    }
+
+    function renderScheduleTable() {
+        const tbody = document.getElementById('scheduleTableBody');
+        tbody.innerHTML = '';
+
+        if (!scheduleData || scheduleData.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">Veri bulunamadı</td></tr>`;
+            return;
+        }
+
+        scheduleData.forEach((item, index) => {
+            if (scheduleFilter !== 'all' && item.scope !== scheduleFilter) {
+                return;
+            }
+
+            const row = document.createElement('tr');
+            row.className = `schedule-scope-${item.scope}`;
+            row.style.cursor = 'pointer';
+
+            const scopeBadgeClass = `badge-scope-${item.scope}`;
+            const maintenanceList = item.maintenances.join(' + ');
+
+            row.innerHTML = `
+                <td class="schedule-km text-center">${item.km.toLocaleString()} <small class="text-muted d-block">KM</small></td>
+                <td>
+                    <div class="schedule-works">${maintenanceList}</div>
+                </td>
+                <td class="text-center">
+                    <strong>${item.total_works}</strong>
+                    <small class="d-block text-muted">iş</small>
+                </td>
+                <td class="text-center">
+                    <span class="badge ${scopeBadgeClass}">${item.scope_label}</span>
+                </td>
+            `;
+
+            row.addEventListener('click', () => showScheduleDetail(item));
+            tbody.appendChild(row);
+        });
+    }
+
+    function filterSchedule(filter) {
+        scheduleFilter = filter;
+        renderScheduleTable();
+
+        // Button aktifliğini güncelle
+        document.querySelectorAll('.filter-btn-schedule .btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        event.target.classList.add('active');
+    }
+
+    function searchScheduleByKm() {
+        const kmValue = parseInt(document.getElementById('kmSearch').value);
+        if (isNaN(kmValue) || kmValue < 0) {
+            alert('Lütfen geçerli bir KM değeri girin');
+            return;
+        }
+
+        const item = scheduleData.find(s => s.km === kmValue);
+        if (!item) {
+            alert(`${kmValue} KM'de bakım bulunmadı`);
+            return;
+        }
+
+        showScheduleDetail(item);
+    }
+
+    function clearScheduleSearch() {
+        document.getElementById('kmSearch').value = '';
+        scheduleFilter = 'all';
+        renderScheduleTable();
+    }
+
+    function showScheduleDetail(item) {
+        const details = item.maintenance_detail.map(m =>
+            `<li class="list-group-item">
+                <strong>${m.level}</strong> (${m.km.toLocaleString()} KM × ${m.ratio})<br>
+                <small class="text-muted">${m.works} adet iş</small>
+            </li>`
+        ).join('');
+
+        const modalHtml = `
+            <div class="modal fade" id="scheduleModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="bi bi-info-circle me-2"></i>${item.km.toLocaleString()} KM Bakımı
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-info">
+                                <strong>Toplam İş:</strong> ${item.total_works} adet
+                                <br>
+                                <strong>Kapsamı:</strong> <span class="badge badge-scope-${item.scope}">${item.scope_label}</span>
+                            </div>
+                            <h6>Yapılacak Bakımlar:</h6>
+                            <ul class="list-group">
+                                ${details}
+                            </ul>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Eski modal varsa kaldır
+        const oldModal = document.getElementById('scheduleModal');
+        if (oldModal) oldModal.remove();
+
+        // Yeni modal ekle
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Modal göster
+        const modal = new bootstrap.Modal(document.getElementById('scheduleModal'));
+        modal.show();
     }
 
     function exportToExcel() {

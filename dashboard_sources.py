@@ -40,7 +40,9 @@ with app.app_context():
     print(f"\n2️⃣ ARIZA VERİLERİ (Excel - Ariza Listesi)")
     print("-" * 70)
     
-    ariza_path = "logs/ariza_listesi/Ariza_Listesi_BELGRAD.xlsx"
+    # Tüm projeler için (default: belgrad)
+    project = 'belgrad'  # Dashboard'da default proje
+    ariza_path = f"logs/{project}/ariza_listesi/Ariza_Listesi_{project.upper()}.xlsx"
     if os.path.exists(ariza_path):
         try:
             df = pd.read_excel(ariza_path, sheet_name='Ariza Listesi', header=3)

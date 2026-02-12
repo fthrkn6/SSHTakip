@@ -264,8 +264,8 @@
                                     </div>
                                     <div class="col-md-6 col-lg-4 mb-2">
                                         <dt class="fw-bold small">Personel Sayısı</dt>
-                                        <dd class="small mb-0">{% if row|length > 29 and row[29] %}{{ row[29] }}{% else
-                                            %}-{% endif %}</dd>
+                                        <dd class="small mb-0">{% if row|length > 29 and row[29] != 0 %}{{ row[29] }}{%
+                                            elif row|length > 29 and row[29] == 0 %}0{% else %}-{% endif %}</dd>
                                     </div>
                                 </div>
                         </td>
