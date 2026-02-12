@@ -96,7 +96,7 @@ def get_ariza_listesi_data():
         return df
     except Exception as e:
         print(f"Arıza Listesi okuma hatası: {e}")
-                return None
+        return None
     
     return None
 
