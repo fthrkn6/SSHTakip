@@ -1132,30 +1132,121 @@ def create_app():
         @app.route('/dokuman-listesi')
         @login_required
         def dokuman_listesi():
-            """Documents list"""
-            return render_template('dokuman_listesi.html')
+            """Dokümanlar - Proje spesifik filtreleme"""
+            from models import TechnicalDocument
+            import os
+            
+            current_project = session.get('current_project', 'belgrad')
+            
+            # Kategori ve tip filtreleri
+            category = request.args.get('category', 'all')
+            doc_type = request.args.get('type', 'all')
+            
+            # Doküman sorguksı
+            query = TechnicalDocument.query.filter_by(project_code=current_project, is_active=True)
+            
+            if category != 'all':
+                query = query.filter_by(category=category)
+            if doc_type != 'all':
+                query = query.filter_by(document_type=doc_type)
+            
+            dokumanlar = query.order_by(TechnicalDocument.created_at.desc()).all()
+            
+            # İstatistikler
+            stats = {
+                'toplam': len(dokumanlar),
+                'kilavuz': len([d for d in dokumanlar if d.document_type == 'manual']),
+                'sema': len([d for d in dokumanlar if d.document_type == 'schematic']),
+                'prosedur': len([d for d in dokumanlar if d.document_type == 'procedure'])
+            }
+            
+            return render_template('dokumanlar.html', 
+                                 dokumanlar=dokumanlar, 
+                                 stats=stats,
+                                 category=category,
+                                 doc_type=doc_type)
 
         @app.route('/dokuman/ekle', methods=['GET', 'POST'])
         @login_required
         def dokuman_ekle():
-            """Add document"""
+            """Yeni doküman ekle (Proje spesifik)"""
+            from models import TechnicalDocument, Equipment
+            
+            current_project = session.get('current_project', 'belgrad')
+            
             if request.method == 'POST':
-                flash('Document added', 'success')
+                title = request.form.get('title')
+                document_type = request.form.get('document_type')
+                category = request.form.get('category')
+                description = request.form.get('description')
+                version = request.form.get('version', '1.0')
+                
+                # Yeni doküman kodu oluştur
+                from datetime import datetime
+                document_code = f"{current_project.upper()}-DOC-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                
+                dokuman = TechnicalDocument(
+                    document_code=document_code,
+                    project_code=current_project,
+                    title=title,
+                    document_type=document_type,
+                    category=category,
+                    description=description,
+                    version=version,
+                    is_active=True
+                )
+                
+                db.session.add(dokuman)
+                db.session.commit()
+                
+                flash(f'✅ Doküman başarıyla eklendi: {document_code}', 'success')
                 return redirect(url_for('dokuman_listesi'))
-            return render_template('dokuman_ekle.html')
+            
+            # GET - Form göster
+            ekipmanlar = Equipment.query.all()
+            return render_template('dokuman_ekle.html', ekipmanlar=ekipmanlar)
 
         @app.route('/dokuman/<int:id>')
         @login_required
         def dokuman_detay(id):
-            """Document detail"""
-            return render_template('dokuman_detay.html')
+            """Doküman detayı (Proje spesifik)"""
+            from models import TechnicalDocument
+            
+            current_project = session.get('current_project', 'belgrad')
+            dokuman = TechnicalDocument.query.filter_by(id=id, project_code=current_project).first()
+            
+            if not dokuman:
+                flash('❌ Doküman bulunamadı', 'danger')
+                return redirect(url_for('dokuman_listesi'))
+            
+            # View count artır
+            dokuman.view_count += 1
+            dokuman.last_accessed = datetime.now()
+            db.session.commit()
+            
+            return render_template('dokuman_detay.html', dokuman=dokuman)
 
         @app.route('/dokuman/<int:id>/indir')
         @login_required
         def dokuman_indir(id):
-            """Download document"""
-            flash('Document download', 'info')
-            return redirect(url_for('dokuman_listesi'))
+            """Doküman indir (Proje spesifik)"""
+            from models import TechnicalDocument
+            
+            current_project = session.get('current_project', 'belgrad')
+            dokuman = TechnicalDocument.query.filter_by(id=id, project_code=current_project).first()
+            
+            if not dokuman or not dokuman.file_path:
+                flash('❌ Dosya bulunamadı', 'danger')
+                return redirect(url_for('dokuman_listesi'))
+            
+            dokuman.download_count += 1
+            db.session.commit()
+            
+            try:
+                return send_file(dokuman.file_path, as_attachment=True, download_name=dokuman.file_name)
+            except Exception as e:
+                flash(f'❌ Dosya indirme hatası: {str(e)}', 'danger')
+                return redirect(url_for('dokuman_detay', id=id))
 
         @app.route('/kullanicilar')
         @login_required

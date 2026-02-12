@@ -1170,11 +1170,12 @@ class ModuleRegistry(db.Model):
 # ==================== TEKNİK DOKÜMANTASYON YÖNETİMİ ====================
 
 class TechnicalDocument(db.Model):
-    """Teknik dokümanlar - Planlar, kılavuzlar, şemalar"""
+    """Teknik dokümanlar - Planlar, kılavuzlar, şemalar (Proje spesifik)"""
     __tablename__ = 'technical_documents'
     
     id = db.Column(db.Integer, primary_key=True)
     document_code = db.Column(db.String(50), unique=True, nullable=False)
+    project_code = db.Column(db.String(50))  # Proje kodu (belgrad, kayseri, vb.)
     equipment_id = db.Column(db.Integer, db.ForeignKey('equipment.id'), nullable=True)
     
     title = db.Column(db.String(200), nullable=False)
