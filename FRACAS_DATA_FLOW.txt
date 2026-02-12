@@ -1,0 +1,342 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+FRACAS Analiz Sayfası - Data Flow Gösterimi
+
+Sayfa: localhost:5000/fracas/
+Nasıl çalışıyor? Tek tek gösterim...
+"""
+
+print("""
+╔════════════════════════════════════════════════════════════════════════════╗
+║           FRACAS ANALİZ SAYFA - VERİ AKIŞI (Data Flow)                     ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+█ ADIM 1: Sayfa Yükleme - routes/fracas.py::index() çağrılır
+════════════════════════════════════════════════════════════════════════════
+
+  📍 Konum: routes/fracas.py, satır 195-238
+  
+  ┌─ index() route'u başlar
+  │
+  └─► df = load_ariza_listesi_data()
+      └─► logs/{{ current_project }}/ariza_listesi/ klasöründe
+          Ariza_Listesi_*.xlsx dosyasını arar
+          
+          İçerik: 23 satır, 30 kolon
+          • FRACAS ID, Araç No, Araç Modül, Sistem, Tedarikçi
+          • Tamir Süresi (MTTR), Garanti Kapsamı, vb.
+          
+      ✓ Başarılı ise: df yüklenir
+      ✗ Başarısız ise: df = None
+      
+      ├─► Eğer df = None ise:
+      │   └─► df = load_fracas_data()  # data/belgrad/ klasöründen
+      │
+      └─► data_source = 'Arıza Listesi' (veya 'FRACAS')
+
+
+█ ADIM 2: Veri İşleme - Her bir grafik/tablo için ayrı hesaplamalar
+════════════════════════════════════════════════════════════════════════════
+
+  ╔═════════════════════════════════════════════════════════════════════════╗
+  ║ 1️⃣  TEMEL İSTATİSTİKLER (calculate_basic_stats)                        ║
+  ╚═════════════════════════════════════════════════════════════════════════╝
+  
+  📊 Çıktı: stats = {
+    'total_failures': 23,           # len(df)
+    'unique_vehicles': 13,          # df['Araç No'].nunique()
+    'unique_modules': 5,            # df['Araç Modül'].nunique()
+    'total_suppliers': 10,          # df['Tedarikçi'].nunique()
+    'class_a': 9,                   # Arıza Sınıfı dağılımı
+    'class_b': 7,
+    'class_c': 5,
+    'class_d': 2,
+    'warranty_claims': X            # Garanti Kapsamı'ndan
+  }
+  
+  Kullanılı Kolon Adları:
+  • 'Araç No' → vehicle_col
+  • 'Araç Modül' → module_col  
+  • 'Tedarikçi' → supplier_col
+  • 'Arıza Sınıfı' → class_col
+  • 'Garanti Kapsamı' → warranty_col
+
+
+  ╔═════════════════════════════════════════════════════════════════════════╗
+  ║ 2️⃣  RAMS METRİKLERİ (calculate_rams_metrics)                           ║
+  ╚═════════════════════════════════════════════════════════════════════════╝
+  
+  📊 Çıktı: rams = {
+    'mtbf': 1043.48,        # KM verilerine göre hesaplanan MTBF (dakika)
+                            # Formula: (avg_km_per_vehicle / 100) * 60
+                            #          / (failures_per_vehicle)
+                            
+    'mttr': 52.3,           # df['MTTR (dk)'].mean()
+                            # Tamir Süresi sütunundan alınan ortalama
+                            
+    'mdt': 52.3,            # MDT = MTTR + MWT
+    'mwt': None,            # Bekleme süresi (varsa)
+    
+    'availability': 95.24,  # % = MTBF / (MTBF + MTTR) * 100
+    'reliability': 95.0     # % = Başarılı onarım oranı (varsayılan)
+  }
+  
+  Kullanılan Kolon Adları:
+  • 'MTTR (dk)' veya 'Tamir Süresi' → repair_col
+  • 'Kilometre' → km_col (MTBF hesaplaması için)
+  • 'Araç No' → vehicle_col
+
+
+  ╔═════════════════════════════════════════════════════════════════════════╗
+  ║ 3️⃣  PARETO ANALİZİ (calculate_pareto_analysis) - 4 Grafik              ║
+  ╚═════════════════════════════════════════════════════════════════════════╝
+  
+  📊 Çıktı: pareto = {
+    
+    'by_module': [              # Araç Modül dağılımı (Bar + Line Chart)
+      {'name': 'SB', 'count': 8, 'percentage': 34.8, 'cumulative': 34.8},
+      {'name': 'T', 'count': 5, 'percentage': 21.7, 'cumulative': 56.5},
+      ...
+    ],
+    
+    'by_supplier': [            # Tedarikçi dağılımı (Bar + Line Chart)
+      {'name': 'SKF', 'count': 7, 'percentage': 30.4, 'cumulative': 30.4},
+      {'name': 'MİNEL', 'count': 3, 'percentage': 13.0, 'cumulative': 43.4},
+      ...
+    ],
+    
+    'by_location': [            # Alt Sistem dağılımı (Pie Chart)
+      {'name': 'Yağlama Tankı', 'count': 6, ...},
+      ...
+    ],
+    
+    'by_failure_class': [       # Arıza Sınıfı dağılımı (Doughnut)
+      {'name': 'A-Kritik/Emniyet Riski', 'count': 9, ...},
+      ...
+    ]
+  }
+  
+  Kullanılan Kolon Adları:
+  • 'Araç Modül' → module_col (value_counts())
+  • 'Tedarikçi' → supplier_col (value_counts())
+  • 'Alt Sistem' → location_col (value_counts())
+  • 'Arıza Sınıfı' → class_col (value_counts())
+
+
+  ╔═════════════════════════════════════════════════════════════════════════╗
+  ║ 4️⃣  TREND ANALİZİ (calculate_trend_analysis) - 3 Grafik               ║
+  ╚═════════════════════════════════════════════════════════════════════════╝
+  
+  📊 Çıktı: trend = {
+    
+    'monthly': [                # Aylık Trend (Line Chart)
+      {'period': '2026-02', 'count': 23},  # Son 12 ay
+      ...
+    ],
+    
+    'by_hour': [                # Saatlik Dağılım (Bar Chart) - 0-23
+      {'hour': '00:00', 'count': 0},
+      {'hour': '01:00', 'count': 0},
+      ...
+      {'hour': '10:00', 'count': 5},  # En çok saat 10'da arıza
+      ...
+    ],
+    
+    'by_weekday': [             # Haftanın günü (Line Chart)
+      {'day': 'Pazartesi', 'count': 4},
+      {'day': 'Salı', 'count': 3},
+      ...
+    ]
+  }
+  
+  Kullanılan Kolon Adları:
+  • 'Tarih' → date_col (pd.to_datetime)
+
+
+  ╔═════════════════════════════════════════════════════════════════════════╗
+  ║ 5️⃣  TEDARİKÇİ ANALİZİ (calculate_supplier_analysis) - Tablo           ║
+  ╚═════════════════════════════════════════════════════════════════════════╝
+  
+  📊 Çıktı: supplier = {
+    'performance': [            # Tedarikçi Tablo Satırları
+      {
+        'name': 'SKF',
+        'failure_count': 7,      # df[supplier_col == 'SKF']'in uzunluğu
+        'avg_repair_time': 48.5  # pd.to_numeric(MTTR sütunu).mean()
+      },
+      {'name': 'MİNEL', 'failure_count': 3, 'avg_repair_time': 45.0},
+      ...
+    ]
+  }
+  
+  Kullanılan Kolon Adları:
+  • 'Tedarikçi' → supplier_col (groupby)
+  • 'MTTR (dk)' → repair_col (mean hesaplaması)
+
+
+  ╔═════════════════════════════════════════════════════════════════════════╗
+  ║ 6️⃣  MALİYET ANALİZİ (calculate_cost_analysis)                         ║
+  ╚═════════════════════════════════════════════════════════════════════════╝
+  
+  📊 Çıktı: cost = {
+    'total_material': 0.0,      # Malzeme Maliyeti sütunundan (varsa)
+    'total_labor': 0.0,         # İşçilik Maliyeti sütunundan (varsa)
+    'total_cost': 0.0,          # total_material + total_labor
+    'by_vehicle': [],           # Araç bazlı maliyet (varsa)
+    'warranty_cost': 0,         # Garanti kapsamındaki arıza sayısı
+    'non_warranty_cost': 23     # Garanti dışı arıza sayısı
+  }
+  
+  NOT: Arıza Listesi'nde malzeme/işçilik maliyeti sütunu yok!
+      Sadece Garanti kapsamı bilgisi kullanılıyor.
+  
+  Kullanılan Kolon Adları:
+  • 'Garanti Kapsamı' → warranty_col
+
+
+█ ADIM 3: Template'e Veri Geçişi
+════════════════════════════════════════════════════════════════════════════
+
+  render_template('fracas/index.html',
+    data_available=True,              # Veri var mı?
+    data_source='Arıza Listesi',      # Hangi kaynaktan?
+    stats=stats,                      # Temel İstatistikler
+    rams=rams_metrics,                # RAMS Metrikleri
+    pareto=pareto_data,               # Pareto Analizi (4 grafik)
+    trend=trend_data,                 # Trend Analizi (3 grafik)
+    supplier=supplier_data,           # Tedarikçi Tablosu
+    cost=cost_data                    # Maliyet Analizi
+  )
+
+
+█ ADIM 4: Template Renderı (templates/fracas/index.html)
+════════════════════════════════════════════════════════════════════════════
+
+  ┌─ KPI Kartları
+  │  ├─ {{ stats.total_failures }} (23)
+  │  ├─ {{ stats.unique_vehicles }} (13)
+  │  ├─ {{ stats.unique_modules }} (5)
+  │  ├─ {{ stats.total_suppliers }} (10)
+  │  └─ {{ stats.warranty_claims }} (?)
+  │
+  ├─ RAMS Metrikleri Gösterimi
+  │  ├─ MTBF: {{ rams.mtbf }} (1043.48 dakika)
+  │  ├─ MTTR: {{ rams.mttr }} (52.3 dakika)
+  │  ├─ Availability: {{ rams.availability }} (95.24%)
+  │  └─ Reliability: {{ rams.reliability }} (95.0%)
+  │
+  ├─ Chart 1: Pareto - Araç Modül
+  │  └─ Veri: {% for item in pareto.by_module %}{{ item.count }}, ...
+  │
+  ├─ Chart 2: Pareto - Tedarikçi
+  │  └─ Veri: {% for item in pareto.by_supplier %}{{ item.count }}, ...
+  │
+  ├─ Chart 3: Aylık Trend
+  │  └─ Veri: {% for item in trend.monthly %}{{ item.count }}, ...
+  │
+  ├─ Chart 4: Saatlik Dağılım
+  │  └─ Veri: {% for item in trend.by_hour %}{{ item.count }}, ...
+  │
+  ├─ Chart 5: Arıza Sınıfı
+  │  └─ Veri: {% for item in pareto.by_failure_class %}{{ item.count }}, ...
+  │
+  ├─ Chart 6: Arıza Konumu
+  │  └─ Veri: {% for item in pareto.by_location %}{{ item.count }}, ...
+  │
+  └─ Tablo: Tedarikçi Performans
+     └─ {% for item in supplier.performance %}{{ item.name }}, ...
+
+
+█ VERI KAYNAĞI ÖZETİ
+════════════════════════════════════════════════════════════════════════════
+
+  📁 Dosya Yolu:
+     PRIMARY:  logs/belgrad/ariza_listesi/Ariza_Listesi_BELGRAD.xlsx
+     FALLBACK: data/belgrad/FRACAS.xlsx
+  
+  📄 Kolon Haritası:
+  ┌────────────────────────────┬──────────────────────────┐
+  │ Grafiğin Adı               │ Kullanılan Kolon         │
+  ├────────────────────────────┼──────────────────────────┤
+  │ Toplam Arıza (KPI)         │ len(df)                  │
+  │ Araç Sayısı                │ 'Araç No'.nunique()      │
+  │ Modül Sayısı               │ 'Araç Modül'.nunique()   │
+  │ Tedarikçi                  │ 'Tedarikçi'.nunique()    │
+  │ Garanti Kaydı              │ 'Garanti Kapsamı' (evet) │
+  ├────────────────────────────┼──────────────────────────┤
+  │ MTBF                       │ 'Kilometre' + formül     │
+  │ MTTR                       │ 'MTTR (dk)'              │
+  │ Availability               │ MTBF / (MTBF+MTTR) * 100 │
+  │ Reliability                │ Varsayılan 95.0%         │
+  ├────────────────────────────┼──────────────────────────┤
+  │ Pareto Modül               │ 'Araç Modül'             │
+  │ Pareto Tedarikçi           │ 'Tedarikçi'              │
+  │ Arıza Konumu               │ 'Alt Sistem'             │
+  │ Arıza Sınıfı               │ 'Arıza Sınıfı'           │
+  ├────────────────────────────┼──────────────────────────┤
+  │ Aylık Trend                │ 'Tarih' (benzersiz ay)   │
+  │ Saatlik Dağılım            │ 'Tarih' (saat 0-23)      │
+  │ Hafta Günü                 │ 'Tarih' (gün numarası)   │
+  ├────────────────────────────┼──────────────────────────┤
+  │ Tedarikçi Tablosu          │ 'Tedarikçi' + 'MTTR'     │
+  └────────────────────────────┴──────────────────────────┘
+
+
+█ KOD AKIŞI (Step by Step)
+════════════════════════════════════════════════════════════════════════════
+
+  1. User → GET /fracas/
+     ↓
+  2. @bp.route('/') @login_required
+     ↓
+  3. load_ariza_listesi_data()
+     → os.path.join('logs', 'belgrad', 'ariza_listesi')
+     → pd.read_excel(..., sheet_name='Ariza Listesi', header=3)
+     → [23 rows, 30 columns] DataFrame
+     ↓
+  4. calculate_basic_stats(df)
+     → For 'Araç No':
+       • Eğer df['Araç No'] varsa: nunique() = 13
+       • Eğer yoksa: None
+     ↓
+  5. calculate_rams_metrics(df)
+     → df['Kilometre'].max() - df['Kilometre'].min() = KM aralığı
+     → KM / arıza sayısı = MTBF
+     ↓
+  6. calculate_pareto_analysis(df)
+     → df['Araç Modül'].value_counts() = [SB:8, T:5, SA:4, MC:4, M:1]
+     → Kümülatif yüzde hesapla
+     ↓
+  7. calculate_trend_analysis(df)
+     → df['Tarih'] → pd.to_datetime() → parse
+     → groupby(month) → 1 satır (Feb 2026, 23 arıza)
+     ↓
+  8. render_template() ile template'e geç
+     ↓
+  9. HTML'de {% for item in pareto.by_module %}
+     → Jinja2 loop → Chart.js dataset
+     ↓
+  10. Browser render → Grafikler görünür
+
+
+█ MÜDAHALE NOKTALARI (Düzeltme Yapılabilecek Yerler)
+════════════════════════════════════════════════════════════════════════════
+
+  1. Kolon Adı Değişirse:
+     ✏️ routes/fracas.py :: get_column() fonksiyonu
+        → possible_names listesine yeni ada ekle
+
+  2. Veri Kaynağını Değiştirmek İçin:
+     ✏️ routes/fracas.py :: load_ariza_listesi_data() / load_fracas_data()
+        → Dosya yolunu değiştir
+
+  3. Grafik Gösterimini Değiştikmek İçin:
+     ✏️ templates/fracas/index.html
+        → Chart.js konfigürasyonunu değiştir
+
+  4. Hesaplama Yöntemini Değiştirmek İçin:
+     ✏️ routes/fracas.py :: calculate_* fonksiyonları
+        → Formülleri değiştir
+
+""")
