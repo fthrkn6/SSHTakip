@@ -95,8 +95,16 @@ def create_app():
                         db.session.commit()
                         print(f"[LOGIN] User {username} logged in successfully")
                         
-                        # Set default project if not set
-                        if 'current_project' not in session:
+                        # Set project from form selection or default to belgrad
+                        selected_project = request.form.get('project', 'belgrad')
+                        if selected_project and selected_project in [p['code'] for p in PROJECTS]:
+                            project = next((p for p in PROJECTS if p['code'] == selected_project), None)
+                            if project:
+                                session['current_project'] = selected_project
+                                session['project_code'] = selected_project
+                                session['project_name'] = f"{project['flag']} {project['name']}"
+                                print(f"[LOGIN] Project set to: {selected_project}")
+                        else:
                             session['current_project'] = 'belgrad'
                             session['project_code'] = 'belgrad'
                             session['project_name'] = '🇷🇸 Belgrad'
