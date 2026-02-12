@@ -382,8 +382,8 @@ def calculate_pareto_analysis(df):
         'by_failure_class': []
     }
     
-    # Modül bazlı (Sistem sütununu kullan)
-    module_col = get_column(df, ['sistem', 'araç modülü', 'vehicle module'])
+    # Modül bazlı (Araç Modül sütununu kullan)
+    module_col = get_column(df, ['araç modül', 'araç modülü', 'vehicle module'])
     if module_col:
         module_counts = df[module_col].value_counts().head(10)
         total = module_counts.sum()
@@ -397,8 +397,8 @@ def calculate_pareto_analysis(df):
                 'cumulative': round(cumulative / total * 100, 1)
             })
     
-    # Tedarikçi bazlı (İlgili Tedarikçi sütununu kullan)
-    supplier_col = get_column(df, ['ilgili tedarikçi', 'tedarikçi', 'supplier'])
+    # Tedarikçi bazlı
+    supplier_col = get_column(df, ['tedarikçi', 'supplier'])
     if supplier_col:
         supplier_counts = df[supplier_col].value_counts().head(10)
         total = supplier_counts.sum()
@@ -412,8 +412,8 @@ def calculate_pareto_analysis(df):
                 'cumulative': round(cumulative / total * 100, 1)
             })
     
-    # Konum bazlı
-    location_col = get_column(df, ['arıza konumu', 'failure location'])
+    # Konum bazlı (Alt Sistem sütununu kullan)
+    location_col = get_column(df, ['alt sistem', 'arıza konumu', 'failure location'])
     if location_col:
         location_counts = df[location_col].value_counts().head(10)
         total = location_counts.sum()
@@ -428,7 +428,7 @@ def calculate_pareto_analysis(df):
             })
     
     # Arıza sınıfı bazlı
-    class_col = get_column(df, ['arıza sınıfı', 'failure class'])
+    class_col = get_column(df, ['arıza sınıfı', 'failure class', 'sınıf'])
     if class_col:
         class_counts = df[class_col].value_counts().head(10)
         total = class_counts.sum()
@@ -454,13 +454,13 @@ def calculate_trend_analysis(df):
     }
     
     # Tarih sütununu bul
-    date_col = get_column(df, ['hata tarih saat', 'hata tarih', 'date'])
+    date_col = get_column(df, ['tarih', 'date', 'hata tarih', 'arıza tarihi'])
     
     if date_col:
         try:
             # Tarih sütununu parse et - Datetime nesnelerine dönüştür
             df['parsed_date'] = pd.to_datetime(df[date_col], errors='coerce', utc=False)
-            valid_dates = df[df['parsed_date'].notna()]
+            valid_dates = df[df['parsed_date'].notna()].copy()
             
             if len(valid_dates) > 0:
                 # Aylık trend
@@ -471,7 +471,7 @@ def calculate_trend_analysis(df):
                         'count': int(count)
                     })
                 
-                # Saat bazlı analiz - aynı tarih sütunundan
+                # Saat bazlı analiz
                 hourly = valid_dates.groupby(valid_dates['parsed_date'].dt.hour).size()
                 for hour in range(24):
                     count = hourly.get(hour, 0)
@@ -504,12 +504,12 @@ def calculate_supplier_analysis(df):
         'mttr_by_supplier': []
     }
     
-    supplier_col = get_column(df, ['ilgili tedarikçi', 'tedarikçi', 'supplier'])
+    supplier_col = get_column(df, ['tedarikçi', 'supplier'])
     if not supplier_col:
         return supplier_data
     
     # Tedarikçi bazlı arıza sayısı ve MTTR
-    repair_col = get_column(df, ['tamir süresi (dakika)', 'tamir süresi', 'repair time'])
+    repair_col = get_column(df, ['tamir süresi', 'mttr (dk)', 'tamir süresi (dakika)', 'repair time'])
     
     suppliers = df[supplier_col].dropna().unique()
     
@@ -547,50 +547,25 @@ def calculate_cost_analysis(df):
         'non_warranty_cost': 0
     }
     
-    # Malzeme maliyeti
+    # Malzeme ve işçilik maliyeti - Arıza Listesi'nde olmayabilir
     material_col = get_column(df, ['malzeme maliyeti', 'material cost'])
+    labor_col = get_column(df, ['işçilik maliyeti', 'labor cost'])
+    
     if material_col:
         cost_data['total_material'] = round(pd.to_numeric(df[material_col], errors='coerce').sum(), 2)
     
-    # İşçilik maliyeti
-    labor_col = get_column(df, ['işçilik maliyeti', 'labor cost'])
     if labor_col:
         cost_data['total_labor'] = round(pd.to_numeric(df[labor_col], errors='coerce').sum(), 2)
     
     cost_data['total_cost'] = cost_data['total_material'] + cost_data['total_labor']
     
-    # Araç bazlı maliyet
-    vehicle_col = get_column(df, ['araç numarası', 'vehicle number'])
-    if vehicle_col and (material_col or labor_col):
-        df_cost = df.copy()
-        
-        if material_col:
-            df_cost['material_cost'] = pd.to_numeric(df_cost[material_col], errors='coerce').fillna(0)
-        else:
-            df_cost['material_cost'] = 0
-            
-        if labor_col:
-            df_cost['labor_cost'] = pd.to_numeric(df_cost[labor_col], errors='coerce').fillna(0)
-        else:
-            df_cost['labor_cost'] = 0
-        
-        df_cost['total_cost'] = df_cost['material_cost'] + df_cost['labor_cost']
-        
-        vehicle_costs = df_cost.groupby(vehicle_col).agg({
-            'material_cost': 'sum',
-            'labor_cost': 'sum',
-            'total_cost': 'sum'
-        }).reset_index()
-        
-        vehicle_costs = vehicle_costs.sort_values('total_cost', ascending=False).head(10)
-        
-        for _, row in vehicle_costs.iterrows():
-            cost_data['by_vehicle'].append({
-                'vehicle': str(row[vehicle_col]),
-                'material': round(row['material_cost'], 2),
-                'labor': round(row['labor_cost'], 2),
-                'total': round(row['total_cost'], 2)
-            })
+    # Garanti kapsamı
+    warranty_col = get_column(df, ['garanti kapsamı', 'garanti', 'warranty'])
+    if warranty_col:
+        warranty_data = df[warranty_col].astype(str).str.lower()
+        warranty_count = warranty_data.str.contains('evet|yes|garanti|warranty|covered', na=False).sum()
+        cost_data['warranty_cost'] = warranty_count
+        cost_data['non_warranty_cost'] = len(df) - warranty_count
     
     return cost_data
 

@@ -4,33 +4,21 @@
 
 {% block content %}
 <div class="mb-4">
-    <div class="d-flex justify-content-between align-items-center">
-        <div>
-            <h1 class="page-title">
-                <i class="bi bi-graph-up-arrow"></i> FRACAS Analiz Dashboard
-                <span class="badge bg-secondary fs-6 ms-2">{{ session.get('project_name', 'Proje Seçilmedi') }}</span>
-            </h1>
-            <p class="page-subtitle">EN 50126 RAMS Standartlarına Uygun Arıza Analizi</p>
-        </div>
-        {% if data_available %}
-        <div class="alert alert-info mb-0">
-            <small>
-                <i class="bi bi-info-circle"></i>
-                Veri Kaynağı: <strong>{{ data_source }}</strong>
-            </small>
-        </div>
-        {% endif %}
+    <h1 class="page-title">
+        <i class="bi bi-graph-up-arrow"></i> FRACAS Analiz Dashboard
+        <span class="badge bg-secondary fs-6 ms-2">{{ session.get('project_name', 'Proje Seçilmedi') }}</span>
+    </h1>
+    <p class="page-subtitle">EN 50126 RAMS Standartlarına Uygun Arıza Analizi</p>
+    <div class="alert alert-info d-inline-block mt-2">
+        <small><i class="bi bi-info-circle"></i> Veri Kaynağı: <strong>{{ data_source }}</strong></small>
     </div>
 </div>
 
 {% if not data_available %}
-<!-- Veri Yok Uyarısı -->
 <div class="alert alert-warning">
     <h5><i class="bi bi-exclamation-triangle me-2"></i>Excel Dosyası Bulunamadı</h5>
-    <p class="mb-2">FRACAS verilerini analiz etmek için Excel dosyasını aşağıdaki konuma yükleyin:</p>
-    <code>cmms_system/data/{{ session.get('current_project', 'proje') }}/FRACAS.xlsx</code>
-    <hr>
-    <p class="mb-0">Desteklenen formatlar: <strong>.xlsx</strong>, <strong>.xls</strong></p>
+    <p class="mb-2">Arıza Listesi dosyasını aşağıdaki konuma yükleyin:</p>
+    <code>logs/{{ session.get('current_project', 'proje') }}/ariza_listesi/</code>
 </div>
 {% else %}
 
@@ -39,16 +27,6 @@
     <div class="col-md-2">
         <div class="card bg-primary text-white h-100">
             <div class="card-body text-center">
-                <i class="bi bi-file-earmark-text fs-2 mb-2"></i>
-                <h3 class="mb-0">{{ total_records }}</h3>
-                <small>Toplam Kayıt</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-2">
-        <div class="card bg-danger text-white h-100">
-            <div class="card-body text-center">
-                <i class="bi bi-exclamation-triangle fs-2 mb-2"></i>
                 <h3 class="mb-0">{{ stats.total_failures }}</h3>
                 <small>Toplam Arıza</small>
             </div>
@@ -57,7 +35,6 @@
     <div class="col-md-2">
         <div class="card bg-info text-white h-100">
             <div class="card-body text-center">
-                <i class="bi bi-train-front fs-2 mb-2"></i>
                 <h3 class="mb-0">{{ stats.unique_vehicles }}</h3>
                 <small>Araç Sayısı</small>
             </div>
@@ -66,7 +43,6 @@
     <div class="col-md-2">
         <div class="card bg-warning text-dark h-100">
             <div class="card-body text-center">
-                <i class="bi bi-box-seam fs-2 mb-2"></i>
                 <h3 class="mb-0">{{ stats.unique_modules }}</h3>
                 <small>Modül Sayısı</small>
             </div>
@@ -75,7 +51,6 @@
     <div class="col-md-2">
         <div class="card bg-secondary text-white h-100">
             <div class="card-body text-center">
-                <i class="bi bi-building fs-2 mb-2"></i>
                 <h3 class="mb-0">{{ stats.total_suppliers }}</h3>
                 <small>Tedarikçi</small>
             </div>
@@ -84,7 +59,6 @@
     <div class="col-md-2">
         <div class="card bg-success text-white h-100">
             <div class="card-body text-center">
-                <i class="bi bi-shield-check fs-2 mb-2"></i>
                 <h3 class="mb-0">{{ stats.warranty_claims }}</h3>
                 <small>Garanti Kaydı</small>
             </div>
@@ -102,59 +76,42 @@
             <div class="card-body">
                 <div class="row g-4">
                     <div class="col-md-3">
-                        <div class="text-center p-3 border rounded-3 h-100">
+                        <div class="text-center p-3 border rounded-3">
                             <h6 class="text-muted mb-1">MTBF</h6>
                             <h2 class="text-primary mb-1">
-                                {% if rams.mtbf %}{{ "%.1f"|format(rams.mtbf) }}{% else %}N/A{% endif %}
+                                {% if rams.mtbf %}{{ "%.0f"|format(rams.mtbf) }} dk{% else %}N/A{% endif %}
                             </h2>
-                            <small class="text-muted">Mean Time Between Failures</small>
-                            <p class="mt-2 mb-0 small text-secondary">Arızalar Arası Ortalama Süre</p>
+                            <small>Arızalar Arası Ortalama Süre</small>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="text-center p-3 border rounded-3 h-100">
+                        <div class="text-center p-3 border rounded-3">
                             <h6 class="text-muted mb-1">MTTR</h6>
                             <h2 class="text-danger mb-1">
                                 {% if rams.mttr %}{{ "%.1f"|format(rams.mttr) }} dk{% else %}N/A{% endif %}
                             </h2>
-                            <small class="text-muted">Mean Time To Repair</small>
-                            <p class="mt-2 mb-0 small text-secondary">Ortalama Tamir Süresi</p>
+                            <small>Ortalama Tamir Süresi</small>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="text-center p-3 border rounded-3 h-100">
-                            <h6 class="text-muted mb-1">MDT</h6>
-                            <h2 class="text-warning mb-1">
-                                {% if rams.mdt %}{{ "%.1f"|format(rams.mdt) }} dk{% else %}N/A{% endif %}
+                        <div class="text-center p-3 border rounded-3">
+                            <h6 class="text-muted mb-1">Availability</h6>
+                            <h2 class="text-success mb-1">
+                                {% if rams.availability %}{{ "%.1f"|format(rams.availability) }}%{% else %}N/A{% endif %}
                             </h2>
-                            <small class="text-muted">Mean Down Time</small>
-                            <p class="mt-2 mb-0 small text-secondary">Ortalama Duruş Süresi</p>
+                            <small>Kullanılabilirlik Oranı</small>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="text-center p-3 border rounded-3 h-100">
-                            <h6 class="text-muted mb-1">MWT</h6>
+                        <div class="text-center p-3 border rounded-3">
+                            <h6 class="text-muted mb-1">Reliability</h6>
                             <h2 class="text-info mb-1">
-                                {% if rams.mwt %}{{ "%.1f"|format(rams.mwt) }} dk{% else %}N/A{% endif %}
+                                {% if rams.reliability %}{{ "%.1f"|format(rams.reliability) }}%{% else %}N/A{% endif %}
                             </h2>
-                            <small class="text-muted">Mean Waiting Time</small>
-                            <p class="mt-2 mb-0 small text-secondary">Ortalama Bekleme Süresi</p>
+                            <small>Güvenilirlik Oranı</small>
                         </div>
                     </div>
                 </div>
-                {% if rams.availability %}
-                <div class="row mt-4">
-                    <div class="col-12">
-                        <div class="progress" style="height: 30px;">
-                            <div class="progress-bar bg-success" role="progressbar"
-                                style="width: {{ rams.availability }}%;" aria-valuenow="{{ rams.availability }}"
-                                aria-valuemin="0" aria-valuemax="100">
-                                Kullanılabilirlik: {{ "%.1f"|format(rams.availability) }}%
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
             </div>
         </div>
     </div>
@@ -162,26 +119,19 @@
 
 <!-- Grafikler Satırı 1 -->
 <div class="row g-4 mb-4">
-    <!-- Pareto - Modül Bazlı -->
     <div class="col-md-6">
         <div class="card h-100">
-            <div class="card-header">
-                <i class="bi bi-bar-chart me-2"></i>Pareto Analizi - Modül Bazlı
-            </div>
+            <div class="card-header"><i class="bi bi-bar-chart me-2"></i>Pareto - Araç Modül</div>
             <div class="card-body">
-                <canvas id="paretoModuleChart" height="250"></canvas>
+                <canvas id="paretoModuleChart" height="300"></canvas>
             </div>
         </div>
     </div>
-
-    <!-- Pareto - Tedarikçi Bazlı -->
     <div class="col-md-6">
         <div class="card h-100">
-            <div class="card-header">
-                <i class="bi bi-building me-2"></i>Pareto Analizi - Tedarikçi Bazlı
-            </div>
+            <div class="card-header"><i class="bi bi-bar-chart me-2"></i>Pareto - Tedarikçi</div>
             <div class="card-body">
-                <canvas id="paretoSupplierChart" height="250"></canvas>
+                <canvas id="paretoSupplierChart" height="300"></canvas>
             </div>
         </div>
     </div>
@@ -189,26 +139,27 @@
 
 <!-- Grafikler Satırı 2 -->
 <div class="row g-4 mb-4">
-    <!-- Aylık Trend -->
-    <div class="col-md-8">
+    <div class="col-md-4">
         <div class="card h-100">
-            <div class="card-header">
-                <i class="bi bi-graph-up me-2"></i>Aylık Arıza Trendi
-            </div>
+            <div class="card-header"><i class="bi bi-line-chart me-2"></i>Aylık Trend</div>
             <div class="card-body">
-                <canvas id="monthlyTrendChart" height="200"></canvas>
+                <canvas id="monthlyTrendChart" height="250"></canvas>
             </div>
         </div>
     </div>
-
-    <!-- Saat Bazlı Dağılım -->
     <div class="col-md-4">
         <div class="card h-100">
-            <div class="card-header">
-                <i class="bi bi-clock me-2"></i>Saatlik Dağılım
-            </div>
+            <div class="card-header"><i class="bi bi-clock me-2"></i>Saatlik Dağılım</div>
             <div class="card-body">
                 <canvas id="hourlyChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-pie-chart me-2"></i>Arıza Sınıfı</div>
+            <div class="card-body">
+                <canvas id="failureClassChart" height="250"></canvas>
             </div>
         </div>
     </div>
@@ -216,54 +167,17 @@
 
 <!-- Grafikler Satırı 3 -->
 <div class="row g-4 mb-4">
-    <!-- Arıza Sınıfı Dağılımı -->
     <div class="col-md-4">
         <div class="card h-100">
-            <div class="card-header">
-                <i class="bi bi-pie-chart me-2"></i>Arıza Sınıfı Dağılımı
-            </div>
-            <div class="card-body">
-                <canvas id="failureClassChart" height="250"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <!-- Arıza Konumu -->
-    <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-header">
-                <i class="bi bi-geo-alt me-2"></i>Arıza Konumu Dağılımı
-            </div>
+            <div class="card-header"><i class="bi bi-geo-alt me-2"></i>Arıza Konumu</div>
             <div class="card-body">
                 <canvas id="locationChart" height="250"></canvas>
             </div>
         </div>
     </div>
-
-    <!-- Maliyet Dağılımı -->
-    <div class="col-md-4">
+    <div class="col-md-8">
         <div class="card h-100">
-            <div class="card-header">
-                <i class="bi bi-currency-dollar me-2"></i>Maliyet Analizi
-            </div>
-            <div class="card-body">
-                <div class="text-center mb-3">
-                    <h4 class="text-success mb-0">₺{{ "{:,.2f}".format(cost.total_cost) }}</h4>
-                    <small class="text-muted">Toplam Maliyet</small>
-                </div>
-                <canvas id="costChart" height="180"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Tedarikçi Performans Tablosu -->
-<div class="row g-4 mb-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <i class="bi bi-table me-2"></i>Tedarikçi Performans Tablosu
-            </div>
+            <div class="card-header"><i class="bi bi-table me-2"></i>Tedarikçi Performans</div>
             <div class="card-body">
                 <div class="table-responsive">
                     <table class="table table-hover table-striped">
@@ -273,7 +187,6 @@
                                 <th>Tedarikçi</th>
                                 <th>Arıza Sayısı</th>
                                 <th>Ort. Tamir Süresi (dk)</th>
-                                <th>Performans</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -281,25 +194,8 @@
                             <tr>
                                 <td>{{ loop.index }}</td>
                                 <td><strong>{{ item.name }}</strong></td>
-                                <td>
-                                    <span class="badge bg-danger">{{ item.failure_count }}</span>
-                                </td>
-                                <td>
-                                    {% if item.avg_repair_time %}
-                                    {{ item.avg_repair_time }} dk
-                                    {% else %}
-                                    -
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if item.failure_count > 50 %}
-                                    <span class="badge bg-danger">Kritik</span>
-                                    {% elif item.failure_count > 20 %}
-                                    <span class="badge bg-warning text-dark">Dikkat</span>
-                                    {% else %}
-                                    <span class="badge bg-success">Normal</span>
-                                    {% endif %}
-                                </td>
+                                <td><span class="badge bg-danger">{{ item.failure_count }}</span></td>
+                                <td>{% if item.avg_repair_time %}{{ item.avg_repair_time }} dk{% else %}-{% endif %}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -309,243 +205,145 @@
         </div>
     </div>
 </div>
-
-<!-- Araç Bazlı Maliyet Tablosu -->
-{% if cost.by_vehicle %}
-<div class="row g-4 mb-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <i class="bi bi-train-front me-2"></i>Araç Bazlı Maliyet Analizi (Top 10)
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>Araç No</th>
-                                <th>Malzeme Maliyeti</th>
-                                <th>İşçilik Maliyeti</th>
-                                <th>Toplam Maliyet</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in cost.by_vehicle %}
-                            <tr>
-                                <td><strong>{{ item.vehicle }}</strong></td>
-                                <td>₺{{ "{:,.2f}".format(item.material) }}</td>
-                                <td>₺{{ "{:,.2f}".format(item.labor) }}</td>
-                                <td class="table-warning"><strong>₺{{ "{:,.2f}".format(item.total) }}</strong></td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
 
 {% endif %}
 {% endblock %}
 
 {% block extra_js %}
 {% if data_available %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // Renk paleti
-    const colors = [
-        '#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#9333ea',
-        '#0891b2', '#c026d3', '#ea580c', '#4f46e5', '#059669'
-    ];
+    const colors = ['#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#9333ea', '#0891b2', '#c026d3', '#ea580c', '#4f46e5', '#059669', '#d97706', '#0087be', '#7c3aed', '#db2777'];
 
-    // Pareto - Modül Grafiği
+    // Pareto - Modül
     {% if pareto.by_module %}
-    const paretoModuleCtx = document.getElementById('paretoModuleChart').getContext('2d');
-    new Chart(paretoModuleCtx, {
+    new Chart(document.getElementById('paretoModuleChart').getContext('2d'), {
         type: 'bar',
         data: {
-            labels: [{% for item in pareto.by_module %}'{{ item.name[:20] }}'{% if not loop.last %}, {% endif %}{% endfor %}],
-        datasets: [{
-            label: 'Arıza Sayısı',
-            data: [{% for item in pareto.by_module %}{{ item.count }}{% if not loop.last %}, {% endif %} {% endfor %}],
-    backgroundColor: colors,
-        borderRadius: 4
-        }, {
-        label: 'Kümülatif %',
-            data: [{% for item in pareto.by_module %} { { item.cumulative } } {% if not loop.last %}, {% endif %} {% endfor %}],
-    type: 'line',
-        borderColor: '#ef4444',
-            backgroundColor: 'transparent',
+            labels: [{% for item in pareto.by_module %}'{{ item.name[:20] }}'{% if not loop.last %},{% endif %}{% endfor %}],
+            datasets: [{
+                label: 'Arıza Sayısı',
+                data: [{% for item in pareto.by_module %}{{ item.count }}{% if not loop.last %},{% endif %}{% endfor %}],
+                backgroundColor: colors,
+                borderRadius: 4
+            }, {
+                label: 'Kümülatif %',
+                data: [{% for item in pareto.by_module %}{{ item.cumulative }}{% if not loop.last %},{% endif %}{% endfor %}],
+                type: 'line',
+                borderColor: '#f59e0b',
                 yAxisID: 'y1',
-                    tension: 0.4
-        }]
-    },
-    options: {
-        responsive: true,
-            plugins: {
-            legend: { position: 'bottom' }
+                tension: 0.4
+            }]
         },
-        scales: {
-            y: { beginAtZero: true, title: { display: true, text: 'Arıza Sayısı' } },
-            y1: { beginAtZero: true, position: 'right', max: 100, title: { display: true, text: 'Kümülatif %' } }
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } },
+            scales: {
+                y: { beginAtZero: true },
+                y1: { beginAtZero: true, position: 'right', max: 100 }
+            }
         }
-    }
-});
+    });
     {% endif %}
 
-    // Pareto - Tedarikçi Grafiği
+    // Pareto - Tedarikçi
     {% if pareto.by_supplier %}
-    const paretoSupplierCtx = document.getElementById('paretoSupplierChart').getContext('2d');
-    new Chart(paretoSupplierCtx, {
+    new Chart(document.getElementById('paretoSupplierChart').getContext('2d'), {
         type: 'bar',
         data: {
-            labels: [{% for item in pareto.by_supplier %}'{{ item.name[:15] }}'{% if not loop.last %}, {% endif %}{% endfor %}],
-        datasets: [{
-            label: 'Arıza Sayısı',
-            data: [{% for item in pareto.by_supplier %}{{ item.count }}{% if not loop.last %}, {% endif %} {% endfor %}],
-    backgroundColor: colors.slice().reverse(),
-        borderRadius: 4
-        }, {
-        label: 'Kümülatif %',
-            data: [{% for item in pareto.by_supplier %} { { item.cumulative } } {% if not loop.last %}, {% endif %} {% endfor %}],
-    type: 'line',
-        borderColor: '#f59e0b',
-            backgroundColor: 'transparent',
+            labels: [{% for item in pareto.by_supplier %}'{{ item.name[:20] }}'{% if not loop.last %},{% endif %}{% endfor %}],
+            datasets: [{
+                label: 'Arıza Sayısı',
+                data: [{% for item in pareto.by_supplier %}{{ item.count }}{% if not loop.last %},{% endif %}{% endfor %}],
+                backgroundColor: colors.slice().reverse(),
+                borderRadius: 4
+            }, {
+                label: 'Kümülatif %',
+                data: [{% for item in pareto.by_supplier %}{{ item.cumulative }}{% if not loop.last %},{% endif %}{% endfor %}],
+                type: 'line',
+                borderColor: '#f59e0b',
                 yAxisID: 'y1',
-                    tension: 0.4
-        }]
-    },
-    options: {
-        responsive: true,
-            plugins: {
-            legend: { position: 'bottom' }
+                tension: 0.4
+            }]
         },
-        scales: {
-            y: { beginAtZero: true, title: { display: true, text: 'Arıza Sayısı' } },
-            y1: { beginAtZero: true, position: 'right', max: 100, title: { display: true, text: 'Kümülatif %' } }
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } },
+            scales: {
+                y: { beginAtZero: true },
+                y1: { beginAtZero: true, position: 'right', max: 100 }
+            }
         }
-    }
-});
+    });
     {% endif %}
 
     // Aylık Trend
     {% if trend.monthly %}
-    const monthlyTrendCtx = document.getElementById('monthlyTrendChart').getContext('2d');
-    new Chart(monthlyTrendCtx, {
+    new Chart(document.getElementById('monthlyTrendChart').getContext('2d'), {
         type: 'line',
         data: {
-            labels: [{% for item in trend.monthly %}'{{ item.period }}'{% if not loop.last %}, {% endif %}{% endfor %}],
-        datasets: [{
-            label: 'Arıza Sayısı',
-            data: [{% for item in trend.monthly %}{{ item.count }}{% if not loop.last %}, {% endif %} {% endfor %}],
-    borderColor: '#2563eb',
-        backgroundColor: 'rgba(37, 99, 235, 0.1)',
-            fill: true,
+            labels: [{% for item in trend.monthly %}'{{ item.period }}'{% if not loop.last %},{% endif %}{% endfor %}],
+            datasets: [{
+                label: 'Arıza Sayısı',
+                data: [{% for item in trend.monthly %}{{ item.count }}{% if not loop.last %},{% endif %}{% endfor %}],
+                borderColor: '#2563eb',
+                backgroundColor: 'rgba(37,99,235,0.1)',
+                fill: true,
                 tension: 0.4
-        }]
-    },
-    options: {
-        responsive: true,
-            plugins: {
-            legend: { position: 'bottom' }
+            }]
         },
-        scales: {
-            y: { beginAtZero: true }
-        }
-    }
-});
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true } } }
+    });
     {% endif %}
 
-    // Saat Bazlı Dağılım
+    // Saatlik
     {% if trend.by_hour %}
-    const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
-    new Chart(hourlyCtx, {
+    new Chart(document.getElementById('hourlyChart').getContext('2d'), {
         type: 'bar',
         data: {
-            labels: [{% for item in trend.by_hour %}'{{ item.hour }}'{% if not loop.last %}, {% endif %}{% endfor %}],
-        datasets: [{
-            label: 'Arıza Sayısı',
-            data: [{% for item in trend.by_hour %}{{ item.count }}{% if not loop.last %}, {% endif %} {% endfor %}],
-    backgroundColor: 'rgba(37, 99, 235, 0.7)',
-        borderRadius: 2
-        }]
-    },
-    options: {
-        responsive: true,
-            plugins: {
-            legend: { display: false }
+            labels: [{% for item in trend.by_hour %}'{{ item.hour }}'{% if not loop.last %},{% endif %}{% endfor %}],
+            datasets: [{
+                label: 'Arıza Sayısı',
+                data: [{% for item in trend.by_hour %}{{ item.count }}{% if not loop.last %},{% endif %}{% endfor %}],
+                backgroundColor: 'rgba(37,99,235,0.7)',
+                borderRadius: 2
+            }]
         },
-        scales: {
-            y: { beginAtZero: true }
-        }
-    }
-});
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    });
     {% endif %}
 
-    // Arıza Sınıfı Dağılımı
+    // Arıza Sınıfı
     {% if pareto.by_failure_class %}
-    const failureClassCtx = document.getElementById('failureClassChart').getContext('2d');
-    new Chart(failureClassCtx, {
+    new Chart(document.getElementById('failureClassChart').getContext('2d'), {
         type: 'doughnut',
         data: {
-            labels: [{% for item in pareto.by_failure_class %}'{{ item.name[:20] }}'{% if not loop.last %}, {% endif %}{% endfor %}],
-        datasets: [{
-            data: [{% for item in pareto.by_failure_class %}{{ item.count }}{% if not loop.last %}, {% endif %} {% endfor %}],
-    backgroundColor: colors,
-        borderWidth: 0
-        }]
-    },
-    options: {
-        responsive: true,
-            plugins: {
-            legend: { position: 'bottom', labels: { boxWidth: 12 } }
-        }
-    }
-});
+            labels: [{% for item in pareto.by_failure_class %}'{{ item.name[:30] }}'{% if not loop.last %},{% endif %}{% endfor %}],
+            datasets: [{
+                data: [{% for item in pareto.by_failure_class %}{{ item.count }}{% if not loop.last %},{% endif %}{% endfor %}],
+                backgroundColor: colors,
+                borderWidth: 0
+            }]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
     {% endif %}
 
-    // Arıza Konumu Dağılımı
+    // Arıza Konumu
     {% if pareto.by_location %}
-    const locationCtx = document.getElementById('locationChart').getContext('2d');
-    new Chart(locationCtx, {
+    new Chart(document.getElementById('locationChart').getContext('2d'), {
         type: 'pie',
         data: {
-            labels: [{% for item in pareto.by_location %}'{{ item.name[:15] }}'{% if not loop.last %}, {% endif %}{% endfor %}],
-        datasets: [{
-            data: [{% for item in pareto.by_location %}{{ item.count }}{% if not loop.last %}, {% endif %} {% endfor %}],
-    backgroundColor: colors.slice().reverse(),
-        borderWidth: 0
-        }]
-    },
-    options: {
-        responsive: true,
-            plugins: {
-            legend: { position: 'bottom', labels: { boxWidth: 12 } }
-        }
-    }
-});
-    {% endif %}
-
-    // Maliyet Grafiği
-    const costCtx = document.getElementById('costChart').getContext('2d');
-    new Chart(costCtx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Malzeme Maliyeti', 'İşçilik Maliyeti'],
+            labels: [{% for item in pareto.by_location %}'{{ item.name[:25] }}'{% if not loop.last %},{% endif %}{% endfor %}],
             datasets: [{
-                data: [{{ cost.total_material }}, {{ cost.total_labor }}],
-        backgroundColor: ['#2563eb', '#f59e0b'],
-        borderWidth: 0
-    }]
-    },
-        options: {
-        responsive: true,
-        plugins: {
-            legend: { position: 'bottom' }
-        }
-    }
-});
+                data: [{% for item in pareto.by_location %}{{ item.count }}{% if not loop.last %},{% endif %}{% endfor %}],
+                backgroundColor: colors.slice().reverse(),
+                borderWidth: 0
+            }]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+    {% endif %}
 </script>
 {% endif %}
 {% endblock %}
