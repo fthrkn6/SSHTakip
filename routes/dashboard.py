@@ -10,25 +10,37 @@ bp = Blueprint('dashboard', __name__, url_prefix='/dashboard')
 
 
 def get_failures_from_excel():
-    """Excel dosyasından arıza verilerini oku - Proje-dinamik"""
+    """Excel dosyasından arıza verilerini oku - Proje-dinamik (data/{project}/Veriler.xlsx)"""
     from flask import current_app
     
     current_project = session.get('current_project', 'belgrad')
-    ariza_listesi_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
     
-    # Arıza Listesi dosyasını bul
+    # Birincil konum: data/{project}/Veriler.xlsx
+    veriler_file = os.path.join(current_app.root_path, 'data', current_project, 'Veriler.xlsx')
+    
+    # Fallback: logs/{project}/ariza_listesi/
+    ariza_listesi_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
     ariza_listesi_file = None
-    if os.path.exists(ariza_listesi_dir):
+    use_sheet = None
+    header_row = 0
+    
+    if os.path.exists(veriler_file):
+        ariza_listesi_file = veriler_file
+        use_sheet = 'Veriler'
+        header_row = 0
+    elif os.path.exists(ariza_listesi_dir):
         for file in os.listdir(ariza_listesi_dir):
             if file.endswith('.xlsx') and not file.startswith('~$'):
                 ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
+                use_sheet = 'Ariza Listesi'
+                header_row = 3
                 break
     
     if not ariza_listesi_file:
         return [], {}
     
     try:
-        df = pd.read_excel(ariza_listesi_file, sheet_name='Ariza Listesi', header=3)
+        df = pd.read_excel(ariza_listesi_file, sheet_name=use_sheet, header=header_row)
         
         # Son 5 açık arızayı al (son 5 satır)
         recent = df.tail(5).to_dict('records') if len(df) > 0 else []

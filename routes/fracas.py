@@ -142,28 +142,41 @@ def load_fracas_data():
 
 
 def load_ariza_listesi_data():
-    """Arıza Listesi Excel'den verileri yükle - logs/{project}/ariza_listesi/"""
+    """Arıza Listesi Excel'den verileri yükle - data/{project}/Veriler.xlsx"""
     current_project = session.get('current_project', 'belgrad')
-    ariza_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
     
-    # Arıza Listesi dosyasını bul
+    # Birincil konum: data/{project}/Veriler.xlsx
+    veriler_file = os.path.join(current_app.root_path, 'data', current_project, 'Veriler.xlsx')
+    
+    # Fallback: logs/{project}/ariza_listesi/ klasöründen
+    ariza_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
     ariza_listesi_file = None
-    if os.path.exists(ariza_dir):
+    if os.path.exists(veriler_file):
+        ariza_listesi_file = veriler_file
+        use_sheet = 'Veriler'  # Veriler.xlsx sayfası
+        header_row = 0  # header ilk satırda
+    elif os.path.exists(ariza_dir):
+        # Fallback: logs klasöründen ara
         for file in os.listdir(ariza_dir):
             if file.endswith('.xlsx') and not file.startswith('~$'):
                 ariza_listesi_file = os.path.join(ariza_dir, file)
+                use_sheet = 'Ariza Listesi'  # Arıza Listesi sayfası
+                header_row = 3  # header 4. satırda (0-indexed)
                 break
     
     if not ariza_listesi_file:
         return None
     
     try:
-        # Arıza Listesi sheet'i header 3 satırından başlıyor (row 4)
-        df = pd.read_excel(ariza_listesi_file, sheet_name='Ariza Listesi', header=3)
+        # Sheet seçimi yapılmadıysa default'ı dene
+        sheet_name = use_sheet if 'use_sheet' in locals() else 'Veriler'
+        header = header_row if 'header_row' in locals() else 0
+        
+        df = pd.read_excel(ariza_listesi_file, sheet_name=sheet_name, header=header)
         # Sütun isimlerini normalize et
         df.columns = df.columns.str.replace('\n', ' ', regex=False).str.strip()
         
-        # FRACAS ID kolonunu bul ve boş satırları filtrele
+        # FRACAS ID kolonunu bul ve boş satırları filtrele (varsa)
         fracas_col = None
         for col in df.columns:
             if 'fracas' in col.lower() and 'id' in col.lower():
@@ -172,7 +185,7 @@ def load_ariza_listesi_data():
         if fracas_col:
             df = df[df[fracas_col].notna()]
         
-        # Sadece doldurulmuş satırları al (FRACAS ID'si olan)
+        # Sadece doldurulmuş satırları al
         if len(df) > 0:
             return df
         

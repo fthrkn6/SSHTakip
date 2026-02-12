@@ -53,31 +53,49 @@ def get_ariza_listesi_data():
     from flask import current_app
     
     current_project = session.get('current_project', 'belgrad')
+    
+    # Birincil konum: data/{project}/Veriler.xlsx
+    veriler_file = os.path.join(current_app.root_path, 'data', current_project, 'Veriler.xlsx')
+    
+    # Fallback: logs/{project}/ariza_listesi/
     ariza_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
     
-    if not os.path.exists(ariza_dir):
+    filepath = None
+    use_sheet = None
+    header_row = 0
+    
+    if os.path.exists(veriler_file):
+        filepath = veriler_file
+        use_sheet = 'Veriler'
+        header_row = 0
+    elif os.path.exists(ariza_dir):
+        for filename in os.listdir(ariza_dir):
+            if filename.endswith('.xlsx') and not filename.startswith('~$'):
+                filepath = os.path.join(ariza_dir, filename)
+                use_sheet = 'Ariza Listesi'
+                header_row = 3
+                break
+    
+    if not filepath:
         return None
     
-    for filename in os.listdir(ariza_dir):
-        if filename.endswith('.xlsx') and not filename.startswith('~$'):
-            filepath = os.path.join(ariza_dir, filename)
-            try:
-                df = pd.read_excel(filepath, sheet_name='Ariza Listesi', header=3)
-                df.columns = df.columns.str.replace('\n', ' ', regex=False).str.strip()
-                
-                # FRACAS ID kolonunu bul ve geçerli kayıtları filtrele
-                fracas_col = None
-                for col in df.columns:
-                    if 'fracas' in col.lower() and 'id' in col.lower():
-                        fracas_col = col
-                        break
-                
-                if fracas_col:
-                    df = df[df[fracas_col].notna()]
-                
-                return df
-            except Exception as e:
-                print(f"Arıza Listesi okuma hatası: {e}")
+    try:
+        df = pd.read_excel(filepath, sheet_name=use_sheet, header=header_row)
+        df.columns = df.columns.str.replace('\n', ' ', regex=False).str.strip()
+        
+        # FRACAS ID kolonunu bul ve geçerli kayıtları filtrele
+        fracas_col = None
+        for col in df.columns:
+            if 'fracas' in col.lower() and 'id' in col.lower():
+                fracas_col = col
+                break
+        
+        if fracas_col:
+            df = df[df[fracas_col].notna()]
+        
+        return df
+    except Exception as e:
+        print(f"Arıza Listesi okuma hatası: {e}")
                 return None
     
     return None
