@@ -30,7 +30,8 @@ def get_tram_ids_from_veriler(project_code=None):
     veriler_path = os.path.join(current_app.root_path, 'data', project_code, 'Veriler.xlsx')
     
     if not os.path.exists(veriler_path):
-        return []
+        # Fallback: Equipment tablosundan çek
+        return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None).all()]
     
     try:
         df = pd.read_excel(veriler_path, sheet_name='Sayfa2', header=0)
@@ -38,10 +39,12 @@ def get_tram_ids_from_veriler(project_code=None):
             tram_ids = df['tram_id'].dropna().unique().tolist()
             # String'e dönüştür
             return [str(t) for t in tram_ids]
-        return []
+        # Fallback: Equipment tablosundan çek
+        return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None).all()]
     except Exception as e:
         print(f"Veriler.xlsx okuma hatası ({project_code}): {e}")
-        return []
+        # Fallback: Equipment tablosundan çek
+        return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None).all()]
 
 bp = Blueprint('service_status', __name__, url_prefix='/servis')
 
@@ -63,7 +66,8 @@ def service_status_page():
                 Equipment.parent_id == None
             ).all()
         else:
-            equipment_list = []
+            # Fallback: Equipment tablosundan direkt çek
+            equipment_list = Equipment.query.filter_by(parent_id=None).all()
         
         # Bugünün tarihi
         today_date = str(date.today())

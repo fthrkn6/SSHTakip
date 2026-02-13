@@ -16,7 +16,8 @@ def load_trams_from_file(project_code=None):
     veriler_path = os.path.join(current_app.root_path, 'data', project_code, 'Veriler.xlsx')
     
     if not os.path.exists(veriler_path):
-        return []
+        # Fallback: Equipment tablosundan çek
+        return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None).all()]
     
     try:
         df = pd.read_excel(veriler_path, sheet_name='Sayfa2', header=0)
@@ -26,10 +27,12 @@ def load_trams_from_file(project_code=None):
             tram_list = [str(t) for t in tram_list]
             tram_list.sort(key=lambda x: int(x) if x.isdigit() else 0)
             return tram_list
-        return []
+        # Fallback: Equipment tablosundan çek
+        return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None).all()]
     except Exception as e:
         print(f"Veriler.xlsx okuma hatası ({project_code}): {e}")
-        return []
+        # Fallback: Equipment tablosundan çek
+        return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None).all()]
 
 
 @bp.route('/plans')
