@@ -9,7 +9,8 @@ def init_database():
     
     with app.app_context():
         print("Veritabanı oluşturuluyor...")
-        db.create_all()
+        db.drop_all()  # Eski tablolar silinecek
+        db.create_all()  # Yeni şema ile oluşturulacak
         print("✅ Veritabanı başarıyla oluşturuldu!")
         print("Şimdi 'python create_sample_data.py' komutu ile örnek verileri oluşturabilirsiniz.")
 
