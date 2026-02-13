@@ -885,7 +885,8 @@ def create_app():
                                        key=lambda x: int(x.replace('K', '')) * 1000)
             
             # KM verilerini al - FALLBACK şu anda Equipment tablosundan priorite alıyor
-            km_file = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'km_data.json')
+            current_project = session.get('current_project', 'belgrad')
+            km_file = os.path.join(os.path.dirname(__file__), 'data', current_project, 'km_data.json')
             tram_km_fallback = {}
             
             if os.path.exists(km_file):
@@ -1325,9 +1326,9 @@ def create_app():
             import pandas as pd
             import os
             
-            # Project folder'ını belirle
-            project_code = session.get('project_code', 'belgrad').lower()
-            project_folder = os.path.join('data', project_code)
+            # Project folder'ını belirle (session'dan al)
+            current_project = session.get('current_project', 'belgrad')
+            project_folder = os.path.join(os.path.dirname(__file__), 'data', current_project)
             excel_path = os.path.join(project_folder, 'Veriler.xlsx')
             
             tram_ids = []
@@ -1547,20 +1548,14 @@ def create_app():
             
             # Tramvaylar - Excel'den yükle (İstatistik hesaplaması için gerekli)
             excel_path = None
-            project = session.get('current_project', 'belgrad')
-            data_dir = os.path.join(os.path.dirname(__file__), 'data', project)
+            current_project = session.get('current_project', 'belgrad')
+            data_dir = os.path.join(os.path.dirname(__file__), 'data', current_project)
             
             if os.path.exists(data_dir):
                 for file in os.listdir(data_dir):
-                    if file.endswith('.xlsx') and 'Veriler' in file:
+                    if file == 'Veriler.xlsx':  # Kesin ad eşleşmesi
                         excel_path = os.path.join(data_dir, file)
                         break
-                # Veriler.xlsx bulamazsa ilk xlsx'i al
-                if not excel_path:
-                    for file in os.listdir(data_dir):
-                        if file.endswith('.xlsx'):
-                            excel_path = os.path.join(data_dir, file)
-                            break
             
             tramvaylar = []
             if excel_path and os.path.exists(excel_path):

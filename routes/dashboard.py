@@ -406,13 +406,21 @@ def get_equipment_failures(equipment_code=None):
     try:
         import pandas as pd
         import os
+        from flask import session
         
-        ariza_listesi_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs', 'ariza_listesi')
-        ariza_listesi_file = os.path.join(ariza_listesi_dir, 'Ariza_Listesi_BELGRAD.xlsx')
+        current_project = session.get('current_project', 'belgrad')
+        ariza_listesi_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs', current_project, 'ariza_listesi')
+        # Klasördeki xlsx dosyasını otomatik olarak bul
+        ariza_listesi_file = None
+        if os.path.exists(ariza_listesi_dir):
+            for file in os.listdir(ariza_listesi_dir):
+                if file.endswith('.xlsx') and not file.startswith('~$'):
+                    ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
+                    break
         
         failures = []
         
-        if not os.path.exists(ariza_listesi_file):
+        if not ariza_listesi_file or not os.path.exists(ariza_listesi_file):
             print(f"[API] Dosya bulunamadı: {ariza_listesi_file}")
             return jsonify({'failures': [], 'error': 'File not found'})
         
