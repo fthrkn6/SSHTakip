@@ -1,10 +1,32 @@
-from flask import Blueprint, render_template, jsonify, session
+from flask import Blueprint, render_template, jsonify, session, current_app
 from flask_login import login_required, current_user
 from models import db, Equipment, WorkOrder, KPISnapshot, Failure, ServiceLog, ServiceStatus
 from sqlalchemy import func, desc
 from datetime import datetime, timedelta, date
 import pandas as pd
 import os
+
+
+def get_tram_ids_from_veriler(project_code=None):
+    """Veriler.xlsx Sayfa2'den tram_id'leri yükle - tüm sayfalarda tek kaynak"""
+    if project_code is None:
+        project_code = session.get('current_project', 'belgrad')
+    
+    veriler_path = os.path.join(current_app.root_path, 'data', project_code, 'Veriler.xlsx')
+    
+    if not os.path.exists(veriler_path):
+        return []
+    
+    try:
+        df = pd.read_excel(veriler_path, sheet_name='Sayfa2', header=0)
+        if 'tram_id' in df.columns:
+            tram_ids = df['tram_id'].dropna().unique().tolist()
+            # String'e dönüştür
+            return [str(t) for t in tram_ids]
+        return []
+    except Exception as e:
+        print(f"Veriler.xlsx okuma hatası ({project_code}): {e}")
+        return []
 
 bp = Blueprint('dashboard', __name__, url_prefix='/dashboard')
 
@@ -237,9 +259,17 @@ def index():
         KPISnapshot.snapshot_date.desc()
     ).first()
     
-    # ===== Tramvay Filosu - ServiceStatus'ten Veri Çek (BUGÜNÜN VERİSİ) =====
-    # Tüm tramvayları getir (seçili project'ten)
-    tramvaylar = Equipment.query.filter_by(parent_id=None, project_code=current_project).all()
+    # ===== Tramvay Filozofu - Veriler.xlsx Sayfa2'den Tram ID'leri Al =====
+    tram_ids = get_tram_ids_from_veriler(current_project)
+    
+    # Tram ID'lerine göre Equipment'i filtrele (DB'den status, name, location vb al)
+    if tram_ids:
+        tramvaylar = Equipment.query.filter(
+            Equipment.equipment_code.in_(tram_ids),
+            Equipment.parent_id == None
+        ).all()
+    else:
+        tramvaylar = []
     
     # Bugünün tarihi
     today = str(date.today())

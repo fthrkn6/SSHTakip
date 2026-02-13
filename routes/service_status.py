@@ -3,7 +3,7 @@ Servis Durumu ve Availability Route'ları
 Araç servis durumunu yönet, raporla ve analiz et
 """
 
-from flask import Blueprint, render_template, request, jsonify, session, flash, redirect, url_for, send_file
+from flask import Blueprint, render_template, request, jsonify, session, flash, redirect, url_for, send_file, current_app
 from flask_login import login_required, current_user
 from models import db, ServiceStatus, AvailabilityMetrics, RootCauseAnalysis, Failure, Equipment
 from datetime import datetime, timedelta, date
@@ -15,8 +15,33 @@ from utils_service_status import AvailabilityAnalyzer, ExcelReportGenerator as E
 import os
 import json
 import logging
+import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+bp = Blueprint('service_status', __name__, url_prefix='/servis')
+
+
+def get_tram_ids_from_veriler(project_code=None):
+    """Veriler.xlsx Sayfa2'den tram_id'leri yükle - tüm sayfalarda tek kaynak"""
+    if project_code is None:
+        project_code = session.get('current_project', 'belgrad')
+    
+    veriler_path = os.path.join(current_app.root_path, 'data', project_code, 'Veriler.xlsx')
+    
+    if not os.path.exists(veriler_path):
+        return []
+    
+    try:
+        df = pd.read_excel(veriler_path, sheet_name='Sayfa2', header=0)
+        if 'tram_id' in df.columns:
+            tram_ids = df['tram_id'].dropna().unique().tolist()
+            # String'e dönüştür
+            return [str(t) for t in tram_ids]
+        return []
+    except Exception as e:
+        print(f"Veriler.xlsx okuma hatası ({project_code}): {e}")
+        return []
 
 bp = Blueprint('service_status', __name__, url_prefix='/servis')
 
@@ -28,8 +53,17 @@ def service_status_page():
     try:
         current_project = session.get('current_project', 'belgrad')
         
-        # Tüm araçları getir (seçili project'ten)
-        equipment_list = Equipment.query.filter_by(parent_id=None, project_code=current_project).all()
+        # Veriler.xlsx Sayfa2'den tram_id'leri al
+        tram_ids = get_tram_ids_from_veriler(current_project)
+        
+        # Tram ID'lerine göre Equipment'i filtrele (DB'den status, name vb al)
+        if tram_ids:
+            equipment_list = Equipment.query.filter(
+                Equipment.equipment_code.in_(tram_ids),
+                Equipment.parent_id == None
+            ).all()
+        else:
+            equipment_list = []
         
         # Bugünün tarihi
         today_date = str(date.today())

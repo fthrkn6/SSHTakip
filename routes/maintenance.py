@@ -9,25 +9,26 @@ bp = Blueprint('maintenance', __name__, url_prefix='/maintenance')
 
 
 def load_trams_from_file(project_code=None):
-    """Projenin trams.xlsx dosyasından tramvay listesini yükle"""
+    """Veriler.xlsx Sayfa2'den tramvay listesini yükle"""
     if project_code is None:
         project_code = session.get('current_project', 'belgrad')
     
-    trams_path = os.path.join(current_app.root_path, 'data', project_code, 'trams.xlsx')
+    veriler_path = os.path.join(current_app.root_path, 'data', project_code, 'Veriler.xlsx')
     
-    if not os.path.exists(trams_path):
+    if not os.path.exists(veriler_path):
         return []
     
     try:
-        df = pd.read_excel(trams_path)
+        df = pd.read_excel(veriler_path, sheet_name='Sayfa2', header=0)
         if 'tram_id' in df.columns:
-            tram_list = df['tram_id'].dropna().tolist()
-            # Sayısal sıralama için sort
-            tram_list.sort(key=lambda x: int(x) if str(x).isdigit() else 0)
+            tram_list = df['tram_id'].dropna().unique().tolist()
+            # String dönüştür ve sıra
+            tram_list = [str(t) for t in tram_list]
+            tram_list.sort(key=lambda x: int(x) if x.isdigit() else 0)
             return tram_list
         return []
     except Exception as e:
-        print(f"Trams dosyası okuma hatası ({project_code}): {e}")
+        print(f"Veriler.xlsx okuma hatası ({project_code}): {e}")
         return []
 
 
