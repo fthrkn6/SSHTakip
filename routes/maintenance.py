@@ -9,30 +9,34 @@ bp = Blueprint('maintenance', __name__, url_prefix='/maintenance')
 
 
 def load_trams_from_file(project_code=None):
-    """Veriler.xlsx Sayfa2'den tramvay listesini yükle"""
+    """Veriler.xlsx Sayfa2'den equipment_code listesini yükle"""
     if project_code is None:
         project_code = session.get('current_project', 'belgrad')
     
     veriler_path = os.path.join(current_app.root_path, 'data', project_code, 'Veriler.xlsx')
     
     if not os.path.exists(veriler_path):
-        # Fallback: Equipment tablosundan çek
-        return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None).all()]
+        # Fallback: Equipment tablosundan çek (project_code ile filtrele)
+        return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None, project_code=project_code).all()]
     
     try:
         df = pd.read_excel(veriler_path, sheet_name='Sayfa2', header=0)
-        if 'tram_id' in df.columns:
+        # equipment_code sütununu kullan (varsa), yoksa tram_id'leri kullan
+        if 'equipment_code' in df.columns:
+            tram_list = df['equipment_code'].dropna().unique().tolist()
+        elif 'tram_id' in df.columns:
             tram_list = df['tram_id'].dropna().unique().tolist()
-            # String dönüştür ve sıra
-            tram_list = [str(t) for t in tram_list]
-            tram_list.sort(key=lambda x: int(x) if x.isdigit() else 0)
-            return tram_list
-        # Fallback: Equipment tablosundan çek
-        return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None).all()]
+        else:
+            return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None, project_code=project_code).all()]
+        
+        # String dönüştür ve sıra
+        tram_list = [str(t) for t in tram_list]
+        tram_list.sort(key=lambda x: int(x) if x.isdigit() else 0)
+        return tram_list
     except Exception as e:
         print(f"Veriler.xlsx okuma hatası ({project_code}): {e}")
-        # Fallback: Equipment tablosundan çek
-        return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None).all()]
+        # Fallback: Equipment tablosundan çek (project_code ile filtrele)
+        return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None, project_code=project_code).all()]
 
 
 @bp.route('/plans')

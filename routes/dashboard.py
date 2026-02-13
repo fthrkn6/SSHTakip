@@ -8,28 +8,31 @@ import os
 
 
 def get_tram_ids_from_veriler(project_code=None):
-    """Veriler.xlsx Sayfa2'den tram_id'leri yükle - tüm sayfalarda tek kaynak"""
+    """Veriler.xlsx Sayfa2'den equipment_code'leri yükle - tüm sayfalarda tek kaynak"""
     if project_code is None:
         project_code = session.get('current_project', 'belgrad')
     
     veriler_path = os.path.join(current_app.root_path, 'data', project_code, 'Veriler.xlsx')
     
     if not os.path.exists(veriler_path):
-        # Fallback: Equipment tablosundan çek
-        return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None).all()]
+        # Fallback: Equipment tablosundan çek (project_code ile filtrele)
+        return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None, project_code=project_code).all()]
     
     try:
         df = pd.read_excel(veriler_path, sheet_name='Sayfa2', header=0)
-        if 'tram_id' in df.columns:
+        # equipment_code sütununu kullan (eğer varsa), yoksa tram_id'leri string'e çevir
+        if 'equipment_code' in df.columns:
+            equipment_codes = df['equipment_code'].dropna().unique().tolist()
+            return [str(c) for c in equipment_codes]
+        elif 'tram_id' in df.columns:
             tram_ids = df['tram_id'].dropna().unique().tolist()
-            # String'e dönüştür
             return [str(t) for t in tram_ids]
         # Fallback: Equipment tablosundan çek
-        return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None).all()]
+        return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None, project_code=project_code).all()]
     except Exception as e:
         print(f"Veriler.xlsx okuma hatası ({project_code}): {e}")
-        # Fallback: Equipment tablosundan çek
-        return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None).all()]
+        # Fallback: Equipment tablosundan çek (project_code ile filtrele)
+        return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None, project_code=project_code).all()]
 
 bp = Blueprint('dashboard', __name__, url_prefix='/dashboard')
 
@@ -262,18 +265,19 @@ def index():
         KPISnapshot.snapshot_date.desc()
     ).first()
     
-    # ===== Tramvay Filosofu - Veriler.xlsx Sayfa2'den Tram ID'leri Al =====
+    # ===== Tramvay Filosofu - Veriler.xlsx Sayfa2'den Equipment Code'ları Al =====
     tram_ids = get_tram_ids_from_veriler(current_project)
     
-    # Tram ID'lerine göre Equipment'i filtrele (DB'den status, name, location vb al)
+    # Equipment Code'lara göre Equipment'i filtrele (DB'den status, name, location vb al)
     if tram_ids:
         tramvaylar = Equipment.query.filter(
             Equipment.equipment_code.in_(tram_ids),
-            Equipment.parent_id == None
+            Equipment.parent_id == None,
+            Equipment.project_code == current_project
         ).all()
     else:
-        # Fallback: Equipment tablosundan direkt çek (eğer Veriler.xlsx'ten tram_id çekemezse)
-        tramvaylar = Equipment.query.filter_by(parent_id=None).all()
+        # Fallback: Equipment tablosundan direkt çek (proje-spesifik)
+        tramvaylar = Equipment.query.filter_by(parent_id=None, project_code=current_project).all()
     
     # Bugünün tarihi
     today = str(date.today())
