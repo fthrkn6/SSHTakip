@@ -580,33 +580,35 @@ def create_app():
         @app.route('/ariza-listesi-veriler')
         @login_required
         def ariza_listesi_veriler():
-            """Arıza Listesi sayfası - data/{project}/Veriler.xlsx'ten verileri oku ve göster"""
+            """Arıza Listesi sayfası - logs/{project}/ariza_listesi/'den verileri oku ve göster"""
             import pandas as pd
             import numpy as np
             
             project = session.get('current_project', 'belgrad')
             
-            # Birincil konum: data/{project}/Veriler.xlsx
-            veriler_file = os.path.join(os.path.dirname(__file__), 'data', project, 'Veriler.xlsx')
-            
-            # Fallback: logs/{project}/ariza_listesi/
+            # Birincil konum: logs/{project}/ariza_listesi/
             ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'ariza_listesi')
             
             ariza_listesi_file = None
             use_sheet = None
             header_row = 0
             
-            if os.path.exists(veriler_file):
-                ariza_listesi_file = veriler_file
-                use_sheet = 'Veriler'
-                header_row = 0
-            elif os.path.exists(ariza_listesi_dir):
-                os.makedirs(ariza_listesi_dir, exist_ok=True)
-                ariza_file_path = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_{project.upper()}.xlsx")
-                if os.path.exists(ariza_file_path):
-                    ariza_listesi_file = ariza_file_path
-                    use_sheet = 'Ariza Listesi'
-                    header_row = 3
+            if os.path.exists(ariza_listesi_dir):
+                # logs/{project}/ariza_listesi/ klasöründen ara
+                for file in os.listdir(ariza_listesi_dir):
+                    if file.endswith('.xlsx') and not file.startswith('~$'):
+                        ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
+                        use_sheet = 'Ariza Listesi'
+                        header_row = 3
+                        break
+            
+            # Fallback: data/{project}/Veriler.xlsx
+            if not ariza_listesi_file:
+                veriler_file = os.path.join(os.path.dirname(__file__), 'data', project, 'Veriler.xlsx')
+                if os.path.exists(veriler_file):
+                    ariza_listesi_file = veriler_file
+                    use_sheet = 'Veriler'
+                    header_row = 0
             
             rows = []
             row_count = 0

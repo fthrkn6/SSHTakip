@@ -142,27 +142,29 @@ def load_fracas_data():
 
 
 def load_ariza_listesi_data():
-    """Arıza Listesi Excel'den verileri yükle - data/{project}/Veriler.xlsx"""
+    """Arıza Listesi Excel'den verileri yükle - logs/{project}/ariza_listesi/'den"""
     current_project = session.get('current_project', 'belgrad')
     
-    # Birincil konum: data/{project}/Veriler.xlsx
-    veriler_file = os.path.join(current_app.root_path, 'data', current_project, 'Veriler.xlsx')
-    
-    # Fallback: logs/{project}/ariza_listesi/ klasöründen
+    # Birincil konum: logs/{project}/ariza_listesi/Ariza_Listesi_{PROJECT}.xlsx
     ariza_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
     ariza_listesi_file = None
-    if os.path.exists(veriler_file):
-        ariza_listesi_file = veriler_file
-        use_sheet = 'Veriler'  # Veriler.xlsx sayfası
-        header_row = 0  # header ilk satırda
-    elif os.path.exists(ariza_dir):
-        # Fallback: logs klasöründen ara
+    
+    # logs/{project}/ariza_listesi/ klasöründen ara
+    if os.path.exists(ariza_dir):
         for file in os.listdir(ariza_dir):
             if file.endswith('.xlsx') and not file.startswith('~$'):
                 ariza_listesi_file = os.path.join(ariza_dir, file)
                 use_sheet = 'Ariza Listesi'  # Arıza Listesi sayfası
                 header_row = 3  # header 4. satırda (0-indexed)
                 break
+    
+    # Fallback: data/{project}/Veriler.xlsx
+    if not ariza_listesi_file:
+        veriler_file = os.path.join(current_app.root_path, 'data', current_project, 'Veriler.xlsx')
+        if os.path.exists(veriler_file):
+            ariza_listesi_file = veriler_file
+            use_sheet = 'Veriler'  # Veriler.xlsx sayfası
+            header_row = 0  # header ilk satırda
     
     if not ariza_listesi_file:
         return None

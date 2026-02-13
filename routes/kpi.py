@@ -49,32 +49,33 @@ def get_fracas_data():
 
 
 def get_ariza_listesi_data():
-    """Seçili projenin Arıza Listesi verilerini yükle (logs/{project}/ariza_listesi/)"""
+    """Seçili projenin Arıza Listesi verilerini yükle (logs/{project}/ariza_listesi/ birincil)"""
     from flask import current_app
     
     current_project = session.get('current_project', 'belgrad')
     
-    # Birincil konum: data/{project}/Veriler.xlsx
-    veriler_file = os.path.join(current_app.root_path, 'data', current_project, 'Veriler.xlsx')
-    
-    # Fallback: logs/{project}/ariza_listesi/
+    # Birincil konum: logs/{project}/ariza_listesi/
     ariza_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
     
     filepath = None
     use_sheet = None
     header_row = 0
     
-    if os.path.exists(veriler_file):
-        filepath = veriler_file
-        use_sheet = 'Veriler'
-        header_row = 0
-    elif os.path.exists(ariza_dir):
+    if os.path.exists(ariza_dir):
         for filename in os.listdir(ariza_dir):
             if filename.endswith('.xlsx') and not filename.startswith('~$'):
                 filepath = os.path.join(ariza_dir, filename)
                 use_sheet = 'Ariza Listesi'
                 header_row = 3
                 break
+    
+    # Fallback: data/{project}/Veriler.xlsx
+    if not filepath:
+        veriler_file = os.path.join(current_app.root_path, 'data', current_project, 'Veriler.xlsx')
+        if os.path.exists(veriler_file):
+            filepath = veriler_file
+            use_sheet = 'Veriler'
+            header_row = 0
     
     if not filepath:
         return None
