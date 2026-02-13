@@ -94,6 +94,7 @@ class Equipment(db.Model):
     location = db.Column(db.String(100))
     status = db.Column(db.String(20), default='aktif')
     criticality = db.Column(db.String(20), default='medium')
+    project_code = db.Column(db.String(50), nullable=False, default='belgrad')  # Proje kodu (belgrad, kayseri, vb.)
     
     installation_date = db.Column(db.DateTime)
     warranty_end_date = db.Column(db.DateTime)
@@ -243,6 +244,7 @@ class Failure(db.Model):
     root_cause = db.Column(db.String(200))
     
     status = db.Column(db.String(20), default='acik')
+    project_code = db.Column(db.String(50), nullable=False, default='belgrad')  # Proje kodu
     
     reported_by = db.Column(db.Integer, db.ForeignKey('users.id'))
     assigned_to = db.Column(db.Integer, db.ForeignKey('users.id'))

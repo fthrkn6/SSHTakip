@@ -26,8 +26,10 @@ bp = Blueprint('service_status', __name__, url_prefix='/servis')
 def service_status_page():
     """Servis durumu dashboard sayfası"""
     try:
-        # Tüm araçları getir
-        equipment_list = Equipment.query.filter_by(parent_id=None).all()
+        current_project = session.get('current_project', 'belgrad')
+        
+        # Tüm araçları getir (seçili project'ten)
+        equipment_list = Equipment.query.filter_by(parent_id=None, project_code=current_project).all()
         
         # Bugünün tarihi
         today_date = str(date.today())

@@ -198,11 +198,13 @@ def get_ariza_counts_by_class():
 def index():
     """Ana dashboard - Genel bakış"""
     
+    current_project = session.get('current_project', 'belgrad')
+    
     # Ekipman durumu özeti
     equipment_stats = db.session.query(
         Equipment.status,
         func.count(Equipment.id)
-    ).filter_by(parent_id=None).group_by(Equipment.status).all()
+    ).filter_by(parent_id=None, project_code=current_project).group_by(Equipment.status).all()
     
     equipment_summary = {status: count for status, count in equipment_stats}
     
@@ -236,8 +238,8 @@ def index():
     ).first()
     
     # ===== Tramvay Filosu - ServiceStatus'ten Veri Çek (BUGÜNÜN VERİSİ) =====
-    # Tüm tramvayları getir
-    tramvaylar = Equipment.query.filter_by(parent_id=None).all()
+    # Tüm tramvayları getir (seçili project'ten)
+    tramvaylar = Equipment.query.filter_by(parent_id=None, project_code=current_project).all()
     
     # Bugünün tarihi
     today = str(date.today())
@@ -406,21 +408,13 @@ def get_equipment_failures(equipment_code=None):
     try:
         import pandas as pd
         import os
-        from flask import session
         
-        current_project = session.get('current_project', 'belgrad')
-        ariza_listesi_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs', current_project, 'ariza_listesi')
-        # Klasördeki xlsx dosyasını otomatik olarak bul
-        ariza_listesi_file = None
-        if os.path.exists(ariza_listesi_dir):
-            for file in os.listdir(ariza_listesi_dir):
-                if file.endswith('.xlsx') and not file.startswith('~$'):
-                    ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
-                    break
+        ariza_listesi_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs', 'ariza_listesi')
+        ariza_listesi_file = os.path.join(ariza_listesi_dir, 'Ariza_Listesi_BELGRAD.xlsx')
         
         failures = []
         
-        if not ariza_listesi_file or not os.path.exists(ariza_listesi_file):
+        if not os.path.exists(ariza_listesi_file):
             print(f"[API] Dosya bulunamadı: {ariza_listesi_file}")
             return jsonify({'failures': [], 'error': 'File not found'})
         
