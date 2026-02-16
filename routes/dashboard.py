@@ -265,7 +265,7 @@ def index():
         KPISnapshot.snapshot_date.desc()
     ).first()
     
-    # ===== Tramvay Filosofu - Database'den 1531-1555 range'ini al =====
+    # ===== Tramvay Filozofu - Database'den 1531-1555 range'ini al =====
     # Belgrad projesinde 1531-1555 range'i kullan
     tramvaylar = Equipment.query.filter(
         Equipment.equipment_code >= '1531',
@@ -274,9 +274,13 @@ def index():
         Equipment.project_code == current_project
     ).order_by(Equipment.equipment_code).all()
     
+    print(f"[DASHBOARD FILTER 1531-1555] Found {len(tramvaylar)} trams")
+    
     # Eğer range'de veri yoksa fallback
     if not tramvaylar:
+        print(f"[DASHBOARD FALLBACK] No trams in 1531-1555 range, using all project equipment")
         tramvaylar = Equipment.query.filter_by(parent_id=None, project_code=current_project).order_by(Equipment.equipment_code).all()
+        print(f"[DASHBOARD FALLBACK] Found {len(tramvaylar)} trams from fallback")
     
     # Bugünün tarihi
     today = str(date.today())
