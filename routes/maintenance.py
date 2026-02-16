@@ -58,12 +58,18 @@ def plans():
         Equipment.project_code == current_project
     ).order_by(Equipment.equipment_code).all()
     
+    print(f"[MAINTENANCE FILTER 1531-1555] Found {len(tramvaylar_equipment)} trams")
+    for t in tramvaylar_equipment[:3]:
+        print(f"  - {t.equipment_code}: {t.name}")
+    
     # Fallback: eğer range'de veri yoksa tüm proje equipment'larını al
     if not tramvaylar_equipment:
+        print(f"[MAINTENANCE FALLBACK] No trams in 1531-1555 range, using all project equipment")
         tramvaylar_equipment = Equipment.query.filter_by(
             parent_id=None, 
             project_code=current_project
         ).order_by(Equipment.equipment_code).all()
+        print(f"[MAINTENANCE FALLBACK] Found {len(tramvaylar_equipment)} trams")
     
     # Her tramvay için KM ve durum bilgisini derle
     tram_equipment_data = []

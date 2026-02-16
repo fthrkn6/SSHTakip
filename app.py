@@ -897,12 +897,21 @@ def create_app():
                     except:
                         pass
             
-            # Tüm araçları ekipman tablosundan al (DİNAMİK KAYNAĞIMIZ)
-            result = []
-            equipment_list = Equipment.query.all()
+            # Tüm araçları ekipman tablosundan al (1531-1555 range'i - Belgrad projesi)
+            current_project = session.get('current_project', 'belgrad')
+            equipment_list = Equipment.query.filter(
+                Equipment.equipment_code >= '1531',
+                Equipment.equipment_code <= '1555',
+                Equipment.parent_id == None,
+                Equipment.project_code == current_project
+            ).order_by(Equipment.equipment_code).all()
             
-            # Eğer Equipment boşsa, KM verilerinden tram ID'lerini al (fallback)
-            if not equipment_list and tram_km_fallback:
+            # Fallback: range'de veri yoksa, proje tüm equipment'ları al
+            if not equipment_list:
+                equipment_list = Equipment.query.filter(
+                    Equipment.parent_id == None,
+                    Equipment.project_code == current_project
+                ).order_by(Equipment.equipment_code).all()
                 equipment_list = []
                 for tram_id in sorted(tram_km_fallback.keys()):
                     tram_obj = type('Equipment', (), {
