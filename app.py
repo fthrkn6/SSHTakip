@@ -14,6 +14,7 @@ from routes.kpi import bp as kpi_bp
 from routes.service_status import bp as service_status_bp
 from routes.dashboard import bp as dashboard_bp
 from routes.reports import reports_bp
+from routes.analytics import analytics_bp
 import os
 import shutil
 import tempfile
@@ -70,6 +71,7 @@ def create_app():
         app.register_blueprint(service_status_bp)
         app.register_blueprint(dashboard_bp)
         app.register_blueprint(reports_bp)
+        app.register_blueprint(analytics_bp)
         
         # Initialize reporting system
         with app.app_context():

@@ -9,10 +9,82 @@
         <span class="badge bg-secondary fs-6 ms-2">{{ session.get('project_name', 'Proje Seçilmedi') }}</span>
     </h1>
     <p class="page-subtitle">EN 50126 RAMS Standartlarına Uygun Arıza Analizi</p>
-    <div class="alert alert-info d-inline-block mt-2">
-        <small><i class="bi bi-info-circle"></i> Veri Kaynağı: <strong>{{ data_source }}</strong></small>
+    <div class="d-flex align-items-center gap-2 mt-2">
+        <div class="alert alert-info d-inline-block mb-0">
+            <small><i class="bi bi-info-circle"></i> Veri Kaynağı: <strong>{{ data_source }}</strong></small>
+        </div>
+        <button class="btn btn-success btn-sm" id="exportBtn"
+            style="position: fixed; top: 70px; right: 20px; z-index: 100;">
+            <i class="bi bi-download me-2"></i>Excel'e Aktar
+        </button>
     </div>
 </div>
+
+<!-- Filtreleme Paneli -->
+{% if data_available %}
+<div class="card mb-4" id="filterPanel">
+    <div class="card-header bg-light">
+        <button class="btn btn-sm btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#filterContent">
+            <i class="bi bi-funnel me-2"></i><strong>Filtreleme Seçenekleri</strong>
+            <i class="bi bi-chevron-down ms-2"></i>
+        </button>
+    </div>
+    <div id="filterContent" class="collapse show">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-2">
+                    <label class="form-label fw-bold">Ay</label>
+                    <select id="filterMonth" class="form-select form-select-sm">
+                        <option value="">Tümü</option>
+                        {% for m in range(1, 13) %}
+                        <option value="{{ m }}">{{ ['', 'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz',
+                            'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'][m] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold">Yıl</label>
+                    <select id="filterYear" class="form-select form-select-sm">
+                        <option value="">Tümü</option>
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026" selected>2026</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold">Başlangıç Tarihi</label>
+                    <input type="date" id="filterStartDate" class="form-control form-control-sm">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold">Bitiş Tarihi</label>
+                    <input type="date" id="filterEndDate" class="form-control form-control-sm">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold">Araç No</label>
+                    <input type="text" id="filterVehicle" class="form-control form-control-sm" placeholder="1531">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold">Modül/Sistem</label>
+                    <input type="text" id="filterModule" class="form-control form-control-sm" placeholder="Ara...">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold">Ekipman</label>
+                    <input type="text" id="filterEquipment" class="form-control form-control-sm" placeholder="Ara...">
+                </div>
+                <div class="col-md-2 d-flex align-items-end gap-2">
+                    <button class="btn btn-primary btn-sm w-50" id="applyFilterBtn">
+                        <i class="bi bi-search"></i>Filtrele
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm w-50" id="resetFilterBtn">
+                        <i class="bi bi-arrow-clockwise"></i>Sıfırla
+                    </button>
+                </div>
+            </div>
+            <div id="filterStatus" class="mt-2 small text-muted"></div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 {% if not data_available %}
 <div class="alert alert-warning">
@@ -97,7 +169,8 @@
                         <div class="text-center p-3 border rounded-3">
                             <h6 class="text-muted mb-1">Availability</h6>
                             <h2 class="text-success mb-1">
-                                {% if rams.availability %}{{ "%.1f"|format(rams.availability) }}%{% else %}N/A{% endif %}
+                                {% if rams.availability %}{{ "%.1f"|format(rams.availability) }}%{% else %}N/A{% endif
+                                %}
                             </h2>
                             <small>Kullanılabilirlik Oranı</small>
                         </div>
@@ -195,7 +268,8 @@
                                 <td>{{ loop.index }}</td>
                                 <td><strong>{{ item.name }}</strong></td>
                                 <td><span class="badge bg-danger">{{ item.failure_count }}</span></td>
-                                <td>{% if item.avg_repair_time %}{{ item.avg_repair_time }} dk{% else %}-{% endif %}</td>
+                                <td>{% if item.avg_repair_time %}{{ item.avg_repair_time }} dk{% else %}-{% endif %}
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -220,29 +294,29 @@
     new Chart(document.getElementById('paretoModuleChart').getContext('2d'), {
         type: 'bar',
         data: {
-            labels: [{% for item in pareto.by_module %}'{{ item.name[:20] }}'{% if not loop.last %},{% endif %}{% endfor %}],
-            datasets: [{
-                label: 'Arıza Sayısı',
-                data: [{% for item in pareto.by_module %}{{ item.count }}{% if not loop.last %},{% endif %}{% endfor %}],
-                backgroundColor: colors,
-                borderRadius: 4
+            labels: [{% for item in pareto.by_module %}'{{ item.name[:20] }}'{% if not loop.last %}, {% endif %}{% endfor %}],
+        datasets: [{
+            label: 'Arıza Sayısı',
+            data: [{% for item in pareto.by_module %}{{ item.count }}{% if not loop.last %}, {% endif %} {% endfor %}],
+    backgroundColor: colors,
+        borderRadius: 4
             }, {
-                label: 'Kümülatif %',
-                data: [{% for item in pareto.by_module %}{{ item.cumulative }}{% if not loop.last %},{% endif %}{% endfor %}],
-                type: 'line',
-                borderColor: '#f59e0b',
-                yAxisID: 'y1',
+        label: 'Kümülatif %',
+            data: [{% for item in pareto.by_module %} { { item.cumulative } } {% if not loop.last %}, {% endif %} {% endfor %}],
+    type: 'line',
+        borderColor: '#f59e0b',
+            yAxisID: 'y1',
                 tension: 0.4
             }]
         },
-        options: {
-            responsive: true,
+    options: {
+        responsive: true,
             plugins: { legend: { position: 'bottom' } },
-            scales: {
-                y: { beginAtZero: true },
-                y1: { beginAtZero: true, position: 'right', max: 100 }
-            }
+        scales: {
+            y: { beginAtZero: true },
+            y1: { beginAtZero: true, position: 'right', max: 100 }
         }
+    }
     });
     {% endif %}
 
@@ -251,29 +325,29 @@
     new Chart(document.getElementById('paretoSupplierChart').getContext('2d'), {
         type: 'bar',
         data: {
-            labels: [{% for item in pareto.by_supplier %}'{{ item.name[:20] }}'{% if not loop.last %},{% endif %}{% endfor %}],
-            datasets: [{
-                label: 'Arıza Sayısı',
-                data: [{% for item in pareto.by_supplier %}{{ item.count }}{% if not loop.last %},{% endif %}{% endfor %}],
-                backgroundColor: colors.slice().reverse(),
-                borderRadius: 4
+            labels: [{% for item in pareto.by_supplier %}'{{ item.name[:20] }}'{% if not loop.last %}, {% endif %}{% endfor %}],
+        datasets: [{
+            label: 'Arıza Sayısı',
+            data: [{% for item in pareto.by_supplier %}{{ item.count }}{% if not loop.last %}, {% endif %} {% endfor %}],
+    backgroundColor: colors.slice().reverse(),
+        borderRadius: 4
             }, {
-                label: 'Kümülatif %',
-                data: [{% for item in pareto.by_supplier %}{{ item.cumulative }}{% if not loop.last %},{% endif %}{% endfor %}],
-                type: 'line',
-                borderColor: '#f59e0b',
-                yAxisID: 'y1',
+        label: 'Kümülatif %',
+            data: [{% for item in pareto.by_supplier %} { { item.cumulative } } {% if not loop.last %}, {% endif %} {% endfor %}],
+    type: 'line',
+        borderColor: '#f59e0b',
+            yAxisID: 'y1',
                 tension: 0.4
             }]
         },
-        options: {
-            responsive: true,
+    options: {
+        responsive: true,
             plugins: { legend: { position: 'bottom' } },
-            scales: {
-                y: { beginAtZero: true },
-                y1: { beginAtZero: true, position: 'right', max: 100 }
-            }
+        scales: {
+            y: { beginAtZero: true },
+            y1: { beginAtZero: true, position: 'right', max: 100 }
         }
+    }
     });
     {% endif %}
 
@@ -282,17 +356,17 @@
     new Chart(document.getElementById('monthlyTrendChart').getContext('2d'), {
         type: 'line',
         data: {
-            labels: [{% for item in trend.monthly %}'{{ item.period }}'{% if not loop.last %},{% endif %}{% endfor %}],
-            datasets: [{
-                label: 'Arıza Sayısı',
-                data: [{% for item in trend.monthly %}{{ item.count }}{% if not loop.last %},{% endif %}{% endfor %}],
-                borderColor: '#2563eb',
-                backgroundColor: 'rgba(37,99,235,0.1)',
-                fill: true,
+            labels: [{% for item in trend.monthly %}'{{ item.period }}'{% if not loop.last %}, {% endif %}{% endfor %}],
+        datasets: [{
+            label: 'Arıza Sayısı',
+            data: [{% for item in trend.monthly %}{{ item.count }}{% if not loop.last %}, {% endif %} {% endfor %}],
+    borderColor: '#2563eb',
+        backgroundColor: 'rgba(37,99,235,0.1)',
+            fill: true,
                 tension: 0.4
             }]
         },
-        options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true } } }
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true } } }
     });
     {% endif %}
 
@@ -301,15 +375,15 @@
     new Chart(document.getElementById('hourlyChart').getContext('2d'), {
         type: 'bar',
         data: {
-            labels: [{% for item in trend.by_hour %}'{{ item.hour }}'{% if not loop.last %},{% endif %}{% endfor %}],
-            datasets: [{
-                label: 'Arıza Sayısı',
-                data: [{% for item in trend.by_hour %}{{ item.count }}{% if not loop.last %},{% endif %}{% endfor %}],
-                backgroundColor: 'rgba(37,99,235,0.7)',
-                borderRadius: 2
+            labels: [{% for item in trend.by_hour %}'{{ item.hour }}'{% if not loop.last %}, {% endif %}{% endfor %}],
+        datasets: [{
+            label: 'Arıza Sayısı',
+            data: [{% for item in trend.by_hour %}{{ item.count }}{% if not loop.last %}, {% endif %} {% endfor %}],
+    backgroundColor: 'rgba(37,99,235,0.7)',
+        borderRadius: 2
             }]
         },
-        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
     });
     {% endif %}
 
@@ -318,14 +392,14 @@
     new Chart(document.getElementById('failureClassChart').getContext('2d'), {
         type: 'doughnut',
         data: {
-            labels: [{% for item in pareto.by_failure_class %}'{{ item.name[:30] }}'{% if not loop.last %},{% endif %}{% endfor %}],
-            datasets: [{
-                data: [{% for item in pareto.by_failure_class %}{{ item.count }}{% if not loop.last %},{% endif %}{% endfor %}],
-                backgroundColor: colors,
-                borderWidth: 0
+            labels: [{% for item in pareto.by_failure_class %}'{{ item.name[:30] }}'{% if not loop.last %}, {% endif %}{% endfor %}],
+        datasets: [{
+            data: [{% for item in pareto.by_failure_class %}{{ item.count }}{% if not loop.last %}, {% endif %} {% endfor %}],
+    backgroundColor: colors,
+        borderWidth: 0
             }]
         },
-        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
     });
     {% endif %}
 
@@ -334,16 +408,132 @@
     new Chart(document.getElementById('locationChart').getContext('2d'), {
         type: 'pie',
         data: {
-            labels: [{% for item in pareto.by_location %}'{{ item.name[:25] }}'{% if not loop.last %},{% endif %}{% endfor %}],
-            datasets: [{
-                data: [{% for item in pareto.by_location %}{{ item.count }}{% if not loop.last %},{% endif %}{% endfor %}],
-                backgroundColor: colors.slice().reverse(),
-                borderWidth: 0
+            labels: [{% for item in pareto.by_location %}'{{ item.name[:25] }}'{% if not loop.last %}, {% endif %}{% endfor %}],
+        datasets: [{
+            data: [{% for item in pareto.by_location %}{{ item.count }}{% if not loop.last %}, {% endif %} {% endfor %}],
+    backgroundColor: colors.slice().reverse(),
+        borderWidth: 0
             }]
         },
-        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
     });
     {% endif %}
-</script>
+    // Filtreleme İşlevleri - sadece data varsa
+    if (document.getElementById('applyFilterBtn')) {
+        document.getElementById('applyFilterBtn').addEventListener('click', async () => {
+            const filters = {
+                month: document.getElementById('filterMonth')?.value || '',
+                year: document.getElementById('filterYear')?.value || '',
+                start_date: document.getElementById('filterStartDate')?.value || '',
+                end_date: document.getElementById('filterEndDate')?.value || '',
+                vehicle_id: document.getElementById('filterVehicle')?.value || '',
+                module: document.getElementById('filterModule')?.value || '',
+                equipment: document.getElementById('filterEquipment')?.value || ''
+            };
+
+            const statusDiv = document.getElementById('filterStatus');
+            statusDiv.innerHTML = '<span class="text-info"><i class="bi bi-hourglass-split"></i> Filtreleme yapılıyor...</span>';
+
+            try {
+                const response = await fetch('/analytics/fracas-filter', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(filters)
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    const percentage = data.total_records > 0 ? ((data.record_count / data.total_records) * 100).toFixed(1) : 0;
+                    statusDiv.innerHTML = `
+                        <span class="text-success"><i class="bi bi-check-circle"></i> ${data.record_count} kayıt bulundu 
+                        (${percentage}% orijinal verilerden)</span>
+                    `;
+                } else {
+                    statusDiv.innerHTML = `<span class="text-warning"><i class="bi bi-exclamation-circle"></i> ${data.message || 'Filtreleme başarısız'}</span>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<span class="text-danger"><i class="bi bi-x-circle"></i> Hata: ${error.message}</span>`;
+                console.error('Filter error:', error);
+            }
+        });
+
+        // Sıfırla Butonu
+        document.getElementById('resetFilterBtn').addEventListener('click', () => {
+            document.getElementById('filterMonth').value = '';
+            document.getElementById('filterYear').value = '';
+            document.getElementById('filterStartDate').value = '';
+            document.getElementById('filterEndDate').value = '';
+            document.getElementById('filterVehicle').value = '';
+            document.getElementById('filterModule').value = '';
+            document.getElementById('filterEquipment').value = '';
+            document.getElementById('filterStatus').textContent = '';
+        });
+
+        // Enter tuşu ile Filtrele
+        ['filterMonth', 'filterYear', 'filterStartDate', 'filterEndDate', 'filterVehicle', 'filterModule', 'filterEquipment'].forEach(id => {
+            const elem = document.getElementById(id);
+            if (elem) {
+                elem.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        document.getElementById('applyFilterBtn').click();
+                    }
+                });
+            }
+        });
+    }
+
+    // Excel Export Butonu
+    if (document.getElementById('exportBtn')) {
+        document.getElementById('exportBtn').addEventListener('click', async () => {
+            const filters = {
+                month: document.getElementById('filterMonth')?.value || '',
+                year: document.getElementById('filterYear')?.value || '',
+                start_date: document.getElementById('filterStartDate')?.value || '',
+                end_date: document.getElementById('filterEndDate')?.value || '',
+                vehicle_id: document.getElementById('filterVehicle')?.value || '',
+                module: document.getElementById('filterModule')?.value || '',
+                equipment: document.getElementById('filterEquipment')?.value || ''
+            };
+
+            const exportBtn = document.getElementById('exportBtn');
+            const originalText = exportBtn.innerHTML;
+            exportBtn.innerHTML = '<i class="bi bi-clock"></i> Hazırlanıyor...';
+            exportBtn.disabled = true;
+
+            try {
+                const response = await fetch('/analytics/fracas-export', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(filters)
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `FRACAS_Analiz_${new Date().toISOString().split('T')[0]}.xlsx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+
+                    const statusDiv = document.getElementById('filterStatus');
+                    if (statusDiv) {
+                        statusDiv.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i> Dosya indirildi</span>';
+                    }
+                } else {
+                    const error = await response.text();
+                    alert('İndirme başarısız: ' + error);
+                }
+            } catch (error) {
+                alert('Hata: ' + error.message);
+                console.error('Export error:', error);
+            } finally {
+                exportBtn.innerHTML = originalText;
+                exportBtn.disabled = false;
+            }
+        });
+    }</script>
 {% endif %}
 {% endblock %}

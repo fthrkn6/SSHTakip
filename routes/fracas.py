@@ -224,17 +224,21 @@ def index():
     
     data_source = 'Arıza Listesi' if df is not None and len(df) > 0 else 'FRACAS'
     
-    if df is None:
+    if df is None or len(df) == 0:
         flash('FRACAS verileri bulunamadı. Lütfen Arıza Listesi Excel dosyasını logs klasörüne ekleyin.', 'warning')
         return render_template('fracas/index.html', data_available=False, data_source='Veri Yok')
     
     # Temel istatistikler
-    stats = calculate_basic_stats(df)
-    rams_metrics = calculate_rams_metrics(df)
-    pareto_data = calculate_pareto_analysis(df)
-    trend_data = calculate_trend_analysis(df)
-    supplier_data = calculate_supplier_analysis(df)
-    cost_data = calculate_cost_analysis(df)
+    try:
+        stats = calculate_basic_stats(df)
+        rams_metrics = calculate_rams_metrics(df)
+        pareto_data = calculate_pareto_analysis(df)
+        trend_data = calculate_trend_analysis(df)
+        supplier_data = calculate_supplier_analysis(df)
+        cost_data = calculate_cost_analysis(df)
+    except Exception as e:
+        flash(f'İstatistik hesaplaması hatası: {str(e)}', 'error')
+        return render_template('fracas/index.html', data_available=False, data_source='Hata Oluştu')
     
     return render_template('fracas/index.html',
                          data_available=True,

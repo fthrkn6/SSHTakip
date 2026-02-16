@@ -24,6 +24,77 @@
         </div>
     </div>
 
+    <!-- Excel Export Butonu (Fixed Position) -->
+    <button class="btn btn-success btn-lg" id="exportBtn"
+        style="position: fixed; top: 70px; right: 20px; z-index: 100;">
+        <i class="bi bi-file-earmark-excel"></i> Excel'e Aktar
+    </button>
+
+    <!-- Filtreleme Paneli -->
+    <div class="card mb-4" id="filterPanel">
+        <div class="card-header bg-light">
+            <button class="btn btn-sm btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#filterContent">
+                <i class="bi bi-funnel me-2"></i><strong>Filtreleme Seçenekleri</strong>
+                <i class="bi bi-chevron-down ms-2"></i>
+            </button>
+        </div>
+        <div id="filterContent" class="collapse show">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">Ay</label>
+                        <select id="filterMonth" class="form-select form-select-sm">
+                            <option value="">Tümü</option>
+                            {% for m in range(1, 13) %}
+                            <option value="{{ m }}">{{ ['', 'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+                                'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'][m] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">Yıl</label>
+                        <select id="filterYear" class="form-select form-select-sm">
+                            <option value="">Tümü</option>
+                            <option value="2024">2024</option>
+                            <option value="2025">2025</option>
+                            <option value="2026" selected>2026</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">Başlangıç Tarihi</label>
+                        <input type="date" id="filterStartDate" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">Bitiş Tarihi</label>
+                        <input type="date" id="filterEndDate" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">Araç No</label>
+                        <input type="text" id="filterVehicle" class="form-control form-control-sm" placeholder="1531">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">Modül/Sistem</label>
+                        <input type="text" id="filterModule" class="form-control form-control-sm" placeholder="Ara...">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">Ekipman</label>
+                        <input type="text" id="filterEquipment" class="form-control form-control-sm"
+                            placeholder="Ara...">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end gap-2">
+                        <button class="btn btn-primary btn-sm w-50" id="applyFilterBtn">
+                            <i class="bi bi-search"></i>Filtrele
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm w-50" id="resetFilterBtn">
+                            <i class="bi bi-arrow-clockwise"></i>Sıfırla
+                        </button>
+                    </div>
+                </div>
+                <div id="filterStatus" class="mt-2 small text-muted"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- KPI Kartları -->
     <div class="row mb-4">
         <div class="col-md-3">
@@ -203,6 +274,126 @@
     </div>
     {% endif %}
 </div>
+
+<script>
+    // KPI Filtreleme İşlevleri - sadece filter paneli varsa
+    if (document.getElementById('applyFilterBtn')) {
+        document.getElementById('applyFilterBtn').addEventListener('click', async () => {
+            const filters = {
+                month: document.getElementById('filterMonth')?.value || '',
+                year: document.getElementById('filterYear')?.value || '',
+                start_date: document.getElementById('filterStartDate')?.value || '',
+                end_date: document.getElementById('filterEndDate')?.value || '',
+                vehicle_id: document.getElementById('filterVehicle')?.value || '',
+                module: document.getElementById('filterModule')?.value || '',
+                equipment: document.getElementById('filterEquipment')?.value || ''
+            };
+
+            const statusDiv = document.getElementById('filterStatus');
+            statusDiv.innerHTML = '<span class="text-info"><i class="bi bi-hourglass-split"></i> Filtreleme yapılıyor...</span>';
+
+            try {
+                const response = await fetch('/analytics/fracas-filter', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(filters)
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    const percentage = data.total_records > 0 ? ((data.record_count / data.total_records) * 100).toFixed(1) : 0;
+                    statusDiv.innerHTML = `
+                    <span class="text-success"><i class="bi bi-check-circle"></i> ${data.record_count} kayıt bulundu 
+                    (${percentage}% orijinal verilerden)</span>
+                `;
+                } else {
+                    statusDiv.innerHTML = `<span class="text-warning"><i class="bi bi-exclamation-circle"></i> ${data.message || 'Filtreleme başarısız'}</span>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<span class="text-danger"><i class="bi bi-x-circle"></i> Hata: ${error.message}</span>`;
+                console.error('Filter error:', error);
+            }
+        });
+
+        // Sıfırla Butonu
+        document.getElementById('resetFilterBtn').addEventListener('click', () => {
+            document.getElementById('filterMonth').value = '';
+            document.getElementById('filterYear').value = '';
+            document.getElementById('filterStartDate').value = '';
+            document.getElementById('filterEndDate').value = '';
+            document.getElementById('filterVehicle').value = '';
+            document.getElementById('filterModule').value = '';
+            document.getElementById('filterEquipment').value = '';
+            document.getElementById('filterStatus').textContent = '';
+        });
+
+        // Enter tuşu ile Filtrele
+        ['filterMonth', 'filterYear', 'filterStartDate', 'filterEndDate', 'filterVehicle', 'filterModule', 'filterEquipment'].forEach(id => {
+            const elem = document.getElementById(id);
+            if (elem) {
+                elem.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        document.getElementById('applyFilterBtn').click();
+                    }
+                });
+            }
+        });
+    }
+
+    // Excel Export Butonu
+    if (document.getElementById('exportBtn')) {
+        document.getElementById('exportBtn').addEventListener('click', async () => {
+            const filters = {
+                month: document.getElementById('filterMonth')?.value || '',
+                year: document.getElementById('filterYear')?.value || '',
+                start_date: document.getElementById('filterStartDate')?.value || '',
+                end_date: document.getElementById('filterEndDate')?.value || '',
+                vehicle_id: document.getElementById('filterVehicle')?.value || '',
+                module: document.getElementById('filterModule')?.value || '',
+                equipment: document.getElementById('filterEquipment')?.value || ''
+            };
+
+            const exportBtn = document.getElementById('exportBtn');
+            const originalText = exportBtn.innerHTML;
+            exportBtn.innerHTML = '<i class="bi bi-clock"></i> Hazırlanıyor...';
+            exportBtn.disabled = true;
+
+            try {
+                const response = await fetch('/analytics/kpi-export', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(filters)
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `KPI_Dashboard_${new Date().toISOString().split('T')[0]}.xlsx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+
+                    const statusDiv = document.getElementById('filterStatus');
+                    if (statusDiv) {
+                        statusDiv.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i> Dosya indirildi</span>';
+                    }
+                } else {
+                    const error = await response.text();
+                    alert('İndirme başarısız: ' + error);
+                }
+            } catch (error) {
+                alert('Hata: ' + error.message);
+                console.error('Export error:', error);
+            } finally {
+                exportBtn.innerHTML = originalText;
+                exportBtn.disabled = false;
+            }
+        });
+    }
+</script>
 {% endblock %}
 
 {% block extra_js %}
@@ -210,7 +401,8 @@
 <script>
     {% if kpi.failure_by_category %}
     // Kategori Pasta Grafiği
-    const categoryData = {{ kpi.failure_by_category | tojson }};
+    const categoryData = {{ kpi.failure_by_category | tojson
+    }};
     const categoryLabels = Object.keys(categoryData);
     const categoryValues = Object.values(categoryData);
 
