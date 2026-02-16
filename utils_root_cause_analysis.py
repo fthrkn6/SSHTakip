@@ -47,7 +47,12 @@ class RootCauseAnalyzer:
         query = ServiceStatus.query.filter(
             ServiceStatus.date >= start_date,
             ServiceStatus.date <= end_date,
-            ServiceStatus.status.in_(['Servis Dışı', 'İşletme Kaynaklı Servis Dışı'])
+            ServiceStatus.status.in_([
+                'Servis Dışı', 
+                'İşletme Kaynaklı Servis Dışı',
+                'Servis Disi',  # ASCII version
+                'Isletme Kaynaklı Servis Disi'  # ASCII version
+            ])
         )
         
         if tram_id:
