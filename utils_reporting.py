@@ -17,7 +17,8 @@ from openpyxl.utils import get_column_letter
 # Configure logger
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    encoding='utf-8'
 )
 logger = logging.getLogger(__name__)
 
