@@ -13,29 +13,56 @@
         </div>
     </div>
 
-    <!-- Araç Listesi (trams.xlsx'den) -->
+    <!-- Araç Listesi (Veriler.xlsx Sayfa2'den + KM verisi Equipment tablosundan) -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card">
                 <div class="card-header bg-dark text-white">
                     <h5 class="mb-0">
-                        <i class="bi bi-tram-front"></i> Araç Listesi ({{ tramvaylar|length }} araç)
+                        <i class="bi bi-tram-front"></i> Araç Listesi ({{ tram_equipment_data|length }} araç)
                     </h5>
                 </div>
                 <div class="card-body">
-                    {% if tramvaylar %}
-                    <div class="d-flex flex-wrap gap-2">
-                        {% for tram in tramvaylar %}
-                        <span class="badge bg-primary" style="font-size: 0.9rem; padding: 8px 12px;">
-                            <i class="bi bi-train-front"></i> {{ tram }}
-                        </span>
-                        {% endfor %}
+                    {% if tram_equipment_data %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Araç ID</th>
+                                    <th>Araç Adı</th>
+                                    <th>Güncel KM</th>
+                                    <th>Toplam KM</th>
+                                    <th>Durum</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for tram in tram_equipment_data %}
+                                <tr>
+                                    <td><span class="badge bg-primary">{{ tram.tram_id }}</span></td>
+                                    <td>{{ tram.name }}</td>
+                                    <td>{{ tram.current_km|default(0) }}</td>
+                                    <td>{{ tram.total_km|default(0) }}</td>
+                                    <td>
+                                        {% if tram.status == 'Servis' %}
+                                        <span class="badge bg-success">Servis</span>
+                                        {% elif tram.status == 'Servis Dışı' %}
+                                        <span class="badge bg-danger">Servis Dışı</span>
+                                        {% elif 'İşletme' in tram.status %}
+                                        <span class="badge bg-warning text-dark">İşletme Dışı</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">{{ tram.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                     {% else %}
                     <div class="alert alert-warning mb-0">
                         <i class="bi bi-exclamation-triangle"></i> Araç verisi bulunamadı. Lütfen
-                        <code>Veriler/{{ session.get('current_project', 'belgrad') }}/trams.xlsx</code> dosyasını
-                        kontrol edin.
+                        <code>data/{{ session.get('current_project', 'belgrad') }}/Veriler.xlsx</code> dosyasının
+                        Sayfa2 şemasını kontrol edin.
                     </div>
                     {% endif %}
                 </div>

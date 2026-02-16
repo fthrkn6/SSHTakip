@@ -371,11 +371,17 @@ def index():
         else:
             ariza_count += 1
     
+    # Filo Kullanılabilirlik Oranı = (Toplam - Servis Dışı) / Toplam * 100
+    total_tram = len(tramvay_statuses)
+    servis_disi = ariza_count + bakim_count
+    fleet_availability = round((total_tram - servis_disi) / total_tram * 100, 1) if total_tram > 0 else 0
+    
     stats = {
         'total_tramvay': len(tramvay_statuses),
         'aktif_servis': aktif_count,
         'bakimda': bakim_count,
         'arizali': ariza_count,
+        'fleet_availability': fleet_availability,
         'aktif_ariza': len(son_arizalar),
         'bekleyen_is_emri': wo_summary.get('pending', 0),
         'devam_eden_is_emri': wo_summary.get('in_progress', 0),

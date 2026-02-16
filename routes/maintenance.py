@@ -43,12 +43,48 @@ def load_trams_from_file(project_code=None):
 @login_required
 def plans():
     """Bakım planları listesi"""
+    from datetime import date
+    from models import ServiceStatus
+    
     maintenance_type = request.args.get('type', 'all')
     current_project = session.get('current_project', 'belgrad')
     project_name = session.get('project_name', 'Proje Seçilmedi')
     
-    # Tramvay listesini trams.xlsx'den al
-    tramvaylar = load_trams_from_file(current_project)
+    # Veriler.xlsx Sayfa2'den equipment code'ları al (Dashboard gibi)
+    tram_ids = load_trams_from_file(current_project)
+    
+    # Equipment Code'lara göre Equipment'i filtrele (DB'den KM, status, name vb al)
+    if tram_ids:
+        tramvaylar_equipment = Equipment.query.filter(
+            Equipment.equipment_code.in_(tram_ids),
+            Equipment.parent_id == None,
+            Equipment.project_code == current_project
+        ).all()
+    else:
+        tramvaylar_equipment = []
+    
+    # Her tramvay için KM ve durum bilgisini derle
+    tram_equipment_data = []
+    today = str(date.today())
+    
+    for tramvay in tramvaylar_equipment:
+        # ServiceStatus'ten bugünün kaydını getir
+        status_record = ServiceStatus.query.filter_by(
+            tram_id=tramvay.equipment_code,
+            date=today
+        ).first()
+        
+        status_display = 'Servis'
+        if status_record:
+            status_display = status_record.status if status_record.status else 'Servis'
+        
+        tram_equipment_data.append({
+            'tram_id': tramvay.equipment_code,
+            'name': tramvay.name,
+            'current_km': tramvay.current_km if hasattr(tramvay, 'current_km') else 0,
+            'total_km': tramvay.total_km if hasattr(tramvay, 'total_km') else 0,
+            'status': status_display
+        })
     
     query = MaintenancePlan.query.filter_by(is_active=True)
     
@@ -59,7 +95,7 @@ def plans():
     
     return render_template('maintenance/plans.html', 
                           plans=plans, 
-                          tramvaylar=tramvaylar,
+                          tram_equipment_data=tram_equipment_data,
                           project_name=project_name)
 
 
