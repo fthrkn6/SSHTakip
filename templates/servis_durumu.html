@@ -361,6 +361,9 @@
 
 <!-- Export Menu (Dropdown) -->
 <div id="exportMenu" class="export-menu">
+    <a href="/servis/excel/daily-table">
+        <i class="bi bi-table"></i> Günlük Tablo (Tümü)
+    </a>
     <a href="/servis/excel/comprehensive-report" target="_blank">
         <i class="bi bi-file-earmark-excel"></i> Kapsamlı Rapor
     </a>
@@ -368,7 +371,7 @@
         <i class="bi bi-file-earmark-excel"></i> Root Cause Analizi
     </a>
     <a href="javascript:void(0)" onclick="downloadDailyReport()">
-        <i class="bi bi-file-earmark-excel"></i> Günlük Rapor
+        <i class="bi bi-file-earmark-excel"></i> Günlük Rapor (Tramvay)
     </a>
 </div>
 
@@ -620,12 +623,23 @@
 
     // Tüm araçları servise al
     function topluServiseAl() {
+        // Tarih input'undan seçili tarihi al
+        const selectedDate = document.querySelector('input[name="tarih"]').value;
+
+        if (!selectedDate) {
+            alert('❌ Lütfen bir tarih seçiniz');
+            return;
+        }
+
         fetch('/servis-durumu/toplu-servise-al', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ tram_ids: tram_ids })
+            body: JSON.stringify({
+                tram_ids: tram_ids,
+                tarih: selectedDate  // Seçili tarimi ekle
+            })
         })
             .then(response => response.json())
             .then(data => {

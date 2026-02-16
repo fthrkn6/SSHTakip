@@ -162,8 +162,12 @@ def service_status_page():
                              current_date=datetime.now())
     
     except Exception as e:
-        logger.error(f"Error loading service status page: {str(e)}")
-        flash('Servis durumu sayfası yüklenirken hata oluştu', 'danger')
+        import traceback
+        error_trace = traceback.format_exc()
+        logger.error(f"Error loading service status page: {str(e)}\n{error_trace}")
+        print(f"[ERROR] Service Status Page: {str(e)}")
+        print(error_trace)
+        flash(f'Servis durumu sayfası yüklenirken hata oluştu: {str(e)}', 'danger')
         return redirect(url_for('dashboard.index'))
 
 
@@ -700,6 +704,179 @@ def get_root_cause_summary(tram_id):
     except Exception as e:
         logger.error(f"Error getting root cause summary: {str(e)}")
         return jsonify({'error': str(e)}), 400
+
+
+@bp.route('/excel/daily-table', methods=['GET'])
+@login_required
+def export_daily_table_excel():
+    """
+    Günlük servis durum tablosunu pivot tablo olarak Excel'e dışarı aktar
+    Satırlar: Tarihler, Sütunlar: Tramvaylar
+    Durum gösterimleri: ✓ (yeşil)=Servis, ⚠ (turuncu)=İşletme Kaynaklı, ✗ (kırmızı)=Servis Dışı
+    """
+    try:
+        from io import BytesIO
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+        
+        current_project = session.get('current_project', 'belgrad')
+        
+        # Tüm tarihsel verileri al
+        all_status_records = ServiceStatus.query.order_by(
+            ServiceStatus.date.desc(), 
+            ServiceStatus.tram_id
+        ).all()
+        
+        if not all_status_records:
+            return jsonify({'error': 'Veri bulunamadı'}), 400
+        
+        # Pivot tablo yapısı oluştur: tramvay -> {tarih -> durum}
+        pivot_data = {}
+        all_trams = set()
+        all_dates = set()
+        
+        for record in all_status_records:
+            if record.tram_id not in pivot_data:
+                pivot_data[record.tram_id] = {}
+            pivot_data[record.tram_id][record.date] = record.status
+            all_trams.add(record.tram_id)
+            all_dates.add(record.date)
+        
+        # Tramvay ve tarihleri sırala
+        sorted_trams = sorted(list(all_trams))
+        sorted_dates = sorted(list(all_dates), reverse=True)
+        
+        # En eski ve en yeni tarihi bul
+        oldest_date_str = sorted_dates[-1]  # En eski
+        newest_date_str = sorted_dates[0]   # En yeni
+        
+        oldest_date = datetime.strptime(oldest_date_str, '%Y-%m-%d').date()
+        newest_date = datetime.strptime(newest_date_str, '%Y-%m-%d').date()
+        
+        # En eski ile en yeni arasındaki TÜM günleri generate et
+        from datetime import timedelta
+        all_dates_filled = []
+        current_date = newest_date
+        while current_date >= oldest_date:
+            all_dates_filled.append(current_date.strftime('%Y-%m-%d'))
+            current_date -= timedelta(days=1)
+        
+        sorted_dates = all_dates_filled  # Tüm günleri kullan
+        
+        # Pivot tabloyu tüm tarih ve tramvaylar için initialize et (boş da olsa göster)
+        for tram in sorted_trams:
+            if tram not in pivot_data:
+                pivot_data[tram] = {}
+            for date_str in sorted_dates:
+                if date_str not in pivot_data[tram]:
+                    pivot_data[tram][date_str] = None  # Boş veri None olarak set
+        
+        # Excel dosyası oluştur
+        wb = Workbook()
+        ws = wb.active
+        ws.title = 'Servis Durumu'
+        
+        # Stil tanımları
+        header_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
+        header_font = Font(bold=True, color='FFFFFF', size=11)
+        border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        # Durum renklerini tanımla
+        servis_fill = PatternFill(start_color='00B050', end_color='00B050', fill_type='solid')  # Yeşil
+        isletme_fill = PatternFill(start_color='FFC000', end_color='FFC000', fill_type='solid')  # Turuncu
+        disi_fill = PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid')    # Kırmızı
+        
+        durum_font = Font(bold=True, size=14, color='FFFFFF')
+        
+        # Header satırı: Tarihler (Sütunlar)
+        ws['A1'] = 'Tramvay'
+        ws['A1'].fill = header_fill
+        ws['A1'].font = header_font
+        ws['A1'].border = border
+        ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
+        
+        for col_idx, date_str in enumerate(sorted_dates, start=2):
+            cell = ws.cell(row=1, column=col_idx)
+            cell.value = date_str
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.border = border
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+        
+        # Veri satırları: Tramvaylar (Satırlar)
+        for row_idx, tram_id in enumerate(sorted_trams, start=2):
+            # Tramvay hücresi
+            cell = ws.cell(row=row_idx, column=1)
+            cell.value = tram_id
+            cell.fill = PatternFill(start_color='E7E6E6', end_color='E7E6E6', fill_type='solid')
+            cell.font = Font(bold=True)
+            cell.border = border
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+            
+            # Her tarih için durum
+            for col_idx, date_str in enumerate(sorted_dates, start=2):
+                status = pivot_data[tram_id].get(date_str, '')
+                cell = ws.cell(row=row_idx, column=col_idx)
+                cell.border = border
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+                
+                # Durum sembolü ve rengi
+                if status and 'Servis' in status:
+                    if 'Dışı' in status:
+                        if 'İşletme' in status:
+                            # İşletme kaynaklı servis dışı = Turuncu uyarı
+                            cell.value = '⚠'  # Uyarı işareti
+                            cell.fill = isletme_fill
+                        else:
+                            # Servis dışı = Kırmızı X
+                            cell.value = '✗'  # X işareti
+                            cell.fill = disi_fill
+                    else:
+                        # Servis = Yeşil tik
+                        cell.value = '✓'  # Tik işareti
+                        cell.fill = servis_fill
+                else:
+                    # Bilgi yoksa boş bırak
+                    cell.value = ''
+                
+                cell.font = durum_font
+        
+        # Sütun genişliklerini ayarla
+        ws.column_dimensions['A'].width = 15
+        for col_idx in range(2, 2 + len(sorted_dates)):
+            ws.column_dimensions[get_column_letter(col_idx)].width = 15
+        
+        # Satır yüksekliğini ayarla
+        ws.row_dimensions[1].height = 25
+        for row_idx in range(2, 2 + len(sorted_trams)):
+            ws.row_dimensions[row_idx].height = 30
+        
+        # Excel dosyasını BytesIO'ya yazla
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        filename = f"Servis_Durumu_Pivot_{datetime.now().strftime('%d.%m.%Y')}.xlsx"
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+    
+    except Exception as e:
+        logger.error(f"Günlük tablo Excel export hatası: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        flash(f'Excel export hatası: {str(e)}', 'danger')
+        return redirect(url_for('service_status.service_status_page'))
 
 
 # TEST ENDPOINT - Debug için

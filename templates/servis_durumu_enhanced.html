@@ -677,11 +677,10 @@
         <div id="logHistory">
             {% for log in recent_logs %}
             <div class="log-entry">
-                <div class="timestamp">{{ log.log_date.strftime('%d.%m.%Y %H:%M') }}</div>
+                <div class="timestamp">{{ log.updated_at.strftime('%d.%m.%Y %H:%M') }}</div>
                 <div class="status-change">
                     <strong>{{ log.tram_id }}</strong>:
-                    <span style="color: #999;">{{ log.previous_status }}</span> →
-                    <span style="color: #333; font-weight: bold;">{{ log.new_status }}</span>
+                    <span style="color: #333; font-weight: bold;">{{ log.status }}</span>
                     {% if log.sistem %}<br>Sistem: {{ log.sistem }}{% endif %}
                     {% if log.alt_sistem %} | Alt Sistem: {{ log.alt_sistem }}{% endif %}
                 </div>

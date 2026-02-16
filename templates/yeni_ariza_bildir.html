@@ -303,13 +303,15 @@
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Araç Modül</label>
-                                <select class="form-select" name="arac_module">
-                                    <option value="">-- Modül Seçin --</option>
+                                <label class="form-label">Araç Modül <small class="text-muted">(Birden fazla
+                                        seçebilirsiniz)</small></label>
+                                <select class="form-select" name="arac_module" multiple size="5">
                                     {% for mod in modules %}
                                     <option value="{{ mod }}">{{ mod }}</option>
                                     {% endfor %}
                                 </select>
+                                <small class="text-muted d-block mt-2">💡 Ctrl (Windows) veya Cmd (Mac) basılı tutarak
+                                    birden fazla seçin</small>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Kilometre</label>

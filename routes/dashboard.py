@@ -221,6 +221,124 @@ def get_ariza_counts_by_class():
         return counts
 
 
+def calculate_fleet_mttr():
+    """
+    Filo için MTTR (Mean Time To Repair - Ortalama Tamir Süresi) hesapla
+    
+    MTTR Formülü:
+    MTTR = Toplam Tamir Süresi (dakika) / Toplam Arıza Sayısı
+    
+    Açıklama:
+    - MTTR arızanın tamir edilmesine kadar geçen ortalama süreyi gösterir
+    - Yüksek MTTR = daha uzun tamir süreleri (bakım verimsizliği)
+    - Düşük MTTR = daha kısa tamir süreleri (bakım verimliliği)
+    - Unit: Dakika (dk) veya Saat:Dakika formatında
+    
+    Örnek:
+    - Toplam Tamir Süresi: 50,000 dakika
+    - Toplam Arızalar: 100
+    - MTTR = 50,000 / 100 = 500 dakika = 8 saat 20 dakika
+      (Her arıza ortalama 8 saat 20 dakikada tamir edilir)
+    
+    Veri Kaynağı: Excel'deki "MTTR (dk)" sütunu ("61 dk", "120 dk" gibi format)
+    """
+    from flask import current_app
+    import re
+    
+    try:
+        current_project = session.get('current_project', 'belgrad')
+        
+        # Excel dosyasını bul
+        ariza_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
+        ariza_listesi_file = None
+        
+        if os.path.exists(ariza_dir):
+            for file in os.listdir(ariza_dir):
+                if file.endswith('.xlsx') and not file.startswith('~$'):
+                    ariza_listesi_file = os.path.join(ariza_dir, file)
+                    break
+        
+        mttr_minutes = 0
+        total_failures = 0
+        
+        if ariza_listesi_file:
+            try:
+                df = pd.read_excel(ariza_listesi_file, sheet_name='Ariza Listesi', header=3)
+                
+                # "MTTR (dk)" sütununu ara
+                mttr_col = None
+                for col in df.columns:
+                    if 'mttr' in col.lower() and 'dk' in col.lower():
+                        mttr_col = col
+                        break
+                
+                # Eğer MTTR sütunu varsa, ortalamasını hesapla
+                if mttr_col:
+                    mttr_values = []
+                    
+                    # Excel verisi "120 dk", "61 dk" gibi string formatında olabilir
+                    for val in df[mttr_col].dropna():
+                        try:
+                            val_str = str(val).strip()
+                            # Metin içinden sayıyı çıkar (regex)
+                            # "120 dk", "120", vb. formatları destekle
+                            match = re.search(r'(\d+(?:[\.,]\d+)?)', val_str)
+                            if match:
+                                # Virgül veya nokta ayracını düzelt
+                                number_str = match.group(1).replace(',', '.')
+                                mttr_values.append(float(number_str))
+                        except:
+                            continue
+                    
+                    if len(mttr_values) > 0:
+                        mttr_minutes = sum(mttr_values) / len(mttr_values)
+                        mttr_minutes = round(mttr_minutes, 1)
+                        total_failures = len(mttr_values)
+                        print(f"[MTTR DEBUG] {len(mttr_values)} arızadan MTTR ortalaması: {mttr_minutes} dk")
+                    else:
+                        # Fallback: Tüm arızaları say
+                        total_failures = len(df[df.iloc[:, 0].notna()])
+                        print(f"[MTTR DEBUG] MTTR değeri bulunamadı, fallback: {total_failures} arıza")
+                else:
+                    # MTTR sütunu yoksa tüm arızaları say
+                    total_failures = len(df[df.iloc[:, 0].notna()])
+                    print(f"[MTTR DEBUG] MTTR sütunu bulunamadı, fallback: {total_failures} arıza")
+            
+            except Exception as e:
+                print(f"[MTTR DEBUG] Excel MTTR okuma hatası: {e}")
+                import traceback
+                traceback.print_exc()
+                total_failures = 0
+                mttr_minutes = 0
+        
+        # Dakikayı saat:dakika formatına dönüştür
+        hours = int(mttr_minutes // 60) if mttr_minutes > 0 else 0
+        minutes = int(mttr_minutes % 60) if mttr_minutes > 0 else 0
+        mttr_formatted = f"{int(mttr_minutes)} dk" if mttr_minutes > 0 else "0 dk"
+        
+        print(f"[MTTR FINAL] mttr_minutes={mttr_minutes}, formatted={mttr_formatted}, failures={total_failures}")
+        
+        return {
+            'mttr_minutes': mttr_minutes,
+            'mttr_formatted': mttr_formatted,  # "8h 20m" formatı
+            'mttr_hours': round(mttr_minutes / 60, 1),  # Saat cinsinden
+            'total_failures': total_failures,
+            'unit': 'dakika (dk)'
+        }
+    
+    except Exception as e:
+        print(f"[MTTR ERROR] MTTR hesaplama hatası: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'mttr_minutes': 0,
+            'mttr_formatted': '0m',
+            'mttr_hours': 0,
+            'total_failures': 0,
+            'unit': 'dakika (dk)'
+        }
+
+
 @bp.route('/')
 @login_required
 def index():
@@ -374,6 +492,9 @@ def index():
         else:
             ariza_count += 1
     
+    # MTTR (Mean Time To Repair) hesapla - Ortalama Tamir Süresi
+    mttr_data = calculate_fleet_mttr()
+    
     # Filo Kullanılabilirlik Oranı = (Aktif + Bakımda) / Toplam * 100
     # Servis dışı = sadece arızalı tramvaylar
     total_tram = len(tramvay_statuses)
@@ -389,7 +510,7 @@ def index():
         'aktif_ariza': len(son_arizalar),
         'bekleyen_is_emri': wo_summary.get('pending', 0),
         'devam_eden_is_emri': wo_summary.get('in_progress', 0),
-        'bugun_tamamlanan': get_today_completed_failures_count(),  # Excel Arıza Listesi'nden bugünün tamamlanan arızaları
+        'mttr': mttr_data,  # MTTR verisi - Ortalama Tamir Süresi
     }
     
     return render_template('dashboard.html',

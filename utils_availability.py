@@ -492,6 +492,21 @@ def log_service_status_change(tram_id, new_status, sistem=None, alt_sistem=None,
     
     db.session.commit()
     
+    # Log the status change
+    try:
+        from utils_service_status_logger import ServiceStatusLogger
+        ServiceStatusLogger.log_status_change(
+            tram_id=tram_id,
+            date=today_date,
+            status=new_status,
+            sistem=sistem,
+            alt_sistem='',
+            aciklama=reason,
+            user_id=user_id
+        )
+    except Exception as e:
+        logger.warning(f"Failed to log service status change: {str(e)}")
+    
     logger.info(f"Service status logged for {tram_id}: {previous_status} -> {new_status} (ServiceLog & ServiceStatus)")
     
     

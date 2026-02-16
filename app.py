@@ -14,6 +14,7 @@ from routes.kpi import bp as kpi_bp
 from routes.service_status import bp as service_status_bp
 from routes.dashboard import bp as dashboard_bp
 from routes.reports import reports_bp
+from utils_service_status_logger import ServiceStatusLogger
 import os
 import shutil
 import tempfile
@@ -355,8 +356,14 @@ def create_app():
                 # POST - Excel'e kayıt et
                 try:
                     form_data = request.form.to_dict()
+                    
+                    # Araç Modülü - birden fazla seçim desteği
+                    arac_modules = request.form.getlist('arac_module')
+                    arac_module_str = ', '.join(arac_modules) if arac_modules else ''
+                    
                     print(f"\n📤 POST /yeni-ariza-bildir")
                     print(f"   📋 Gelen form alanları: {list(form_data.keys())}")
+                    print(f"   🔧 Araç Modül seçimleri: {arac_modules}")
                     
                     # FRACAS ID'yi form'dan al veya hesapla
                     fracas_id = form_data.get('fracas_id', '').strip()
@@ -517,7 +524,7 @@ def create_app():
                         data = [
                             form_data.get('fracas_id', ''),
                             form_data.get('arac_numarasi', ''),
-                            form_data.get('arac_module', ''),
+                            arac_module_str,  # Birden fazla modül desteği
                             form_data.get('arac_km', ''),
                             form_data.get('hata_tarih', ''),
                             form_data.get('hata_saat', ''),
@@ -1665,6 +1672,18 @@ def create_app():
                             db.session.add(new_status)
                         
                         db.session.commit()
+                        
+                        # Log the status change
+                        ServiceStatusLogger.log_status_change(
+                            tram_id=tramvay_id,
+                            date=tarih,
+                            status=durum,
+                            sistem=sistem,
+                            alt_sistem=alt_sistem,
+                            aciklama=aciklama,
+                            user_id=current_user.id
+                        )
+                        
                         flash(f'Durum başarıyla kaydedildi: {tramvay_id} - {tarih}', 'success')
                     except Exception as e:
                         flash(f'Durum kaydı hatası: {str(e)}', 'warning')
@@ -1969,27 +1988,33 @@ def create_app():
         @app.route('/servis-durumu/toplu-servise-al', methods=['POST'])
         @login_required
         def servis_durumu_toplu_servise_al():
-            """Bulk send to service"""
+            """Bulk send to service - belirtilen tarihe göre"""
             try:
                 from datetime import datetime
                 from models import ServiceStatus
                 
-                today_str = datetime.now().strftime('%Y-%m-%d')
                 data = request.get_json(force=True, silent=True)
                 
                 if not data:
                     return jsonify({'success': False, 'message': 'Geçersiz istek (JSON gerekli)'}), 400
                 
                 tram_ids = data.get('tram_ids', [])
+                tarih = data.get('tarih', datetime.now().strftime('%Y-%m-%d'))  # Parametre'den tarih al, yoksa bugün
                 
                 if not tram_ids:
                     return jsonify({'success': False, 'message': 'Araç listesi boş'}), 400
+                
+                # Tarihi YYYY-MM-DD format'ında valide et
+                try:
+                    datetime.strptime(tarih, '%Y-%m-%d')
+                except ValueError:
+                    return jsonify({'success': False, 'message': 'Geçersiz tarih format'}), 400
                 
                 for tram_id in tram_ids:
                     # Mevcut kaydı kontrol et
                     existing = ServiceStatus.query.filter_by(
                         tram_id=str(tram_id),
-                        date=today_str
+                        date=tarih  # Belirtilen tarihi kullan
                     ).first()
                     
                     if existing:
@@ -1998,7 +2023,7 @@ def create_app():
                     else:
                         new_status = ServiceStatus(
                             tram_id=str(tram_id),
-                            date=today_str,
+                            date=tarih,  # Belirtilen tarihi kullan
                             status='Servis',
                             sistem='',
                             alt_sistem='',
@@ -2007,7 +2032,20 @@ def create_app():
                         db.session.add(new_status)
                 
                 db.session.commit()
-                return jsonify({'success': True, 'message': f'{len(tram_ids)} araç servise alındı'}), 200
+                
+                # Log bulk service operation
+                for tram_id in tram_ids:
+                    ServiceStatusLogger.log_status_change(
+                        tram_id=tram_id,
+                        date=tarih,
+                        status='Servis',
+                        sistem='',
+                        alt_sistem='',
+                        aciklama='Toplu servise alındı',
+                        user_id=current_user.id
+                    )
+                
+                return jsonify({'success': True, 'message': f'{len(tram_ids)} araç {tarih} tarihinde servise alındı'}), 200
             except Exception as e:
                 db.session.rollback()
                 logger.error(f'toplu-servise-al error: {str(e)}')
@@ -2063,6 +2101,18 @@ def create_app():
                     count += 1
                 
                 db.session.commit()
+                
+                # Log copy operation
+                for tram_id, yesterday_record in yesterday_data.items():
+                    ServiceStatusLogger.log_status_change(
+                        tram_id=str(tram_id),
+                        date=today_str,
+                        status=yesterday_record.get('status', ''),
+                        sistem=yesterday_record.get('sistem', ''),
+                        alt_sistem=yesterday_record.get('alt_sistem', ''),
+                        aciklama=f'Dünün durumundan kopyalandı ({yesterday_str})',
+                        user_id=current_user.id
+                    )
                 
                 return jsonify({
                     'success': True,
