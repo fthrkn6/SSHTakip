@@ -9,7 +9,7 @@ bp = Blueprint('maintenance', __name__, url_prefix='/maintenance')
 
 
 def load_trams_from_file(project_code=None):
-    """Veriler.xlsx Sayfa2'den equipment_code listesini yükle"""
+    """Veriler.xlsx Sayfa2'den tram_id (1531, 1532...) listesini yükle"""
     if project_code is None:
         project_code = session.get('current_project', 'belgrad')
     
@@ -21,17 +21,17 @@ def load_trams_from_file(project_code=None):
     
     try:
         df = pd.read_excel(veriler_path, sheet_name='Sayfa2', header=0)
-        # equipment_code sütununu kullan (varsa), yoksa tram_id'leri kullan
-        if 'equipment_code' in df.columns:
-            tram_list = df['equipment_code'].dropna().unique().tolist()
-        elif 'tram_id' in df.columns:
+        # tram_id sütununu kullan (1531, 1532 gibi real veriler)
+        if 'tram_id' in df.columns:
             tram_list = df['tram_id'].dropna().unique().tolist()
         else:
             return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None, project_code=project_code).all()]
         
         # String dönüştür ve sıra
-        tram_list = [str(t) for t in tram_list]
+        tram_list = [str(int(t)).zfill(3) if isinstance(t, (int, float)) else str(t) for t in tram_list]
+        tram_list = list(set(tram_list))  # Duplicates kaldır
         tram_list.sort(key=lambda x: int(x) if x.isdigit() else 0)
+        print(f"[MAINTENANCE] load_trams_from_file returned: {tram_list}")
         return tram_list
     except Exception as e:
         print(f"Veriler.xlsx okuma hatası ({project_code}): {e}")
@@ -50,8 +50,9 @@ def plans():
     current_project = session.get('current_project', 'belgrad')
     project_name = session.get('project_name', 'Proje Seçilmedi')
     
-    # Veriler.xlsx Sayfa2'den equipment code'ları al (Dashboard gibi)
+    # Veriler.xlsx Sayfa2'den tram_id'leri al
     tram_ids = load_trams_from_file(current_project)
+    print(f"[MAINTENANCE] tram_ids from Excel: {tram_ids}")
     
     # Equipment Code'lara göre Equipment'i filtrele (DB'den KM, status, name vb al)
     if tram_ids:
@@ -62,6 +63,16 @@ def plans():
         ).all()
     else:
         tramvaylar_equipment = []
+    
+    # Eğer Excel'de belirtilen equipment'lar yoksa, Database'den proje-spesifik equipment'ları al
+    if not tramvaylar_equipment:
+        print(f"[MAINTENANCE] Excel'deki ID'ler DB'de yok, fallback: DB'den proje equipment'ları al")
+        tramvaylar_equipment = Equipment.query.filter_by(
+            parent_id=None, 
+            project_code=current_project
+        ).all()
+    
+    print(f"[MAINTENANCE] tramvaylar_equipment count: {len(tramvaylar_equipment)}")
     
     # Her tramvay için KM ve durum bilgisini derle
     tram_equipment_data = []
@@ -85,6 +96,8 @@ def plans():
             'total_km': tramvay.total_km if hasattr(tramvay, 'total_km') else 0,
             'status': status_display
         })
+    
+    print(f"[MAINTENANCE] tram_equipment_data count: {len(tram_equipment_data)}")
     
     query = MaintenancePlan.query.filter_by(is_active=True)
     
