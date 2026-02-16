@@ -1404,7 +1404,10 @@ def create_app():
         @app.route('/tramvay-km/guncelle', methods=['POST'])
         @login_required
         def tramvay_km_guncelle():
-            """Update tram km"""
+            """Update tram km - hem Equipment table'a hem km_data.json'a yaz"""
+            import json
+            from datetime import datetime
+            
             try:
                 tram_id = request.form.get('tram_id')
                 current_km = request.form.get('current_km', 0)
@@ -1431,6 +1434,30 @@ def create_app():
                     equipment.current_km = int(current_km) if current_km else 0
                     equipment.notes = notes
                     db.session.commit()
+                    
+                    # **AYNI VERİLERİ km_data.json'a da yaz (senkronizasyon için)**
+                    km_file = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'km_data.json')
+                    km_data = {}
+                    
+                    # Mevcut km_data.json'u oku
+                    if os.path.exists(km_file):
+                        try:
+                            with open(km_file, 'r', encoding='utf-8') as f:
+                                km_data = json.load(f)
+                        except:
+                            km_data = {}
+                    
+                    # Traywayı güncelle
+                    km_data[str(tram_id)] = {
+                        'current_km': int(current_km) if current_km else 0,
+                        'last_update': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'updated_by': current_user.username if current_user else 'admin'
+                    }
+                    
+                    # km_data.json'a yaz
+                    with open(km_file, 'w', encoding='utf-8') as f:
+                        json.dump(km_data, f, ensure_ascii=False, indent=2)
+                    
                     flash(f'✅ {equipment.equipment_code or tram_id} KM bilgileri kaydedildi', 'success')
                 except Exception as e:
                     db.session.rollback()
@@ -1443,11 +1470,24 @@ def create_app():
         @app.route('/tramvay-km/toplu-guncelle', methods=['POST'])
         @login_required
         def tramvay_km_toplu_guncelle():
-            """Bulk update tram km"""
+            """Bulk update tram km - hem Equipment table'a hem km_data.json'a yaz"""
+            import json
+            from datetime import datetime
+            
             try:
                 updates = request.get_json()
                 count = 0
                 errors = []
+                km_data = {}  # km_data.json'u toplu olarak tutacak
+                
+                # Mevcut km_data.json'u oku (bir kez yeterli)
+                km_file = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'km_data.json')
+                if os.path.exists(km_file):
+                    try:
+                        with open(km_file, 'r', encoding='utf-8') as f:
+                            km_data = json.load(f)
+                    except:
+                        km_data = {}
                 
                 for tram_id, data in updates.items():
                     try:
@@ -1470,7 +1510,15 @@ def create_app():
                         # Mevcut KM güncelle
                         if 'current_km' in data and data['current_km']:
                             try:
-                                equipment.current_km = int(float(data['current_km']))
+                                new_km = int(float(data['current_km']))
+                                equipment.current_km = new_km
+                                
+                                # **km_data.json'a da yaz (senkronizasyon için)**
+                                km_data[str(tram_id)] = {
+                                    'current_km': new_km,
+                                    'last_update': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                    'updated_by': current_user.username if current_user else 'admin'
+                                }
                             except:
                                 errors.append(f"{tram_id}: Geçersiz KM değeri")
                                 continue
@@ -1484,6 +1532,14 @@ def create_app():
                         errors.append(f"Tramvay {tram_id}: {str(e)}")
                 
                 db.session.commit()
+                
+                # **Tüm güncellemeleri km_data.json'a bir kez yaz**
+                if count > 0:
+                    try:
+                        with open(km_file, 'w', encoding='utf-8') as f:
+                            json.dump(km_data, f, ensure_ascii=False, indent=2)
+                    except Exception as e:
+                        errors.append(f"km_data.json yazma hatası: {str(e)}")
                 
                 message = f'✅ {count} araç başarıyla kaydedildi'
                 if errors:
