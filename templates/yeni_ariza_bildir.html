@@ -157,7 +157,8 @@
         position: relative;
     }
 
-    .autocomplete-dropdown {
+    #parca_kodu_list,
+    #parca_adi_list {
         position: absolute;
         top: 100%;
         left: 0;
@@ -165,22 +166,21 @@
         background: white;
         border: 2px solid var(--primary);
         border-radius: 10px;
-        max-height: 200px;
+        max-height: 250px;
         overflow-y: auto;
         z-index: 1000;
         display: none;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-    }
-
-    .autocomplete-dropdown.show {
-        display: block;
+        margin-top: 4px;
+        padding: 0;
     }
 
     .autocomplete-item {
         padding: 10px 14px;
         cursor: pointer;
         border-bottom: 1px solid #f3f4f6;
-        transition: background 0.2s;
+        transition: background 0.2s ease;
+        font-size: 0.9rem;
     }
 
     .autocomplete-item:hover {
@@ -190,6 +190,15 @@
 
     .autocomplete-item:last-child {
         border-bottom: none;
+    }
+
+    .autocomplete-item strong {
+        color: #1f2937;
+    }
+
+    .autocomplete-item .text-muted {
+        font-size: 0.85rem;
+        color: #9ca3af !important;
     }
 
     .btn-submit {
@@ -720,6 +729,140 @@
     // Aksiyon seçimi değişirse kontrol et
     if (aksiyon_select) {
         aksiyon_select.addEventListener('change', toggleParcaBilgileri);
+    }
+
+    // ============= PARÇA AUTOCOMPLETE SEARCH WITH DEBOUNCING =============
+    // Debounce function for performance optimization
+    function debounce(func, delay) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, delay);
+        };
+    }
+
+    // Parça Adı (Nesne Kısa Metni) autocomplete
+    const parcaAdiInput = document.getElementById('parca_adi_input');
+    const parcaAdiList = document.getElementById('parca_adi_list');
+
+    if (parcaAdiInput && parcaAdiList) {
+        // Debounced search function
+        const searchParcaAdi = debounce(async function (query) {
+            if (!query || query.length < 2) {
+                parcaAdiList.style.display = 'none';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/parts-lookup?q=${encodeURIComponent(query)}`);
+                const results = await response.json();
+
+                // Filtered results: show only matching "Nesne Kısa Metni"
+                const filteredResults = results.filter(r =>
+                    r.nesne_metni.includes(query.toUpperCase())
+                );
+
+                if (filteredResults.length === 0) {
+                    parcaAdiList.style.display = 'none';
+                    return;
+                }
+
+                // Clear and populate the list
+                parcaAdiList.innerHTML = '';
+                filteredResults.forEach(item => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item autocomplete-item';
+                    li.innerHTML = `<strong>${item.nesne_metni}</strong> <small class="text-muted">(${item.bilesen_no})</small>`;
+
+                    li.addEventListener('click', function () {
+                        parcaAdiInput.value = item.nesne_metni;
+                        document.querySelector('input[name="parca_kodu"]').value = item.bilesen_no;
+                        parcaAdiList.style.display = 'none';
+                    });
+
+                    parcaAdiList.appendChild(li);
+                });
+
+                parcaAdiList.style.display = 'block';
+            } catch (error) {
+                console.error('Parça arama hatası:', error);
+            }
+        }, 300); // 300ms debounce delay
+
+        parcaAdiInput.addEventListener('input', function () {
+            searchParcaAdi(this.value);
+        });
+
+        // Hide dropdown when clicking outside
+        document.addEventListener('click', function (event) {
+            if (event.target !== parcaAdiInput && !parcaAdiList.contains(event.target)) {
+                parcaAdiList.style.display = 'none';
+            }
+        });
+    }
+
+    // Parça Kodu (Bileşen Numarası) autocomplete
+    const parcaKoduInput = document.getElementById('parca_kodu_input');
+    const parcaKoduList = document.getElementById('parca_kodu_list');
+
+    if (parcaKoduInput && parcaKoduList) {
+        // Debounced search function
+        const searchParcaKodu = debounce(async function (query) {
+            if (!query || query.length < 2) {
+                parcaKoduList.style.display = 'none';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/parts-lookup?q=${encodeURIComponent(query)}`);
+                const results = await response.json();
+
+                // Filtered results: show only matching "Bileşen Numarası"
+                const filteredResults = results.filter(r =>
+                    r.bilesen_no.includes(query.toUpperCase())
+                );
+
+                if (filteredResults.length === 0) {
+                    parcaKoduList.style.display = 'none';
+                    return;
+                }
+
+                // Clear and populate the list
+                parcaKoduList.innerHTML = '';
+                filteredResults.forEach(item => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item autocomplete-item';
+                    li.innerHTML = `<strong>${item.bilesen_no}</strong> <small class="text-muted">${item.nesne_metni}</small>`;
+
+                    li.addEventListener('click', function () {
+                        parcaKoduInput.value = item.bilesen_no;
+                        document.querySelector('input[name="parca_adi"]').value = item.nesne_metni;
+                        parcaKoduList.style.display = 'none';
+                    });
+
+                    parcaKoduList.appendChild(li);
+                });
+
+                parcaKoduList.style.display = 'block';
+            } catch (error) {
+                console.error('Parça arama hatası:', error);
+            }
+        }, 300); // 300ms debounce delay
+
+        parcaKoduInput.addEventListener('input', function () {
+            searchParcaKodu(this.value);
+        });
+
+        // Hide dropdown when clicking outside
+        document.addEventListener('click', function (event) {
+            if (event.target !== parcaKoduInput && !parcaKoduList.contains(event.target)) {
+                parcaKoduList.style.display = 'none';
+            }
+        });
     }
 </script>
 {% endblock %}

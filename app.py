@@ -723,45 +723,106 @@ def create_app():
                 flash(f'❌ İndirme hatası: {str(e)}', 'danger')
                 return redirect(url_for('ariza_listesi_veriler'))
 
-        @app.route('/api/parts-lookup', methods=['GET'])
-        @login_required
-        def parts_lookup():
-            """Bileşen numarası - Nesne kısa metni arasında lookup yapıyor"""
+        # Global parts cache - initialized once
+        _parts_cache = None
+        _parts_cache_time = None
+        
+        def load_parts_cache():
+            """Excel dosyasını yükle ve cache'e al"""
+            global _parts_cache, _parts_cache_time
             import pandas as pd
+            from datetime import datetime
             
-            query = request.args.get('q', '').strip().upper()
-            if not query or len(query) < 2:
-                return jsonify([])
-            
-            # Belgrad dosyasını yükle
             data_dir = os.path.join(os.path.dirname(__file__), 'data', 'belgrad')
             part_file = os.path.join(data_dir, 'GÜNCEL BELGRAD TRAMVAY 11.09.2025.XLSX')
             
             if not os.path.exists(part_file):
-                return jsonify([])
+                _parts_cache = []
+                return []
             
             try:
                 df = pd.read_excel(part_file)
-                results = []
+                parts = []
                 
-                # Bileşen numarası veya Nesne kısa metni ile ara
+                # Excel'den parçaları oku ve cache'e koy
                 for idx, row in df.iterrows():
                     bilesen_no = str(row['Bileşen numarası']).strip().upper() if pd.notna(row['Bileşen numarası']) else ''
                     nesne_metni = str(row['Nesne kısa metni']).strip().upper() if pd.notna(row['Nesne kısa metni']) else ''
                     
-                    if query in bilesen_no or query in nesne_metni:
-                        results.append({
+                    if bilesen_no or nesne_metni:
+                        parts.append({
                             'bilesen_no': bilesen_no,
-                            'nesne_metni': nesne_metni
+                            'nesne_metni': nesne_metni,
+                            'bilesen_no_lower': bilesen_no.lower(),
+                            'nesne_metni_lower': nesne_metni.lower()
                         })
-                        
-                        if len(results) >= 10:  # Max 10 sonuç
-                            break
                 
-                return jsonify(results)
+                _parts_cache = parts
+                _parts_cache_time = datetime.now()
+                print(f"✅ Parts cache yüklendi: {len(parts)} parça")
+                return parts
             except Exception as e:
-                print(f"Parts lookup hatası: {e}")
+                print(f"Parts cache hatası: {e}")
+                _parts_cache = []
+                return []
+
+        @app.route('/api/parts-lookup', methods=['GET'])
+        @login_required
+        def parts_lookup():
+            """Bileşen numarası - Nesne kısa metni arasında hızlı lookup yapıyor"""
+            global _parts_cache
+            
+            query = request.args.get('q', '').strip()
+            if not query or len(query) < 2:
                 return jsonify([])
+            
+            # Cache'i yükle (varsa)
+            if _parts_cache is None:
+                load_parts_cache()
+            
+            if not _parts_cache:
+                return jsonify([])
+            
+            query_lower = query.lower()
+            query_upper = query.upper()
+            results = []
+            
+            # Hızlı arama: tam eşleşme başta, sonra kısmi
+            # 1. Bileşen numarası ile tam başlangıç eşleşmesi
+            for part in _parts_cache:
+                if part['bilesen_no'].startswith(query_upper):
+                    results.append({
+                        'bilesen_no': part['bilesen_no'],
+                        'nesne_metni': part['nesne_metni']
+                    })
+                    if len(results) >= 15:
+                        return jsonify(results)
+            
+            # 2. Nesne metni ile tam başlangıç eşleşmesi
+            for part in _parts_cache:
+                if part['nesne_metni'].startswith(query_upper):
+                    # Duplike kontrol
+                    if not any(r['bilesen_no'] == part['bilesen_no'] for r in results):
+                        results.append({
+                            'bilesen_no': part['bilesen_no'],
+                            'nesne_metni': part['nesne_metni']
+                        })
+                    if len(results) >= 15:
+                        return jsonify(results)
+            
+            # 3. Bileşen numarası veya Nesne metni içinde kısmi eşleşme
+            for part in _parts_cache:
+                if query_upper in part['bilesen_no'] or query_upper in part['nesne_metni']:
+                    # Duplike kontrol
+                    if not any(r['bilesen_no'] == part['bilesen_no'] for r in results):
+                        results.append({
+                            'bilesen_no': part['bilesen_no'],
+                            'nesne_metni': part['nesne_metni']
+                        })
+                    if len(results) >= 15:
+                        return jsonify(results)
+            
+            return jsonify(results)
 
         @app.route('/ekipmanlar')
         @login_required
@@ -2078,6 +2139,12 @@ def create_app():
             """Log all responses"""
             print(f"<< {response.status_code} {response.status} - {request.path}")
             return response
+
+        # Initialize parts cache on app startup
+        try:
+            load_parts_cache()
+        except Exception as e:
+            print(f"Parts cache initialization warning: {e}")
 
         print('create_app finished')
         print(f'App object type: {type(app)}')
