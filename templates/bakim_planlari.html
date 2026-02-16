@@ -792,7 +792,7 @@
         row.innerHTML = `
             <td class="text-center">
                 <span class="badge bg-primary" style="font-size: 1.15em; font-weight: 600; padding: 6px 12px;">
-                    ${tram.tram_name}
+                    ${tram.tram_id}
                 </span>
             </td>
             <td class="text-center">
@@ -907,7 +907,7 @@
         if (!tram) return;
 
         // Başlık ve bilgiler
-        document.getElementById('modalTramName').textContent = tram.tram_name;
+        document.getElementById('modalTramName').textContent = tram.tram_id;
         document.getElementById('modalTramId').textContent = tramId;
         document.getElementById('modalCurrentKm').textContent = tram.current_km.toLocaleString('tr-TR') + ' KM';
 
