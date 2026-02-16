@@ -52,14 +52,14 @@ def dashboard_rapor():
         
         return jsonify({
             'success': True,
-            'message': f'✅ Dashboard raporu oluşturuldu',
+            'message': f'[OK] Dashboard raporu olusturuldu',
             'file': report_path.name,
             'path': str(report_path)
         })
     
     except Exception as e:
         ReportSystem.log_action('Dashboard Report Error', {'error': str(e)}, 'ERROR')
-        return jsonify({'success': False, 'message': f'❌ Rapor hatası: {str(e)}'}), 500
+        return jsonify({'success': False, 'message': f'[ERROR] Rapor hatasii: {str(e)}'}), 500
 
 
 @reports_bp.route('/dashboard-logs', methods=['GET'])
@@ -86,7 +86,7 @@ def dashboard_logs():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
-# ==================== BAKıM RAPOR ====================
+# ==================== BAKIM RAPOR ====================
 @reports_bp.route('/maintenance-rapor', methods=['POST'])
 @login_required
 def maintenance_rapor():
@@ -122,13 +122,13 @@ def maintenance_rapor():
         
         return jsonify({
             'success': True,
-            'message': f'✅ Bakım Planları raporu oluşturuldu',
+            'message': f'[OK] Bakim Planlari raporu olusturuldu',
             'file': report_path.name
         })
     
     except Exception as e:
         ReportSystem.log_action('Maintenance Report Error', {'error': str(e)}, 'ERROR')
-        return jsonify({'success': False, 'message': f'❌ Rapor hatası: {str(e)}'}), 500
+        return jsonify({'success': False, 'message': f'[ERROR] Rapor hatasii: {str(e)}'}), 500
 
 
 # ==================== KM RAPOR ====================
@@ -165,13 +165,13 @@ def km_rapor():
         
         return jsonify({
             'success': True,
-            'message': f'✅ KM raporu oluşturuldu',
+            'message': f'[OK] KM raporu olusturuldu',
             'file': report_path.name
         })
     
     except Exception as e:
         ReportSystem.log_action('KM Report Error', {'error': str(e)}, 'ERROR')
-        return jsonify({'success': False, 'message': f'❌ Rapor hatası: {str(e)}'}), 500
+        return jsonify({'success': False, 'message': f'[ERROR] Rapor hatasii: {str(e)}'}), 500
 
 
 # ==================== SENARYOLAR ====================
@@ -231,14 +231,14 @@ def scenario_high_failure():
         high_failure = ScenarioAnalysis.get_high_failure_trams(tram_data, 5)
         
         report_path = ScenarioAnalysis.generate_scenario_report(
-            'Yüksek Arıza Oranı',
+            'Yuksek Ariza Orani',
             high_failure,
             project
         )
         
         return jsonify({
             'success': True,
-            'message': '✅ Senaryo raporu oluşturuldu',
+            'message': '[OK] Senaryo raporu olusturuldu',
             'file': report_path.name,
             'count': len(high_failure)
         })
@@ -263,14 +263,14 @@ def scenario_high_km():
         high_km = ScenarioAnalysis.get_high_km_trams(tram_data, 75)
         
         report_path = ScenarioAnalysis.generate_scenario_report(
-            'Yüksek KM Tramvaylar',
+            'Yuksek KM Tramvaylar',
             high_km,
             project
         )
         
         return jsonify({
             'success': True,
-            'message': '✅ Senaryo raporu oluşturuldu',
+            'message': '[OK] Senaryo raporu olusturuldu',
             'file': report_path.name,
             'count': len(high_km)
         })
@@ -334,7 +334,7 @@ def cleanup_old_reports():
         
         return jsonify({
             'success': True,
-            'message': f'✅ {deleted} eski rapor silindi'
+            'message': f'[OK] {deleted} eski rapor silindi'
         })
     
     except Exception as e:

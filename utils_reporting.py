@@ -49,7 +49,7 @@ class ReportSystem:
         for report_type in ReportSystem.REPORT_TYPES.values():
             (ReportSystem.REPORTS_DIR / report_type).mkdir(parents=True, exist_ok=True)
         
-        logger.info("✅ Report directories initialized")
+        logger.info("[INIT] Report directories initialized")
     
     @staticmethod
     def get_report_path(report_type: str, project: str = 'belgrad') -> Path:
@@ -80,11 +80,11 @@ class ReportSystem:
             f.write(json.dumps(log_entry, ensure_ascii=False) + '\n')
         
         if severity == 'ERROR':
-            logger.error(f"❌ {action}: {details}")
+            logger.error(f"[ERROR] {action}: {details}")
         elif severity == 'WARNING':
-            logger.warning(f"⚠️  {action}: {details}")
+            logger.warning(f"[WARNING] {action}: {details}")
         else:
-            logger.info(f"✅ {action}")
+            logger.info(f"[OK] {action}")
     
     @staticmethod
     def export_to_excel(
@@ -176,7 +176,7 @@ class ReportSystem:
         
         # Dosyayı kaydet
         wb.save(file_path)
-        logger.info(f"✅ Report exported: {file_path}")
+        logger.info(f"[OK] Report exported: {file_path}")
         
         ReportSystem.log_action(
             f"Report exported: {report_type}",
@@ -232,7 +232,7 @@ class ReportSystem:
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(report_data, f, ensure_ascii=False, indent=2)
         
-        logger.info(f"✅ JSON report exported: {file_path}")
+        logger.info(f"[OK] JSON report exported: {file_path}")
         return file_path
     
     @staticmethod
@@ -455,7 +455,7 @@ class ScenarioAnalysis:
 def init_reporting_system():
     """Raporlama sistemini başlat"""
     ReportSystem.init_directories()
-    logger.info("✅ Reporting system initialized successfully")
+    logger.info("[OK] Reporting system initialized successfully")
 
 
 if __name__ == '__main__':
