@@ -265,23 +265,18 @@ def index():
         KPISnapshot.snapshot_date.desc()
     ).first()
     
-    # ===== Tramvay Filosofu - Veriler.xlsx Sayfa2'den Equipment Code'ları Al =====
-    tram_ids = get_tram_ids_from_veriler(current_project)
+    # ===== Tramvay Filosofu - Database'den 1531-1555 range'ini al =====
+    # Belgrad projesinde 1531-1555 range'i kullan
+    tramvaylar = Equipment.query.filter(
+        Equipment.equipment_code >= '1531',
+        Equipment.equipment_code <= '1555',
+        Equipment.parent_id == None,
+        Equipment.project_code == current_project
+    ).order_by(Equipment.equipment_code).all()
     
-    # Equipment Code'lara göre Equipment'i filtrele (DB'den status, name, location vb al)
-    if tram_ids:
-        tramvaylar = Equipment.query.filter(
-            Equipment.equipment_code.in_(tram_ids),
-            Equipment.parent_id == None,
-            Equipment.project_code == current_project
-        ).all()
-    else:
-        tramvaylar = []
-    
-    # Eğer Excel'deki tram_ids Database'de bulunamadıysa, fallback: tüm proje equipment'ları al
+    # Eğer range'de veri yoksa fallback
     if not tramvaylar:
-        print(f"[DASHBOARD] Excel'deki ID'ler DB'de yok, fallback: tüm proje equipment'ları al")
-        tramvaylar = Equipment.query.filter_by(parent_id=None, project_code=current_project).all()
+        tramvaylar = Equipment.query.filter_by(parent_id=None, project_code=current_project).order_by(Equipment.equipment_code).all()
     
     # Bugünün tarihi
     today = str(date.today())

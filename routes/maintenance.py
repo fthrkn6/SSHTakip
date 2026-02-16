@@ -52,7 +52,6 @@ def plans():
     
     # Veriler.xlsx Sayfa2'den tram_id'leri al
     tram_ids = load_trams_from_file(current_project)
-    print(f"[MAINTENANCE] tram_ids from Excel: {tram_ids}")
     
     # Equipment Code'lara göre Equipment'i filtrele (DB'den KM, status, name vb al)
     if tram_ids:
