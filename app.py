@@ -13,9 +13,13 @@ from routes.fracas import bp as fracas_bp, get_excel_path, get_column
 from routes.kpi import bp as kpi_bp
 from routes.service_status import bp as service_status_bp
 from routes.dashboard import bp as dashboard_bp
+from routes.reports import reports_bp
 import os
 import shutil
 import tempfile
+
+# Initialize reporting system
+from utils_reporting import init_reporting_system
 
 
 ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'dwg', 'jpg', 'png', 'jpeg'}
@@ -65,6 +69,11 @@ def create_app():
         app.register_blueprint(kpi_bp)
         app.register_blueprint(service_status_bp)
         app.register_blueprint(dashboard_bp)
+        app.register_blueprint(reports_bp)
+        
+        # Initialize reporting system
+        with app.app_context():
+            init_reporting_system()
 
         # ==================== ROUTES ====================
 

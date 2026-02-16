@@ -1,0 +1,326 @@
+{% extends 'base.html' %}
+
+{% block title %}Sistem Logları - Raporlama{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">Sistem Logları
+            <span class="badge bg-primary fs-6">{{ log_count }} Kayıt</span>
+        </h1>
+        <p class="page-subtitle">Tüm sistem eylemlerinin korunaklı kayıtları - Son 24 saat</p>
+    </div>
+    <div>
+        <button class="btn btn-warning" onclick="downloadLogs()">
+            <i class="bi bi-download me-2"></i>Logları İndir
+        </button>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i class="bi bi-file-earmark-text"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ log_count }}</h3>
+                <p>Toplam Log Kaydı</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon info">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="stat-content">
+                <h3 id="successCount">-</h3>
+                <p>Başarılı İşlem</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon danger">
+                <i class="bi bi-exclamation-circle"></i>
+            </div>
+            <div class="stat-content">
+                <h3 id="errorCount">-</h3>
+                <p>Hata</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row g-2">
+            <div class="col-md-4">
+                <label class="form-label fw-bold">Zaman Aralığı</label>
+                <select id="hoursFilter" class="form-select form-select-sm" onchange="loadLogs()">
+                    <option value="1">Son 1 saat</option>
+                    <option value="6">Son 6 saat</option>
+                    <option value="12">Son 12 saat</option>
+                    <option value="24" selected>Son 24 saat</option>
+                    <option value="72">Son 3 gün</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-bold">Filtreleme</label>
+                <input type="text" id="searchFilter" class="form-control form-control-sm" placeholder="Ara...">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-bold">Tür</label>
+                <select id="typeFilter" class="form-select form-select-sm" onchange="filterLogs()">
+                    <option value="">Tümü</option>
+                    <option value="INFO">İşlem</option>
+                    <option value="WARNING">Uyarı</option>
+                    <option value="ERROR">Hata</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Logs Table -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0 table-sm" id="logsTable">
+                <thead class="table-dark sticky-top">
+                    <tr>
+                        <th style="width: 5%;">#</th>
+                        <th style="width: 15%; min-width: 150px;">Zaman</th>
+                        <th style="width: 10%; min-width: 80px;">Tür</th>
+                        <th style="min-width: 200px;">İşlem</th>
+                        <th style="min-width: 300px;">Detaylar</th>
+                    </tr>
+                </thead>
+                <tbody id="logsBody">
+                    <!-- Logs will be loaded here -->
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">
+                            <i class="bi bi-hourglass-split me-2"></i>Loglar yükleniyor...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- No Data Alert -->
+<div id="noDataAlert" class="alert alert-info mt-4" style="display: none;">
+    <i class="bi bi-info-circle me-2"></i>
+    <strong>Bilgi:</strong> Seçtiğiniz aralığında log kaydı yok.
+</div>
+
+<!-- Cleanup Button -->
+<div class="mt-4">
+    <button class="btn btn-outline-danger" onclick="cleanupOldLogs()">
+        <i class="bi bi-trash me-2"></i>60 Gün Eski Raporları Sil
+    </button>
+</div>
+
+<script>
+    let allLogs = [];
+
+    document.addEventListener('DOMContentLoaded', function () {
+        loadLogs();
+
+        // Search filter
+        document.getElementById('searchFilter').addEventListener('keyup', filterLogs);
+    });
+
+    function loadLogs() {
+        const hours = document.getElementById('hoursFilter').value;
+
+        fetch(`/reports/system-logs/api?hours=${hours}`)
+            .then(r => r.json())
+            .then(data => {
+                allLogs = data.logs || [];
+
+                // Count stats
+                const successCount = allLogs.filter(l => l.severity === 'INFO').length;
+                const errorCount = allLogs.filter(l => l.severity === 'ERROR').length;
+
+                document.getElementById('successCount').textContent = successCount;
+                document.getElementById('errorCount').textContent = errorCount;
+
+                displayLogs(allLogs);
+            });
+    }
+
+    function displayLogs(logs) {
+        const tbody = document.getElementById('logsBody');
+        const noData = document.getElementById('noDataAlert');
+
+        if (logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Log kaydı yok</td></tr>';
+            noData.style.display = 'block';
+            return;
+        }
+
+        noData.style.display = 'none';
+        tbody.innerHTML = logs.map((log, idx) => {
+            const time = new Date(log.timestamp).toLocaleString('tr-TR');
+            const severity = log.severity || 'INFO';
+            const badgeClass = severity === 'ERROR' ? 'danger' : severity === 'WARNING' ? 'warning' : 'success';
+            const icon = severity === 'ERROR' ? '✕' : severity === 'WARNING' ? '⚠' : '✓';
+
+            const detailsJson = JSON.stringify(log.details || {}, null, 2);
+            const detailsPreview = JSON.stringify(log.details || {}).substring(0, 80) + '...';
+
+            return `
+            <tr onclick="toggleDetails(${idx})">
+                <td class="fw-bold text-primary">${idx + 1}</td>
+                <td><small>${time}</small></td>
+                <td>
+                    <span class="badge bg-${badgeClass}">${icon} ${severity}</span>
+                </td>
+                <td><strong>${log.action}</strong></td>
+                <td><small class="text-muted">${detailsPreview}</small></td>
+            </tr>
+            <tr class="detail-row collapse" id="details-${idx}">
+                <td colspan="5">
+                    <div class="p-3 bg-light">
+                        <h6 class="text-primary mb-2">Detaylar</h6>
+                        <pre style="background: #f8f9fa; padding: 10px; border-radius: 4px; font-size: 0.85rem; max-height: 300px; overflow-y: auto;">${detailsJson}</pre>
+                    </div>
+                </td>
+            </tr>
+        `;
+        }).join('');
+    }
+
+    function filterLogs() {
+        const typeFilter = document.getElementById('typeFilter').value;
+        const searchText = document.getElementById('searchFilter').value.toLowerCase();
+
+        let filtered = allLogs;
+
+        if (typeFilter) {
+            filtered = filtered.filter(l => l.severity === typeFilter);
+        }
+
+        if (searchText) {
+            filtered = filtered.filter(l =>
+                l.action.toLowerCase().includes(searchText) ||
+                JSON.stringify(l.details).toLowerCase().includes(searchText)
+            );
+        }
+
+        displayLogs(filtered);
+    }
+
+    function toggleDetails(idx) {
+        const row = document.getElementById(`details-${idx}`);
+        if (row) {
+            row.classList.toggle('show');
+        }
+    }
+
+    function downloadLogs() {
+        const hours = document.getElementById('hoursFilter').value;
+        const data = {
+            logs: allLogs,
+            exported_at: new Date().toISOString(),
+            hours: parseInt(hours)
+        };
+
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `system_logs_${new Date().getTime()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+    }
+
+    function cleanupOldLogs() {
+        if (!confirm('60 gün eski raporları silmek istediğine emin misin? Bu işlem geri alınamaz!')) {
+            return;
+        }
+
+        fetch('/reports/cleanup-old', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                alert(data.message);
+                loadLogs();
+            });
+    }
+</script>
+
+<style>
+    .stat-card {
+        padding: 20px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .stat-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 24px;
+    }
+
+    .stat-icon.primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .stat-icon.info {
+        background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+    }
+
+    .stat-icon.danger {
+        background: linear-gradient(135deg, #f87171 0%, #dc2626 100%);
+    }
+
+    .stat-icon.warning {
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+    }
+
+    .stat-content h3 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: bold;
+        color: #333;
+    }
+
+    .stat-content p {
+        margin: 5px 0 0 0;
+        color: #999;
+        font-size: 13px;
+    }
+
+    .detail-row {
+        display: none;
+    }
+
+    .detail-row.show {
+        display: table-row;
+    }
+
+    pre {
+        font-family: 'Courier New', monospace;
+    }
+
+    tbody tr[onclick] {
+        cursor: pointer;
+    }
+</style>
+{% endblock %}

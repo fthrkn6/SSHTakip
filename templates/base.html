@@ -677,6 +677,24 @@
                 <span>KPI Dashboard</span>
             </a>
 
+            <a href="{{ url_for('reports.scenarios_page') }}"
+                class="sidebar-link {{ 'active' if 'reports.scenarios' in request.endpoint|string }}">
+                <i class="bi bi-lightbulb"></i>
+                <span>Senaryo Analizi</span>
+            </a>
+
+            <a href="{{ url_for('reports.recent_reports') }}"
+                class="sidebar-link {{ 'active' if 'reports.recent' in request.endpoint|string }}">
+                <i class="bi bi-file-spreadsheet"></i>
+                <span>Son Raporlar</span>
+            </a>
+
+            <a href="{{ url_for('reports.system_logs_page') }}"
+                class="sidebar-link {{ 'active' if 'reports.system_logs' in request.endpoint|string }}">
+                <i class="bi bi-file-text"></i>
+                <span>Sistem Logları</span>
+            </a>
+
             <div class="sidebar-menu-title">Dokümantasyon</div>
 
             <a href="{{ url_for('dokuman_listesi') }}"
