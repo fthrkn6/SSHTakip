@@ -822,7 +822,7 @@
     }
 
     function exportRootCauseReport() {
-        console.log('🔍 Root Cause raporu indiriliyor...');
+        console.log('RCA raporu indiriliyor...');
         try {
             // Tarih aralığını al
             const startDate = document.getElementById('dateFrom')?.value || '';
@@ -832,7 +832,10 @@
             if (startDate) url += `start_date=${startDate}&`;
             if (endDate) url += `end_date=${endDate}&`;
 
-            window.location.href = url.replace(/&$/, '');
+            // Cache bypass - random parameter ekle
+            url += `_t=${Date.now()}`;
+
+            window.location.href = url;
         } catch (e) {
             console.error('Hata:', e);
             alert('Hata: ' + e.message);
