@@ -15,6 +15,7 @@ from routes.service_status import bp as service_status_bp
 from routes.dashboard import bp as dashboard_bp
 from routes.reports import reports_bp
 from utils_service_status_logger import ServiceStatusLogger
+from utils_root_cause_analysis import RootCauseAnalyzer
 import os
 import shutil
 import tempfile
@@ -2129,6 +2130,40 @@ def create_app():
             """Download service status"""
             flash('Service status downloaded', 'info')
             return redirect(url_for('servis_durumu'))
+
+        @app.route('/servis-durumu/root-cause-analysis', methods=['GET', 'POST'])
+        @login_required
+        def servis_durumu_rca():
+            """Root Cause Analysis raporunu indir"""
+            try:
+                from flask import send_file
+                
+                # Tarih aralığını al
+                start_date = request.args.get('start_date') or request.form.get('start_date')
+                end_date = request.args.get('end_date') or request.form.get('end_date')
+                tram_id = request.args.get('tram_id') or request.form.get('tram_id')
+                
+                # RCA analizi yap
+                analysis = RootCauseAnalyzer.analyze_service_disruptions(
+                    start_date=start_date,
+                    end_date=end_date,
+                    tram_id=tram_id
+                )
+                
+                # Excel raporunu oluştur
+                filepath = RootCauseAnalyzer.generate_rca_excel(analysis)
+                
+                return send_file(
+                    filepath,
+                    as_attachment=True,
+                    download_name=f"RCA_Raporu_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                    mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                )
+                
+            except Exception as e:
+                logger.error(f'RCA report error: {str(e)}')
+                flash(f'Rapor oluşturulurken hata: {str(e)}', 'error')
+                return redirect(url_for('servis_durumu'))
 
         @app.route('/yedek-parca/ekle', methods=['GET', 'POST'])
         @login_required

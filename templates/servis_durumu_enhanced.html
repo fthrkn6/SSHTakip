@@ -824,7 +824,15 @@
     function exportRootCauseReport() {
         console.log('🔍 Root Cause raporu indiriliyor...');
         try {
-            window.location.href = '/servis/excel/root-cause-report';
+            // Tarih aralığını al
+            const startDate = document.getElementById('dateFrom')?.value || '';
+            const endDate = document.getElementById('dateTo')?.value || '';
+
+            let url = '/servis-durumu/root-cause-analysis?';
+            if (startDate) url += `start_date=${startDate}&`;
+            if (endDate) url += `end_date=${endDate}&`;
+
+            window.location.href = url.replace(/&$/, '');
         } catch (e) {
             console.error('Hata:', e);
             alert('Hata: ' + e.message);
