@@ -912,14 +912,9 @@ def create_app():
                     Equipment.parent_id == None,
                     Equipment.project_code == current_project
                 ).order_by(Equipment.equipment_code).all()
-                equipment_list = []
-                for tram_id in sorted(tram_km_fallback.keys()):
-                    tram_obj = type('Equipment', (), {
-                        'id': tram_id,
-                        'name': f'Tramvay {tram_id}',
-                        'current_km': tram_km_fallback[tram_id].get('current_km', 0)
-                    })()
-                    equipment_list.append(tram_obj)
+            
+            # Sonuç listesi
+            result = []
             
             for eq in equipment_list:
                 tram_id = str(eq.id)
