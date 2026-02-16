@@ -276,7 +276,11 @@ def index():
             Equipment.project_code == current_project
         ).all()
     else:
-        # Fallback: Equipment tablosundan direkt çek (proje-spesifik)
+        tramvaylar = []
+    
+    # Eğer Excel'deki tram_ids Database'de bulunamadıysa, fallback: tüm proje equipment'ları al
+    if not tramvaylar:
+        print(f"[DASHBOARD] Excel'deki ID'ler DB'de yok, fallback: tüm proje equipment'ları al")
         tramvaylar = Equipment.query.filter_by(parent_id=None, project_code=current_project).all()
     
     # Bugünün tarihi
