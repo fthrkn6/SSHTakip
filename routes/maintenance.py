@@ -50,28 +50,20 @@ def plans():
     current_project = session.get('current_project', 'belgrad')
     project_name = session.get('project_name', 'Proje Seçilmedi')
     
-    # Veriler.xlsx Sayfa2'den tram_id'leri al
-    tram_ids = load_trams_from_file(current_project)
+    # Database'den 1531-1555 range'ini al (Dashboard gibi)
+    tramvaylar_equipment = Equipment.query.filter(
+        Equipment.equipment_code >= '1531',
+        Equipment.equipment_code <= '1555',
+        Equipment.parent_id == None,
+        Equipment.project_code == current_project
+    ).order_by(Equipment.equipment_code).all()
     
-    # Equipment Code'lara göre Equipment'i filtrele (DB'den KM, status, name vb al)
-    if tram_ids:
-        tramvaylar_equipment = Equipment.query.filter(
-            Equipment.equipment_code.in_(tram_ids),
-            Equipment.parent_id == None,
-            Equipment.project_code == current_project
-        ).all()
-    else:
-        tramvaylar_equipment = []
-    
-    # Eğer Excel'de belirtilen equipment'lar yoksa, Database'den proje-spesifik equipment'ları al
+    # Fallback: eğer range'de veri yoksa tüm proje equipment'larını al
     if not tramvaylar_equipment:
-        print(f"[MAINTENANCE] Excel'deki ID'ler DB'de yok, fallback: DB'den proje equipment'ları al")
         tramvaylar_equipment = Equipment.query.filter_by(
             parent_id=None, 
             project_code=current_project
-        ).all()
-    
-    print(f"[MAINTENANCE] tramvaylar_equipment count: {len(tramvaylar_equipment)}")
+        ).order_by(Equipment.equipment_code).all()
     
     # Her tramvay için KM ve durum bilgisini derle
     tram_equipment_data = []
@@ -95,8 +87,6 @@ def plans():
             'total_km': tramvay.total_km if hasattr(tramvay, 'total_km') else 0,
             'status': status_display
         })
-    
-    print(f"[MAINTENANCE] tram_equipment_data count: {len(tram_equipment_data)}")
     
     query = MaintenancePlan.query.filter_by(is_active=True)
     
