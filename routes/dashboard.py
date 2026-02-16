@@ -374,10 +374,11 @@ def index():
         else:
             ariza_count += 1
     
-    # Filo Kullanılabilirlik Oranı = (Toplam - Servis Dışı) / Toplam * 100
+    # Filo Kullanılabilirlik Oranı = (Aktif + Bakımda) / Toplam * 100
+    # Servis dışı = sadece arızalı tramvaylar
     total_tram = len(tramvay_statuses)
-    servis_disi = ariza_count + bakim_count
-    fleet_availability = round((total_tram - servis_disi) / total_tram * 100, 1) if total_tram > 0 else 0
+    kullanilabilir = aktif_count + bakim_count
+    fleet_availability = round(kullanilabilir / total_tram * 100, 1) if total_tram > 0 else 0
     
     stats = {
         'total_tramvay': len(tramvay_statuses),
