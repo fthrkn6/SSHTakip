@@ -1813,10 +1813,11 @@ def create_app():
                 stats['Servis Dışı'] = servis_disi_count
                 stats['İşletme Kaynaklı Servis Dışı'] = isletme_kaynak_count
                 
-                # Erişilebilirlik hesapla: (Toplam araçlar - Servis Dışı - İşletme Kaynaklı) / Toplam
+                # Erişilebilirlik hesapla: (Servis + İşletme Kaynaklı Servis Dışı) / Toplam * 100
+                # (Bakımda olanlar da saysın - aynı dashboard hesaplaması gibi)
                 total_tramvaylar = len(tramvaylar) if tramvaylar else 0
                 if total_tramvaylar > 0:
-                    available = total_tramvaylar - servis_disi_count - isletme_kaynak_count
+                    available = servis_count + isletme_kaynak_count
                     erisebilirlik_percent = (available / total_tramvaylar) * 100
                     stats['erisebilirlik'] = f"{erisebilirlik_percent:.1f}%"
                 

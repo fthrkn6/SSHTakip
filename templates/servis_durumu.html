@@ -670,6 +670,9 @@
                         // Sistem select'i trigger et (change event)
                         document.getElementById('sistem').dispatchEvent(new Event('change'));
                     }
+
+                    // Durum değişim event'ini trigger et (alan etkinleştirme/devre dışı bırakma için)
+                    document.getElementById('durum').dispatchEvent(new Event('change'));
                 }
             }
 
@@ -690,10 +693,15 @@
             } else {
                 document.getElementById('sistem').value = '';
             }
+
+            // Durum değişim event'ini trigger et (alan etkinleştirme/devre dışı bırakma için)
+            document.getElementById('durum').dispatchEvent(new Event('change'));
         } else {
             document.getElementById('durum').value = '';
             document.getElementById('sistem').value = '';
             document.getElementById('aciklama').value = '';
+            // Durum değişim event'ini trigger et
+            document.getElementById('durum').dispatchEvent(new Event('change'));
         }
     }
 
@@ -740,13 +748,38 @@
 
     document.getElementById('durum').addEventListener('change', function () {
         const sistem = document.getElementById('sistem');
-        if (this.value === 'Servis Dışı') {
-            sistem.disabled = false;
-        } else {
+        const alt_sistem = document.getElementById('alt_sistem');
+        const aciklama = document.getElementById('aciklama');
+        const durum_value = this.value;
+
+        if (durum_value === 'Servis') {
+            // Servis seçilirse: sistem, alt sistem ve açıklama devre dışı
             sistem.disabled = true;
             sistem.value = '';
-            document.getElementById('alt_sistem').disabled = true;
-            document.getElementById('alt_sistem').value = '';
+            alt_sistem.disabled = true;
+            alt_sistem.value = '';
+            aciklama.disabled = true;
+            aciklama.value = '';
+        } else if (durum_value === 'Servis Dışı') {
+            // Servis Dışı seçilirse: sistem ve alt sistem aktivDe, açıklama da aktif
+            sistem.disabled = false;
+            alt_sistem.disabled = false;
+            aciklama.disabled = false;
+        } else if (durum_value === 'İşletme Kaynaklı Servis Dışı') {
+            // İşletme Kaynaklı seçilirse: sistem ve alt sistem devre dışı, açıklama aktif
+            sistem.disabled = true;
+            sistem.value = '';
+            alt_sistem.disabled = true;
+            alt_sistem.value = '';
+            aciklama.disabled = false;
+        } else {
+            // Seçim yapılmamışsa: hepsi devre dışı
+            sistem.disabled = true;
+            sistem.value = '';
+            alt_sistem.disabled = true;
+            alt_sistem.value = '';
+            aciklama.disabled = true;
+            aciklama.value = '';
         }
     });
 
@@ -758,7 +791,7 @@
         // Dropdown'ı temizle
         alt_sistem_select.innerHTML = '<option value="">Seçiniz</option>';
 
-        if (selected_sistem && sistemler_data[selected_sistem]) {
+        if (selected_sistem && sistemler_data[selected_sistem] && !this.disabled) {
             const alt_sistemler = sistemler_data[selected_sistem].alt_sistemler;
             if (alt_sistemler && alt_sistemler.length > 0) {
                 alt_sistemler.forEach(alt_sistem => {
