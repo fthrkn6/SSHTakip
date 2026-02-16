@@ -917,13 +917,15 @@ def create_app():
             result = []
             
             for eq in equipment_list:
-                tram_id = str(eq.id)
-                # Equipment tablosundan KM'yi al (DİNAMİK)
-                current_km = getattr(eq, 'current_km', 0) or 0
-                
-                # Fallback: Eğer Equipment.current_km boşsa, km_data.json'dan al
-                if not current_km and tram_id in tram_km_fallback:
+                tram_id = str(eq.equipment_code)  # equipment_code kullan (1531, 1532...)
+                # PRIORITY: km_data.json'dan KM'yi al (Tramvay KM page verilerigit)
+                current_km = 0
+                if tram_id in tram_km_fallback:
                     current_km = tram_km_fallback[tram_id].get('current_km', 0)
+                
+                # Fallback: Eğer km_data.json'da yoksa, Equipment table'dan al 
+                if not current_km:
+                    current_km = getattr(eq, 'current_km', 0) or 0
                 
                 # Tüm bakım seviyelerini hesapla ve en yakınını bul
                 all_maintenances = {}
