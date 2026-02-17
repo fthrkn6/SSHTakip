@@ -191,9 +191,7 @@ def safe_numeric(value, default=0):
 @login_required
 def index():
     """FRACAS Ana Sayfa - Özet Dashboard - Arıza Listesi verileri kullanarak"""
-    if current_user.role not in ['admin', 'manager']:
-        flash('Bu sayfaya erişim yetkiniz yok.', 'error')
-        return redirect(url_for('dashboard'))
+    # Tüm kullanıcılara açık
     
     # Fracas_BELGRAD.xlsx'ten verileri yükle (birleştirilmiş veri kaynağı)
     df = load_fracas_data()

@@ -626,6 +626,17 @@ def create_app():
                         shutil.move(temp_write_file, ariza_listesi_file)
                         time.sleep(0.3)
                         
+                        # YENI: Dosya değişikliğini otomatik yedekle
+                        try:
+                            project = session.get('current_project', 'belgrad')
+                            backup_success, backup_msg = BackupManager.backup_file(ariza_listesi_file, project)
+                            if backup_success:
+                                print(f"   💾 Dosya yedeklendi: {backup_msg}")
+                            else:
+                                print(f"   ⚠️  Yedekleme hatası: {backup_msg}")
+                        except Exception as backup_err:
+                            print(f"   ⚠️  Yedek oluşturulamadı: {str(backup_err)}")
+                        
                         print(f"   ✅ Arıza kaydedildi: {form_data.get('fracas_id')} -> Satır {next_row}")
                         
                         # YENI: Fracas_BELGRAD.xlsx template'ine de yaz
@@ -650,6 +661,17 @@ def create_app():
                             
                             if result.get('success'):
                                 print(f"   ✅ Fracas_BELGRAD.xlsx'ye yazıldı - Satır: {result['row']}, FRACAS ID: {result['fracas_id']}")
+                                
+                                # FRACAS dosyasını da yedekle
+                                try:
+                                    project = session.get('current_project', 'belgrad')
+                                    fracas_file = ProjectManager.get_fracas_file(project)
+                                    backup_success, backup_msg = BackupManager.backup_file(fracas_file, project)
+                                    if backup_success:
+                                        print(f"   💾 FRACAS dosyası yedeklendi: {backup_msg}")
+                                except Exception as backup_err:
+                                    print(f"   ⚠️  FRACAS yedekleme hatası: {str(backup_err)}")
+                                
                                 flash(f'✅ Arıza başarıyla kaydedildi: {form_data.get("fracas_id")} (Fracas + Arıza Listesi)', 'success')
                             else:
                                 print(f"   ⚠️ Fracas yazma kısmi başarısız: {result}")
