@@ -550,7 +550,7 @@ def create_app():
                             form_data.get('tamir_suresi', ''),
                             form_data.get('mttr', ''),
                             form_data.get('servise_verilis_tarih', ''),
-                            form_data.get('servise_verilis_saat', ''),
+                            form_data.get('servise_verilis_saati', ''),
                             'Kaydedildi',
                             form_data.get('personel_sayisi', '')
                         ]
@@ -585,7 +585,39 @@ def create_app():
                         time.sleep(0.3)
                         
                         print(f"   ✅ Arıza kaydedildi: {form_data.get('fracas_id')} -> Satır {next_row}")
-                        flash(f'✅ Arıza başarıyla kaydedildi: {form_data.get("fracas_id")}', 'success')
+                        
+                        # YENI: Fracas_BELGRAD.xlsx template'ine de yaz
+                        try:
+                            from utils_fracas_writer import FracasWriter
+                            
+                            # Form verilerini FracasWriter'a hazırla
+                            fracas_data = form_data.copy()
+                            if arac_modules:
+                                fracas_data['arac_module'] = arac_modules
+                            
+                            print(f"\n   📝 FRACAS yazma başlıyor...")
+                            print(f"   📊 Form alanları: {list(fracas_data.keys())}")
+                            print(f"   📂 App root path: {app.root_path}")
+                            
+                            # FracasWriter ile Fracas template'ine yaz (Flask root_path geçerek)
+                            writer = FracasWriter(base_path=app.root_path)
+                            print(f"   📁 Template yolu: {writer.file_path}")
+                            print(f"   ✓ Template var mı: {os.path.exists(writer.file_path)}")
+                            
+                            result = writer.write_failure_data(fracas_data)
+                            
+                            if result.get('success'):
+                                print(f"   ✅ Fracas_BELGRAD.xlsx'ye yazıldı - Satır: {result['row']}, FRACAS ID: {result['fracas_id']}")
+                                flash(f'✅ Arıza başarıyla kaydedildi: {form_data.get("fracas_id")} (Fracas + Arıza Listesi)', 'success')
+                            else:
+                                print(f"   ⚠️ Fracas yazma kısmi başarısız: {result}")
+                                flash(f'✅ Arıza kaydedildi (Arıza Listesi), Fracas: {result.get("error", "Bilinmeyen hata")}', 'warning')
+                        except Exception as fracas_error:
+                            import traceback
+                            print(f"\n   ❌ FRACAS YAZMA HATASI:")
+                            print(f"   {str(fracas_error)}")
+                            print(f"   Traceback:\n{traceback.format_exc()}")
+                            flash(f'❌ FRACAS yazma hatası (Arıza Listesi OK): {str(fracas_error)[:150]}', 'danger')
                     except Exception as e:
                         flash(f'❌ Arıza Listesi yazma hatası: {str(e)}', 'danger')
                     
@@ -597,13 +629,13 @@ def create_app():
         @app.route('/ariza-listesi-veriler')
         @login_required
         def ariza_listesi_veriler():
-            """Arıza Listesi sayfası - logs/{project}/ariza_listesi/'den verileri oku ve göster"""
+            """Arıza Listesi sayfası - logs/{project}/ariza_listesi/Fracas_*.xlsx'den FRACAS verilerini oku ve göster"""
             import pandas as pd
             import numpy as np
             
             project = session.get('current_project', 'belgrad')
             
-            # Birincil konum: logs/{project}/ariza_listesi/
+            # Birincil konum: logs/{project}/ariza_listesi/Fracas_{PROJECT}.xlsx
             ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'ariza_listesi')
             
             ariza_listesi_file = None
@@ -611,9 +643,18 @@ def create_app():
             header_row = 0
             
             if os.path.exists(ariza_listesi_dir):
-                # logs/{project}/ariza_listesi/ klasöründen ara
+                # FRACAS template dosyasını ara (Fracas_BELGRAD.xlsx, Fracas_ISTANBUL.xlsx, vb.)
                 for file in os.listdir(ariza_listesi_dir):
-                    if file.endswith('.xlsx') and not file.startswith('~$'):
+                    if file.upper().startswith('FRACAS_') and file.endswith('.xlsx') and not file.startswith('~$'):
+                        ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
+                        use_sheet = 'FRACAS'
+                        header_row = 3  # FRACAS headers row 4 (index 3)
+                        break
+            
+            # Fallback: Ariza_Listesi dosyası
+            if not ariza_listesi_file and os.path.exists(ariza_listesi_dir):
+                for file in os.listdir(ariza_listesi_dir):
+                    if 'Ariza_Listesi' in file and file.endswith('.xlsx') and not file.startswith('~$'):
                         ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
                         use_sheet = 'Ariza Listesi'
                         header_row = 3
@@ -630,11 +671,13 @@ def create_app():
             rows = []
             row_count = 0
             file_date = 'Bilinmiyor'
+            column_names = []
             
             if ariza_listesi_file and os.path.exists(ariza_listesi_file):
                 try:
                     # Excel'i oku
                     df = pd.read_excel(ariza_listesi_file, sheet_name=use_sheet, header=header_row)
+                    column_names = list(df.columns)  # DataFrame column names
                     
                     # Verileri hazırla
                     for idx, row in df.iterrows():
@@ -678,6 +721,7 @@ def create_app():
             
             return render_template('ariza_listesi.html', 
                                  rows=rows, 
+                                 column_names=column_names,
                                  row_count=row_count,
                                  file_date=file_date,
                                  enumerate=enumerate)
@@ -685,20 +729,27 @@ def create_app():
         @app.route('/ariza-listesi-veriler/process', methods=['POST'])
         @login_required
         def ariza_listesi_veriler_process():
-            """Arıza Listesi verilerini işle (şimdilik onay sonrası mesaj göster)"""
+            """Arıza Listesi verilerini işle - FRACAS dosyasından veri okuma"""
             
             print("📤 Arıza Listesi işlem başlıyor...")
             
             try:
                 project = session.get('current_project', 'belgrad')
                 ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'ariza_listesi')
-                ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_{project.upper()}.xlsx")
                 
-                if not os.path.exists(ariza_listesi_file):
-                    flash('❌ Arıza Listesi dosyası bulunamadı', 'danger')
+                # FRACAS dosyasını bul
+                fracas_file = None
+                if os.path.exists(ariza_listesi_dir):
+                    for file in os.listdir(ariza_listesi_dir):
+                        if file.upper().startswith('FRACAS_') and file.endswith('.xlsx') and not file.startswith('~$'):
+                            fracas_file = os.path.join(ariza_listesi_dir, file)
+                            break
+                
+                if not fracas_file or not os.path.exists(fracas_file):
+                    flash('❌ FRACAS dosyası bulunamadı', 'danger')
                     return redirect(url_for('ariza_listesi_veriler'))
                 
-                flash(f'✅ Veriler başarıyla işlendi!', 'success')
+                flash(f'✅ FRACAS verileri başarıyla işlendi!', 'success')
                 
             except Exception as e:
                 flash(f'❌ İşlem hatası: {str(e)}', 'danger')
@@ -708,25 +759,45 @@ def create_app():
         @app.route('/ariza-listesi-veriler/export')
         @login_required
         def ariza_listesi_veriler_export():
-            """Arıza Listesi Excel dosyasını indir"""
+            """FRACAS Excel dosyasını indir (project'e göre Fracas_BELGRAD.xlsx, Fracas_ISTANBUL.xlsx vb.)"""
             import pandas as pd
+            import tempfile
+            import shutil
+            import time
             
             project = session.get('current_project', 'belgrad')
             ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'ariza_listesi')
-            ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_{project.upper()}.xlsx")
             
-            if not os.path.exists(ariza_listesi_file):
-                flash('❌ Dosya bulunamadı', 'danger')
+            # FRACAS dosyasını bul
+            fracas_file = None
+            if os.path.exists(ariza_listesi_dir):
+                for file in os.listdir(ariza_listesi_dir):
+                    if file.upper().startswith('FRACAS_') and file.endswith('.xlsx') and not file.startswith('~$'):
+                        fracas_file = os.path.join(ariza_listesi_dir, file)
+                        break
+            
+            if not fracas_file or not os.path.exists(fracas_file):
+                flash('❌ FRACAS dosyası bulunamadı', 'danger')
                 return redirect(url_for('ariza_listesi_veriler'))
             
             try:
                 from flask import send_file
-                return send_file(
-                    ariza_listesi_file,
+                # Temp dosya oluştur (Windows locking sorunu için)
+                temp_dir = tempfile.gettempdir()
+                temp_file = os.path.join(temp_dir, f"{int(time.time() * 1000)}_{os.path.basename(fracas_file)}")
+                shutil.copy(fracas_file, temp_file)
+                
+                # Dosya adını belirle (Fracas_BELGRAD.xlsx, Fracas_ISTANBUL.xlsx, vb.)
+                filename = os.path.basename(fracas_file)
+                
+                response = send_file(
+                    temp_file,
                     as_attachment=True,
-                    download_name=f"Ariza_Listesi_{project.upper()}.xlsx",
+                    download_name=filename,
                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 )
+                
+                return response
             except Exception as e:
                 flash(f'❌ İndirme hatası: {str(e)}', 'danger')
                 return redirect(url_for('ariza_listesi_veriler'))

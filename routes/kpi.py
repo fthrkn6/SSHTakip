@@ -15,89 +15,71 @@ bp = Blueprint('kpi', __name__, url_prefix='/kpi')
 
 
 def get_fracas_data():
-    """Seçili projenin FRACAS verilerini yükle"""
+    """Seçili projenin FRACAS verilerini yükle - logs/{project}/ariza_listesi/Fracas_*.xlsx (birleştirilmiş)"""
     from flask import current_app
     
     current_project = session.get('current_project', 'belgrad')
-    project_folder = os.path.join(current_app.root_path, 'data', current_project)
     
-    if not os.path.exists(project_folder):
-        return None
+    # Birincil konum: logs/{project}/ariza_listesi/Fracas_{PROJECT}.xlsx
+    ariza_listesi_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
     
-    for filename in os.listdir(project_folder):
-        if filename.endswith(('.xlsx', '.xls')) and not filename.startswith('~$'):
-            filepath = os.path.join(project_folder, filename)
-            try:
-                df = pd.read_excel(filepath, sheet_name='FRACAS', header=3)
-                df.columns = df.columns.str.replace('\n', ' ', regex=False).str.strip()
-                
-                # FRACAS ID kolonunu bul
-                fracas_col = None
-                for col in df.columns:
-                    if 'fracas' in col.lower() and 'id' in col.lower():
-                        fracas_col = col
-                        break
-                if fracas_col:
-                    df = df[df[fracas_col].notna()]
-                
-                return df
-            except Exception as e:
-                print(f"Excel okuma hatası: {e}")
-                return None
+    if os.path.exists(ariza_listesi_dir):
+        # Fracas_*.xlsx ara
+        for filename in os.listdir(ariza_listesi_dir):
+            if filename.upper().startswith('FRACAS_') and filename.endswith('.xlsx') and not filename.startswith('~$'):
+                filepath = os.path.join(ariza_listesi_dir, filename)
+                try:
+                    df = pd.read_excel(filepath, sheet_name='FRACAS', header=3)
+                    df.columns = df.columns.str.replace('\n', ' ', regex=False).str.strip()
+                    
+                    # FRACAS ID kolonunu bul
+                    fracas_col = None
+                    for col in df.columns:
+                        if 'fracas' in col.lower() and 'id' in col.lower():
+                            fracas_col = col
+                            break
+                    if fracas_col:
+                        df = df[df[fracas_col].notna()]
+                    
+                    return df
+                except Exception as e:
+                    print(f"Excel okuma hatası: {e}")
+                    return None
     
     return None
 
 
 def get_ariza_listesi_data():
-    """Seçili projenin Arıza Listesi verilerini yükle (logs/{project}/ariza_listesi/ birincil)"""
+    """Seçili projenin Arıza Listesi verilerini yükle - FALLBACK AMAÇLI (logs/{project}/ariza_listesi/ klasöründen Fracas_*.xlsx)"""
     from flask import current_app
     
     current_project = session.get('current_project', 'belgrad')
     
-    # Birincil konum: logs/{project}/ariza_listesi/
+    # logs/{project}/ariza_listesi/ klasöründen Fracas_*.xlsx ara
     ariza_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
-    
-    filepath = None
-    use_sheet = None
-    header_row = 0
     
     if os.path.exists(ariza_dir):
         for filename in os.listdir(ariza_dir):
-            if filename.endswith('.xlsx') and not filename.startswith('~$'):
+            if filename.upper().startswith('FRACAS_') and filename.endswith('.xlsx') and not filename.startswith('~$'):
                 filepath = os.path.join(ariza_dir, filename)
-                use_sheet = 'Ariza Listesi'
-                header_row = 3
-                break
-    
-    # Fallback: data/{project}/Veriler.xlsx
-    if not filepath:
-        veriler_file = os.path.join(current_app.root_path, 'data', current_project, 'Veriler.xlsx')
-        if os.path.exists(veriler_file):
-            filepath = veriler_file
-            use_sheet = 'Veriler'
-            header_row = 0
-    
-    if not filepath:
-        return None
-    
-    try:
-        df = pd.read_excel(filepath, sheet_name=use_sheet, header=header_row)
-        df.columns = df.columns.str.replace('\n', ' ', regex=False).str.strip()
-        
-        # FRACAS ID kolonunu bul ve geçerli kayıtları filtrele
-        fracas_col = None
-        for col in df.columns:
-            if 'fracas' in col.lower() and 'id' in col.lower():
-                fracas_col = col
-                break
-        
-        if fracas_col:
-            df = df[df[fracas_col].notna()]
-        
-        return df
-    except Exception as e:
-        print(f"Arıza Listesi okuma hatası: {e}")
-        return None
+                try:
+                    df = pd.read_excel(filepath, sheet_name='FRACAS', header=3)
+                    df.columns = df.columns.str.replace('\n', ' ', regex=False).str.strip()
+                    
+                    # FRACAS ID kolonunu bul ve geçerli kayıtları filtrele
+                    fracas_col = None
+                    for col in df.columns:
+                        if 'fracas' in col.lower() and 'id' in col.lower():
+                            fracas_col = col
+                            break
+                    
+                    if fracas_col:
+                        df = df[df[fracas_col].notna()]
+                    
+                    return df
+                except Exception as e:
+                    print(f"Fracas okuma hatası: {e}")
+                    return None
     
     return None
 
@@ -105,17 +87,17 @@ def get_ariza_listesi_data():
 @bp.route('/')
 @login_required
 def index():
-    """KPI Dashboard - EN 15341 uyumlu - Arıza Listesi verileri kullanarak"""
+    """KPI Dashboard - EN 15341 uyumlu - Fracas_BELGRAD.xlsx verilerini kullanarak"""
     if current_user.role not in ['admin', 'muhendis', 'manager']:
         flash('Bu sayfaya erişim yetkiniz yok.', 'error')
         return redirect(url_for('dashboard'))
     
-    # Arıza Listesi verilerini tercih et (daha güncel ve doğru)
-    df = get_ariza_listesi_data()
+    # Fracas_BELGRAD.xlsx verilerini kullan (birleştirilmiş)
+    df = get_fracas_data()
     
-    # Eğer Arıza Listesi yoksa FRACAS verilerini kullan
+    # Fallback: Fracas_BELGRAD yoksa Arıza Listesi'nden dene
     if df is None:
-        df = get_fracas_data()
+        df = get_ariza_listesi_data()
     
     kpi_data = {
         'mtbf': 0,
@@ -128,24 +110,29 @@ def index():
         'monthly_trend': [],
         'failure_by_category': {},
         'top_failing_vehicles': [],
-        'data_source': 'Arıza Listesi' if df is not None else 'Veri Yok'
+        'data_source': 'Fracas_BELGRAD' if df is not None else 'Veri Yok'
     }
     
     if df is not None and len(df) > 0:
-        # Araç sütununu bul (Türkçe/İngilizce çeşitliliğe karşı güvenli)
+        # Kolon adlarını küçük harfe dönüştür (fuzzy matching için)
+        col_map = {}
+        for col in df.columns:
+            col_map[col.lower().strip()] = col
+        
+        # Kolon araması
         vehicle_col = None
         km_col = None
         mttr_col = None
         cat_col = None
         date_col = None
         
-        for col in df.columns:
-            col_lower = col.lower()
-            if vehicle_col is None and ('araç' in col_lower or 'vehicle' in col_lower) and ('numar' in col_lower or 'number' in col_lower or 'no' in col_lower):
+        for col, col_lower in zip(df.columns, [c.lower() for c in df.columns]):
+            col_lower = col_lower.strip()
+            if vehicle_col is None and ('araç' in col_lower or 'vehicle' in col_lower or 'tramvay' in col_lower):
                 vehicle_col = col
-            if km_col is None and ('kilometre' in col_lower or 'km' in col_lower):
+            if km_col is None and ('km' in col_lower or 'kilometre' in col_lower):
                 km_col = col
-            if mttr_col is None and ('tamir' in col_lower or 'repair' in col_lower) and ('saat' in col_lower or 'hour' in col_lower):
+            if mttr_col is None and (('tamir' in col_lower or 'repair' in col_lower) and ('saat' in col_lower or 'hour' in col_lower)):
                 mttr_col = col
             if cat_col is None and (('arıza' in col_lower or 'failure' in col_lower) and ('sınıf' in col_lower or 'class' in col_lower)):
                 cat_col = col

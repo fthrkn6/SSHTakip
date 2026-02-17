@@ -472,6 +472,14 @@
                                     <option value="Hayır">❌ Garanti Dışı</option>
                                 </select>
                             </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Arıza Tespit Yöntemi</label>
+                                <select class="form-select" name="ariza_tespit_yontemi">
+                                    <option value="">-- Seçin --</option>
+                                    <option value="Bozankaya">🏭 Bozankaya</option>
+                                    <option value="Müşteri">👤 Müşteri</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Arıza Tanımı <span class="required-mark">*</span></label>
@@ -502,6 +510,14 @@
                                 <option value="Ayar">⚙️ Ayar Yapıldı</option>
                                 <option value="Reset">🔃 Reset Atıldı</option>
                                 <option value="Beklemede">⏳ Parça Bekleniyor</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Detaylı Bilgi</label>
+                            <select class="form-select" name="detayli_bilgi">
+                                <option value="">-- Seçin --</option>
+                                <option value="Servise Engel">🛑 Servise Engel</option>
+                                <option value="Servise Engel Değil">✅ Servise Engel Değil</option>
                             </select>
                         </div>
                     </div>
@@ -544,7 +560,7 @@
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Adet</label>
-                                <input type="number" class="form-control" name="adet" min="1" value="1">
+                                <input type="number" class="form-control" name="adet" min="1" value="">
                             </div>
                         </div>
                         <div class="row">
@@ -575,7 +591,7 @@
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Saat <small class="text-muted">(Tamir Bitiş'ten
                                         Otomatik)</small></label>
-                                <input type="time" class="form-control" name="servise_verilis_saat" id="serviseSaat">
+                                <input type="time" class="form-control" name="servise_verilis_saati" id="serviseSaat">
                             </div>
                         </div>
                     </div>

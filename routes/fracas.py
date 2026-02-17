@@ -75,54 +75,57 @@ COLUMN_MAPPING = {
 
 
 def get_excel_path():
-    """Seçili projenin FRACAS Excel dosya yolunu döndür"""
+    """Seçili projenin FRACAS Excel dosya yolunu döndür - logs/{project}/ariza_listesi/ klasöründen"""
     from flask import session
     
     current_project = session.get('current_project', 'belgrad')
+    
+    # Birincil konum: logs/{project}/ariza_listesi/Fracas_*.xlsx
+    ariza_listesi_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
+    
+    if os.path.exists(ariza_listesi_dir):
+        # Fracas_*.xlsx ara
+        for filename in os.listdir(ariza_listesi_dir):
+            if filename.upper().startswith('FRACAS_') and filename.endswith(('.xlsx', '.xls')) and not filename.startswith('~$'):
+                return os.path.join(ariza_listesi_dir, filename)
+    
+    # Fallback: data/{project}/ klasöründen ara
     project_folder = os.path.join(current_app.root_path, 'data', current_project)
     
     if not os.path.exists(project_folder):
         return None
     
-    # FRACAS dosyasını tercihen bul (FRACAS içeren dosya - tam eşleşme veya _FRACAS)
-    preferred_patterns = [
-        f'{current_project.upper()}_FRACAS.xlsx',  # Exact: BEL25_FRACAS.xlsx
-        f'*_FRACAS*.xlsx',  # Any *_FRACAS*.xlsx
-    ]
-    
-    # Tam eşleşmeler
+    # FRACAS dosyasını tercihen bul
     for filename in os.listdir(project_folder):
         if 'fracas' in filename.lower() and filename.endswith(('.xlsx', '.xls')) and not filename.startswith('~$'):
             # Dosya adında '_FRACAS' veya '_fracas' varsa ve basit adsa tercih et
             if '_FRACAS' in filename.upper() and '(' not in filename and ' ' not in filename:
                 return os.path.join(project_folder, filename)
     
-    # İkinci seçenek: başında project kodu olan dosya
-    for filename in os.listdir(project_folder):
-        if filename.startswith(current_project.upper()) and 'fracas' in filename.lower() and filename.endswith(('.xlsx', '.xls')) and not filename.startswith('~$'):
-            return os.path.join(project_folder, filename)
-    
     # Son seçenek: FRACAS içeren herhangi bir dosya
     for filename in os.listdir(project_folder):
         if 'fracas' in filename.lower() and filename.endswith(('.xlsx', '.xls')) and not filename.startswith('~$'):
             return os.path.join(project_folder, filename)
     
-    # FRACAS dosyası yoksa, ilk .xlsx dosyasını kullan
-    for filename in os.listdir(project_folder):
-        if filename.endswith(('.xlsx', '.xls')) and not filename.startswith('~$'):
-            return os.path.join(project_folder, filename)
     return None
 
 
+
 def load_fracas_data():
-    """Excel'den FRACAS verilerini yükle"""
+    """Excel'den FRACAS verilerini yükle - logs/{project}/ariza_listesi/Fracas_*.xlsx'ten"""
     excel_path = get_excel_path()
     if not excel_path:
         return None
     
     try:
-        # Header 1. satırda (header=0)
-        df = pd.read_excel(excel_path, sheet_name='FRACAS', header=0)
+        # Path'e göre header satırını belirle
+        if 'logs' in excel_path and 'ariza_listesi' in excel_path:
+            # logs/belgrad/ariza_listesi/Fracas_BELGRAD.xlsx format (header 4. satırda)
+            df = pd.read_excel(excel_path, sheet_name='FRACAS', header=3)
+        else:
+            # Fallback: data/ klasöründen (header 1. satırda)
+            df = pd.read_excel(excel_path, sheet_name='FRACAS', header=0)
+        
         # Sütun isimlerini normalize et
         df.columns = df.columns.str.replace('\n', ' ', regex=False).str.strip()
         
@@ -215,14 +218,10 @@ def index():
         flash('Bu sayfaya erişim yetkiniz yok.', 'error')
         return redirect(url_for('dashboard'))
     
-    # Arıza Listesi'nden verileri yükle (tercih edilen)
-    df = load_ariza_listesi_data()
+    # Fracas_BELGRAD.xlsx'ten verileri yükle (birleştirilmiş veri kaynağı)
+    df = load_fracas_data()
     
-    # Eğer yoksa FRACAS verilerini kullan
-    if df is None:
-        df = load_fracas_data()
-    
-    data_source = 'Arıza Listesi' if df is not None and len(df) > 0 else 'FRACAS'
+    data_source = 'Fracas_BELGRAD' if df is not None and len(df) > 0 else 'Veri Yok'
     
     if df is None:
         flash('FRACAS verileri bulunamadı. Lütfen Arıza Listesi Excel dosyasını logs klasörüne ekleyin.', 'warning')
@@ -589,9 +588,7 @@ def calculate_cost_analysis(df):
 @login_required
 def api_summary():
     """API: Özet veriler"""
-    df = load_ariza_listesi_data()
-    if df is None:
-        df = load_fracas_data()
+    df = load_fracas_data()
     if df is None:
         return jsonify({'error': 'Veri bulunamadı'}), 404
     
@@ -607,9 +604,7 @@ def api_pareto(category):
     """API: Pareto analizi"""
     df = load_ariza_listesi_data()
     if df is None:
-        df = load_fracas_data()
-    if df is None:
-        return jsonify({'error': 'Veri bulunamadı'}), 404
+        df = lnify({'error': 'Veri bulunamadı'}), 404
     
     pareto = calculate_pareto_analysis(df)
     
@@ -636,9 +631,7 @@ def api_trend():
 @login_required
 def api_supplier():
     """API: Tedarikçi analizi"""
-    df = load_ariza_listesi_data()
-    if df is None:
-        df = load_fracas_data()
+    df = load_fracas_data()
     if df is None:
         return jsonify({'error': 'Veri bulunamadı'}), 404
     
@@ -649,9 +642,7 @@ def api_supplier():
 @login_required
 def api_cost():
     """API: Maliyet analizi"""
-    df = load_ariza_listesi_data()
-    if df is None:
-        df = load_fracas_data()
+    df = load_fracas_data()
     if df is None:
         return jsonify({'error': 'Veri bulunamadı'}), 404
     
@@ -664,9 +655,7 @@ def api_vehicle_detail(vehicle_id):
     """API: Araç detay analizi"""
     df = load_ariza_listesi_data()
     if df is None:
-        df = load_fracas_data()
-    if df is None:
-        return jsonify({'error': 'Veri bulunamadı'}), 404
+        df = lnify({'error': 'Veri bulunamadı'}), 404
     
     # Araç sütununu bul
     vehicle_col = get_column(df, ['araç', 'araç no', 'tram', 'vehicle'])
@@ -701,9 +690,7 @@ def api_vehicle_detail(vehicle_id):
 @login_required
 def api_km_analysis():
     """API: Kilometre bazlı arıza analizi"""
-    df = load_ariza_listesi_data()
-    if df is None:
-        df = load_fracas_data()
+    df = load_fracas_data()
     if df is None:
         return jsonify({'error': 'Veri bulunamadı'}), 404
     
@@ -739,9 +726,7 @@ def api_km_analysis():
 @login_required  
 def api_safety_analysis():
     """API: Emniyet analizi"""
-    df = load_ariza_listesi_data()
-    if df is None:
-        df = load_fracas_data()
+    df = load_fracas_data()
     if df is None:
         return jsonify({'error': 'Veri bulunamadı'}), 404
     

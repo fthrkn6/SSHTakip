@@ -24,8 +24,11 @@
                     <div class="stat-icon text-success">
                         <i class="bi bi-check-circle"></i>
                     </div>
-                    <h6 class="text-muted text-uppercase mb-2" style="font-size: 0.75rem; letter-spacing: 0.05em;">Operasyonel</h6>
-                    <h3 style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">{{ equipment_summary.get('operational', 0) }}</h3>
+                    <h6 class="text-muted text-uppercase mb-2" style="font-size: 0.75rem; letter-spacing: 0.05em;">
+                        Operasyonel</h6>
+                    <h3
+                        style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                        {{ equipment_summary.get('operational', 0) }}</h3>
                     <small class="text-muted">Aktif Ekipman</small>
                 </div>
             </div>
@@ -37,8 +40,11 @@
                     <div class="stat-icon text-warning">
                         <i class="bi bi-wrench"></i>
                     </div>
-                    <h6 class="text-muted text-uppercase mb-2" style="font-size: 0.75rem; letter-spacing: 0.05em;">Bakımda</h6>
-                    <h3 style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">{{ equipment_summary.get('maintenance', 0) }}</h3>
+                    <h6 class="text-muted text-uppercase mb-2" style="font-size: 0.75rem; letter-spacing: 0.05em;">
+                        Bakımda</h6>
+                    <h3
+                        style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                        {{ equipment_summary.get('maintenance', 0) }}</h3>
                     <small class="text-muted">Bakım Görmekte</small>
                 </div>
             </div>
@@ -50,8 +56,11 @@
                     <div class="stat-icon text-danger">
                         <i class="bi bi-exclamation-triangle"></i>
                     </div>
-                    <h6 class="text-muted text-uppercase mb-2" style="font-size: 0.75rem; letter-spacing: 0.05em;">Arızalı</h6>
-                    <h3 style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ equipment_summary.get('repair', 0) }}</h3>
+                    <h6 class="text-muted text-uppercase mb-2" style="font-size: 0.75rem; letter-spacing: 0.05em;">
+                        Arızalı</h6>
+                    <h3
+                        style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                        {{ equipment_summary.get('repair', 0) }}</h3>
                     <small class="text-muted">Onarım Bekliyor</small>
                 </div>
             </div>
@@ -63,8 +72,12 @@
                     <div class="stat-icon text-info">
                         <i class="bi bi-clipboard-check"></i>
                     </div>
-                    <h6 class="text-muted text-uppercase mb-2" style="font-size: 0.75rem; letter-spacing: 0.05em;">Açık İş Emirleri</h6>
-                    <h3 style="background: linear-gradient(135deg, #06B6D4 0%, #0891B2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ wo_summary.get('pending', 0) + wo_summary.get('scheduled', 0) + wo_summary.get('in_progress', 0) }}</h3>
+                    <h6 class="text-muted text-uppercase mb-2" style="font-size: 0.75rem; letter-spacing: 0.05em;">Açık
+                        İş Emirleri</h6>
+                    <h3
+                        style="background: linear-gradient(135deg, #06B6D4 0%, #0891B2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                        {{ wo_summary.get('pending', 0) + wo_summary.get('scheduled', 0) + wo_summary.get('in_progress',
+                        0) }}</h3>
                     <small class="text-muted">Aktif İşler</small>
                 </div>
             </div>
@@ -78,7 +91,8 @@
             <div class="card kpi-card">
                 <div class="card-body text-center">
                     <i class="bi bi-clock-history text-primary" style="font-size: 2rem;"></i>
-                    <h6 class="text-muted mt-2 text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.05em;">MTBF</h6>
+                    <h6 class="text-muted mt-2 text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.05em;">MTBF
+                    </h6>
                     <h3 class="mb-0">{{ "%.1f"|format(latest_kpi.mtbf) if latest_kpi.mtbf else 'N/A' }}</h3>
                     <small class="text-muted">saat</small>
                 </div>
@@ -88,9 +102,10 @@
             <div class="card kpi-card">
                 <div class="card-body text-center">
                     <i class="bi bi-tools text-warning" style="font-size: 2rem;"></i>
-                    <h6 class="text-muted mt-2 text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.05em;">MTTR</h6>
+                    <h6 class="text-muted mt-2 text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.05em;">MTTR
+                    </h6>
                     <h3 class="mb-0">{{ "%.1f"|format(latest_kpi.mttr) if latest_kpi.mttr else 'N/A' }}</h3>
-                    <small class="text-muted">saat</small>
+                    <small class="text-muted">dk</small>
                 </div>
             </div>
         </div>
@@ -124,10 +139,12 @@
                     {% if critical_work_orders %}
                     <div class="list-group">
                         {% for wo in critical_work_orders %}
-                        <a href="{{ url_for('workorder.detail', work_order_id=wo.id) }}" class="list-group-item list-group-item-action">
+                        <a href="{{ url_for('workorder.detail', work_order_id=wo.id) }}"
+                            class="list-group-item list-group-item-action">
                             <div class="d-flex w-100 justify-content-between">
                                 <h6 class="mb-1">{{ wo.work_order_number }}</h6>
-                                <small>{{ wo.scheduled_start.strftime('%d.%m.%Y') if wo.scheduled_start else 'Planlanmadı' }}</small>
+                                <small>{{ wo.scheduled_start.strftime('%d.%m.%Y') if wo.scheduled_start else
+                                    'Planlanmadı' }}</small>
                             </div>
                             <p class="mb-1">{{ wo.title }}</p>
                             <small class="text-muted">{{ wo.equipment.name }}</small>
@@ -151,13 +168,15 @@
                     {% if upcoming_maintenance %}
                     <div class="list-group">
                         {% for wo in upcoming_maintenance %}
-                        <a href="{{ url_for('workorder.detail', work_order_id=wo.id) }}" class="list-group-item list-group-item-action">
+                        <a href="{{ url_for('workorder.detail', work_order_id=wo.id) }}"
+                            class="list-group-item list-group-item-action">
                             <div class="d-flex w-100 justify-content-between">
                                 <h6 class="mb-1">{{ wo.equipment.name }}</h6>
                                 <small>{{ wo.scheduled_start.strftime('%d.%m.%Y') }}</small>
                             </div>
                             <p class="mb-1">{{ wo.title }}</p>
-                            <span class="badge bg-{{ 'warning' if wo.priority == 'high' else 'secondary' }}">{{ wo.priority }}</span>
+                            <span class="badge bg-{{ 'warning' if wo.priority == 'high' else 'secondary' }}">{{
+                                wo.priority }}</span>
                         </a>
                         {% endfor %}
                     </div>

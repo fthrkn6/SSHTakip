@@ -38,22 +38,23 @@ bp = Blueprint('dashboard', __name__, url_prefix='/dashboard')
 
 
 def get_failures_from_excel():
-    """Excel dosyasından arıza verilerini oku - logs/{project}/ariza_listesi/ birincil"""
+    """Excel dosyasından arıza verilerini oku - Fracas_BELGRAD.xlsx (birleştirilmiş)"""
     from flask import current_app
     
     current_project = session.get('current_project', 'belgrad')
     
-    # Birincil konum: logs/{project}/ariza_listesi/
+    # Birincil konum: logs/{project}/ariza_listesi/Fracas_{PROJECT}.xlsx
     ariza_listesi_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
     ariza_listesi_file = None
     use_sheet = None
     header_row = 0
     
     if os.path.exists(ariza_listesi_dir):
+        # Fracas_BELGRAD.xlsx ara (birincil)
         for file in os.listdir(ariza_listesi_dir):
-            if file.endswith('.xlsx') and not file.startswith('~$'):
+            if file.upper().startswith('FRACAS_') and file.endswith('.xlsx') and not file.startswith('~$'):
                 ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
-                use_sheet = 'Ariza Listesi'
+                use_sheet = 'FRACAS'
                 header_row = 3
                 break
     
@@ -572,34 +573,51 @@ def work_order_trend_api():
 @bp.route('/api/failures/<equipment_code>')
 @login_required
 def get_equipment_failures(equipment_code=None):
-    """Araçla ilgili son 5 arızayı Al - Arıza Listesi dosyasından
+    """Araçla ilgili son 5 arızayı Al - Fracas_BELGRAD.xlsx'den (birleştirilmiş)
     Eğer equipment_code yoksa TÜM son 5 arızayı getir"""
     try:
         import pandas as pd
         import os
         
-        ariza_listesi_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs', 'ariza_listesi')
-        ariza_listesi_file = os.path.join(ariza_listesi_dir, 'Ariza_Listesi_BELGRAD.xlsx')
+        # Fracas_BELGRAD.xlsx'i kullan (birleştirilmiş veri kaynağı)
+        current_project = session.get('current_project', 'belgrad')
+        ariza_listesi_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs', current_project, 'ariza_listesi')
+        
+        # Fracas_*.xlsx ara (birincil)
+        ariza_listesi_file = None
+        for file in os.listdir(ariza_listesi_dir) if os.path.exists(ariza_listesi_dir) else []:
+            if file.upper().startswith('FRACAS_') and file.endswith('.xlsx') and not file.startswith('~$'):
+                ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
+                break
         
         failures = []
         
-        if not os.path.exists(ariza_listesi_file):
-            print(f"[API] Dosya bulunamadı: {ariza_listesi_file}")
-            return jsonify({'failures': [], 'error': 'File not found'})
+        if not ariza_listesi_file or not os.path.exists(ariza_listesi_file):
+            print(f"[API] Fracas dosyası bulunamadı")
+            return jsonify({'failures': [], 'error': 'Fracas file not found'})
         
         try:
-            df = pd.read_excel(ariza_listesi_file, sheet_name='Ariza Listesi', header=3)
+            df = pd.read_excel(ariza_listesi_file, sheet_name='FRACAS', header=3)
             print(f"[API] Excel okundu - {len(df)} satır, Sütunlar: {list(df.columns)[:5]}...")
             
             # FRACAS ID sütununu doğrula
-            if 'FRACAS ID' not in df.columns:
+            if not any('FRACAS' in str(col).upper() and 'ID' in str(col).upper() for col in df.columns):
                 print("[API] FRACAS ID sütunu bulunamadı")
                 return jsonify({'failures': [], 'error': 'FRACAS ID column not found'})
             
-            # Araç No sütununu bul
+            # FRACAS ID sütunu bul (farklı adlar olabilir)
+            fracas_id_col = None
+            for col in df.columns:
+                if 'FRACAS' in str(col).upper() and 'ID' in str(col).upper():
+                    fracas_id_col = col
+                    break
+            
+            # Araç No sütununu bul (farklı adlar olabilir)
             arac_no_col = None
-            if 'Araç No' in df.columns:
-                arac_no_col = 'Araç No'
+            for col in df.columns:
+                if 'araç' in str(col).lower() and ('no' in str(col).lower() or 'numarası' in str(col).lower()):
+                    arac_no_col = col
+                    break
             
             # Eğer equipment_code verildiyse filtrele, değilse son 5'i getir
             if equipment_code and equipment_code.strip():
@@ -610,20 +628,32 @@ def get_equipment_failures(equipment_code=None):
                     filtered_df = df.tail(5)
             else:
                 # Boş satırları hariç tut, son 5'i getir
-                filtered_df = df[df['FRACAS ID'].notna()].tail(5)
+                filtered_df = df[df[fracas_id_col].notna()].tail(5) if fracas_id_col else df.tail(5)
             
             print(f"[API] Filtrelenen satır sayısı: {len(filtered_df)}")
             
             # Sütunları hazırla
             for idx, row in filtered_df.iterrows():
                 try:
-                    # Pandas Series olarak erişim
-                    fracas_id = str(row['FRACAS ID']).strip() if pd.notna(row['FRACAS ID']) else ''
+                    # Pandas Series olarak erişim, sütun adlarını dinamik ara
+                    fracas_id = str(row[fracas_id_col]).strip() if fracas_id_col and pd.notna(row[fracas_id_col]) else ''
                     arac_no = str(row[arac_no_col]).strip() if arac_no_col and pd.notna(row[arac_no_col]) else ''
-                    sistem = str(row['Sistem']).strip() if pd.notna(row['Sistem']) else ''
-                    ariza_tanimi = str(row['Arıza Tanımı']).strip() if pd.notna(row['Arıza Tanımı']) else ''
-                    tarih = str(row['Tarih']).strip() if pd.notna(row['Tarih']) else ''
-                    durum = str(row['Durum']).strip() if pd.notna(row['Durum']) else ''
+                    
+                    # Sistem sütunu ara
+                    sistem_col = next((col for col in df.columns if 'sistem' in str(col).lower()), None)
+                    sistem = str(row[sistem_col]).strip() if sistem_col and pd.notna(row[sistem_col]) else ''
+                    
+                    # Arıza Tanımı sütunu ara
+                    ariza_def_col = next((col for col in df.columns if 'arıza' in str(col).lower() and 'tanım' in str(col).lower()), None)
+                    ariza_tanimi = str(row[ariza_def_col]).strip() if ariza_def_col and pd.notna(row[ariza_def_col]) else ''
+                    
+                    # Tarih sütunu ara
+                    tarih_col = next((col for col in df.columns if 'tarih' in str(col).lower()), None)
+                    tarih = str(row[tarih_col]).strip() if tarih_col and pd.notna(row[tarih_col]) else ''
+                    
+                    # Durum sütunu ara
+                    durum_col = next((col for col in df.columns if 'durum' in str(col).lower()), None)
+                    durum = str(row[durum_col]).strip() if durum_col and pd.notna(row[durum_col]) else ''
                     
                     failures.append({
                         'fracas_id': fracas_id,
@@ -652,3 +682,4 @@ def get_equipment_failures(equipment_code=None):
         import traceback
         traceback.print_exc()
         return jsonify({'failures': [], 'error': f'General error: {str(e)}'})
+
