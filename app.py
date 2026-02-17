@@ -2402,7 +2402,9 @@ def init_sample_data(app):
 if __name__ == '__main__':
     app = create_app()
     if app:
-        init_sample_data(app)
+        with app.app_context():
+            db.create_all()  # Ensure all tables exist
+        init_sample_data(app)  # Initialize sample data
     # Cloud ve local deployment için PORT ayarı
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True, threaded=True)
