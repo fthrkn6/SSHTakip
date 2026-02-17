@@ -10,8 +10,12 @@ import numpy as np
 from datetime import datetime, timedelta
 import os
 import json
+import logging
+import sys
 from utils.project_manager import ProjectManager
 from utils.backup_manager import BackupManager
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('fracas', __name__, url_prefix='/fracas')
 
@@ -117,7 +121,7 @@ def load_fracas_data(project_code=None):
         
         return df
     except Exception as e:
-        print(f"Excel okuma hatası ({project_code}): {e}")
+        logger.error(f'Excel okuma hatasi ({project_code}): {e}')
         return None
 
 
@@ -173,7 +177,7 @@ def load_ariza_listesi_data():
         
         return None
     except Exception as e:
-        print(f"Arıza Listesi okuma hatası: {e}")
+        logger.error(f'Ariza Listesi okuma hatasi: {e}')
         return None
 
 
@@ -479,7 +483,7 @@ def calculate_trend_analysis(df):
                         'count': int(count)
                     })
         except Exception as e:
-            print(f"Tarih analizi hatası: {e}")
+            logger.error(f'Tarih analizi hatasi: {e}')
             import traceback
             traceback.print_exc()
     

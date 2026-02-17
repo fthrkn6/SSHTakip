@@ -8,6 +8,10 @@ from flask_login import login_required, current_user
 from models import db, ServiceStatus, AvailabilityMetrics, RootCauseAnalysis, Failure, Equipment
 from datetime import datetime, timedelta, date
 from sqlalchemy import desc
+import logging
+import sys
+
+logger = logging.getLogger(__name__)
 from utils_availability import (
     log_service_status_change
 )
@@ -45,7 +49,7 @@ def get_tram_ids_from_veriler(project_code=None):
         # Fallback: Equipment tablosundan çek
         return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None, project_code=project_code).all()]
     except Exception as e:
-        print(f"Veriler.xlsx okuma hatası ({project_code}): {e}")
+        logger.error(f'Veriler.xlsx okuma hatasi ({project_code}): {e}')
         # Fallback: Equipment tablosundan çek (project_code ile filtrele)
         return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None, project_code=project_code).all()]
 

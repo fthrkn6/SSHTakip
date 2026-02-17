@@ -10,8 +10,12 @@ from sqlalchemy import func
 from datetime import datetime, timedelta
 import os
 import pandas as pd
+import logging
+import sys
 from utils.project_manager import ProjectManager
 from utils.backup_manager import BackupManager
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('kpi', __name__, url_prefix='/kpi')
 
@@ -45,7 +49,7 @@ def get_fracas_data():
                     
                     return df
                 except Exception as e:
-                    print(f"Excel okuma hatası: {e}")
+                    logger.error(f'Excel okuma hatasi: {e}')
                     return None
     
     return None
@@ -80,7 +84,7 @@ def get_ariza_listesi_data():
                     
                     return df
                 except Exception as e:
-                    print(f"Fracas okuma hatası: {e}")
+                    logger.error(f'Fracas okuma hatasi: {e}')
                     return None
     
     return None
@@ -165,7 +169,7 @@ def index():
                     if vehicle_mtbf:
                         kpi_data['mtbf'] = round(sum(vehicle_mtbf) / len(vehicle_mtbf), 0)
                 except Exception as e:
-                    print(f"MTBF hesaplama hatası: {e}")
+                    logger.error(f'MTBF hesaplama hatasi: {e}')
                     kpi_data['mtbf'] = 0
         
         # MTTR (Ortalama Tamir Süresi)
@@ -177,7 +181,7 @@ def index():
                     kpi_data['mttr'] = round(valid_mttr.mean(), 2)
                     kpi_data['total_downtime'] = round(valid_mttr.sum(), 1)
             except Exception as e:
-                print(f"MTTR hesaplama hatası: {e}")
+                logger.error(f'MTTR hesaplama hatasi: {e}')
         
         # Kullanılabilirlik (Availability)
         if kpi_data['vehicle_count'] > 0:
@@ -200,7 +204,7 @@ def index():
                 category_counts = df[cat_col].dropna().value_counts().head(10).to_dict()
                 kpi_data['failure_by_category'] = {str(k): int(v) for k, v in category_counts.items()}
             except Exception as e:
-                print(f"Kategori hesaplama hatası: {e}")
+                logger.error(f'Kategori hesaplama hatasi: {e}')
         
         # En çok arıza yapan araçlar
         if vehicle_col:
@@ -211,7 +215,7 @@ def index():
                     for v, c in top_vehicles.items()
                 ]
             except Exception as e:
-                print(f"Top vehicles hesaplama hatası: {e}")
+                logger.error(f'Top vehicles hesaplama hatasi: {e}')
         
         # Aylık trend
         if date_col:
@@ -223,7 +227,7 @@ def index():
                     for m, c in monthly.tail(12).items()
                 ]
             except Exception as e:
-                print(f"Aylık trend hesaplama hatası: {e}")
+                logger.error(f'Aylik trend hesaplama hatasi: {e}')
     
     # Veritabanından ek veriler
     db_stats = {

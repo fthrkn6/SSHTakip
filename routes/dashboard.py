@@ -5,8 +5,14 @@ from sqlalchemy import func, desc
 from datetime import datetime, timedelta, date
 import pandas as pd
 import os
+import logging
+import sys
 from utils.project_manager import ProjectManager
 from utils.backup_manager import BackupManager
+
+# Setup logger with UTF-8 encoding
+logging.basicConfig(stream=sys.stdout, encoding='utf-8', level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 def get_tram_ids_from_veriler(project_code=None):
@@ -32,7 +38,7 @@ def get_tram_ids_from_veriler(project_code=None):
         # Fallback: Equipment tablosundan çek
         return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None, project_code=project_code).all()]
     except Exception as e:
-        print(f"Veriler.xlsx okuma hatası ({project_code}): {e}")
+        logger.error(f'Veriler.xlsx okuma hatasi ({project_code}): {e}')
         # Fallback: Equipment tablosundan çek
         return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None, project_code=project_code).all()]
 
@@ -71,7 +77,7 @@ def get_failures_from_excel(project_code=None):
         
         return recent, sinif_counts
     except Exception as e:
-        print(f"Excel okuma hatası ({project_code}): {e}")
+        logger.error(f'Excel okuma hatasi ({project_code}): {e}')
         return [], {}
 
 
@@ -135,12 +141,12 @@ def get_today_completed_failures_count():
                     if durum == 'Kaydedildi':
                         today_completed += 1
             except Exception as e:
-                print(f"Satır işlenirken hata ({idx}): {e}")
+                logger.error(f'Satir islenirken hata ({idx}): {e}')
                 continue
         
         return today_completed
     except Exception as e:
-        print(f"Excel'den bugünün tamamlanan arıza sayısı alınırken hata: {e}")
+        logger.error(f"Excel'den bugunun tamamlanan ariza sayisi alinirken hata: {e}")
         return 0
 
 
@@ -205,7 +211,7 @@ def get_ariza_counts_by_class():
         
         return counts
     except Exception as e:
-        print(f"Arıza sınıfı hesaplama hatası: {e}")
+        logger.error(f'Ariza sinifi hesaplama hatasi: {e}')
         return counts
 
 
@@ -282,20 +288,20 @@ def calculate_fleet_mttr():
                         mttr_minutes = sum(mttr_values) / len(mttr_values)
                         mttr_minutes = round(mttr_minutes, 1)
                         total_failures = len(mttr_values)
-                        print(f"[MTTR DEBUG] {len(mttr_values)} arızadan MTTR ortalaması: {mttr_minutes} dk")
+                        logger.debug(f'[MTTR DEBUG] {len(mttr_values)} arizadan MTTR ortalamasi: {mttr_minutes} dk')
                     else:
                         # Fallback: Tüm arızaları say
                         total_failures = len(df[df.iloc[:, 0].notna()])
-                        print(f"[MTTR DEBUG] MTTR değeri bulunamadı, fallback: {total_failures} arıza")
+                        logger.debug(f'[MTTR DEBUG] MTTR degeri bulunamadi, fallback: {total_failures} ariza')
                 else:
                     # MTTR sütunu yoksa tüm arızaları say
                     total_failures = len(df[df.iloc[:, 0].notna()])
-                    print(f"[MTTR DEBUG] MTTR sütunu bulunamadı, fallback: {total_failures} arıza")
+                    logger.debug(f'[MTTR DEBUG] MTTR sutunu bulunamadi, fallback: {total_failures} ariza')
             
             except Exception as e:
-                print(f"[MTTR DEBUG] Excel MTTR okuma hatası: {e}")
+                logger.error(f'[MTTR DEBUG] Excel MTTR okuma hatasi: {e}')
                 import traceback
-                traceback.print_exc()
+                logger.error(traceback.format_exc())
                 total_failures = 0
                 mttr_minutes = 0
         
@@ -304,7 +310,7 @@ def calculate_fleet_mttr():
         minutes = int(mttr_minutes % 60) if mttr_minutes > 0 else 0
         mttr_formatted = f"{int(mttr_minutes)} dk" if mttr_minutes > 0 else "0 dk"
         
-        print(f"[MTTR FINAL] mttr_minutes={mttr_minutes}, formatted={mttr_formatted}, failures={total_failures}")
+        logger.debug(f'[MTTR FINAL] mttr_minutes={mttr_minutes}, formatted={mttr_formatted}, failures={total_failures}')
         
         return {
             'mttr_minutes': mttr_minutes,
@@ -315,9 +321,9 @@ def calculate_fleet_mttr():
         }
     
     except Exception as e:
-        print(f"[MTTR ERROR] MTTR hesaplama hatası: {e}")
+        logger.error(f'[MTTR ERROR] MTTR hesaplama hatasi: {e}')
         import traceback
-        traceback.print_exc()
+        logger.error(traceback.format_exc())
         return {
             'mttr_minutes': 0,
             'mttr_formatted': '0m',
@@ -380,13 +386,13 @@ def index():
         Equipment.project_code == current_project
     ).order_by(Equipment.equipment_code).all()
     
-    print(f"[DASHBOARD FILTER 1531-1555] Found {len(tramvaylar)} trams")
+    logger.debug(f'[DASHBOARD FILTER 1531-1555] Found {len(tramvaylar)} trams')
     
     # Eğer range'de veri yoksa fallback
     if not tramvaylar:
-        print(f"[DASHBOARD FALLBACK] No trams in 1531-1555 range, using all project equipment")
+        logger.debug(f'[DASHBOARD FALLBACK] No trams in 1531-1555 range, using all project equipment')
         tramvaylar = Equipment.query.filter_by(parent_id=None, project_code=current_project).order_by(Equipment.equipment_code).all()
-        print(f"[DASHBOARD FALLBACK] Found {len(tramvaylar)} trams from fallback")
+        logger.debug(f'[DASHBOARD FALLBACK] Found {len(tramvaylar)} trams from fallback')
     
     # Bugünün tarihi
     today = str(date.today())
@@ -580,16 +586,16 @@ def get_equipment_failures(equipment_code=None):
         failures = []
         
         if not ariza_listesi_file or not os.path.exists(ariza_listesi_file):
-            print(f"[API] Fracas dosyası bulunamadı")
+            logger.error(f'[API] Fracas dosyasi bulunamadi')
             return jsonify({'failures': [], 'error': 'Fracas file not found'})
         
         try:
             df = pd.read_excel(ariza_listesi_file, sheet_name='FRACAS', header=3)
-            print(f"[API] Excel okundu - {len(df)} satır, Sütunlar: {list(df.columns)[:5]}...")
+            logger.info(f'[API] Excel okundu - {len(df)} satir, Sutunlar: {list(df.columns)[:5]}...')
             
             # FRACAS ID sütununu doğrula
             if not any('FRACAS' in str(col).upper() and 'ID' in str(col).upper() for col in df.columns):
-                print("[API] FRACAS ID sütunu bulunamadı")
+                logger.error('[API] FRACAS ID sutunu bulunamadi')
                 return jsonify({'failures': [], 'error': 'FRACAS ID column not found'})
             
             # FRACAS ID sütunu bul (farklı adlar olabilir)
@@ -617,7 +623,7 @@ def get_equipment_failures(equipment_code=None):
                 # Boş satırları hariç tut, son 5'i getir
                 filtered_df = df[df[fracas_id_col].notna()].tail(5) if fracas_id_col else df.tail(5)
             
-            print(f"[API] Filtrelenen satır sayısı: {len(filtered_df)}")
+            logger.debug(f'[API] Filtrelenen satir sayisi: {len(filtered_df)}')
             
             # Sütunları hazırla
             for idx, row in filtered_df.iterrows():
@@ -650,23 +656,23 @@ def get_equipment_failures(equipment_code=None):
                         'tarih': tarih,
                         'durum': durum
                     })
-                    print(f"[API] Satır {idx}: {fracas_id} - {arac_no}")
+                    logger.debug(f'[API] Satir {idx}: {fracas_id} - {arac_no}')
                 except Exception as e:
-                    print(f"[API] Satır {idx} işleme hatası: {e}")
+                    logger.error(f'[API] Satir {idx} isleme hatasi: {e}')
                     continue
             
-            print(f"[API] Toplam {len(failures)} arıza döndürülüyor")
+            logger.info(f'[API] Toplam {len(failures)} ariza donduruluyorr')
             return jsonify({'failures': failures, 'count': len(failures)})
             
         except Exception as excel_error:
-            print(f"[API] Excel okuma hatası: {type(excel_error).__name__}: {excel_error}")
+            logger.error(f'[API] Excel okuma hatasi: {type(excel_error).__name__}: {excel_error}')
             import traceback
-            traceback.print_exc()
+            logger.error(traceback.format_exc())
             return jsonify({'failures': [], 'error': f'Excel read error: {str(excel_error)}'})
     
     except Exception as e:
-        print(f"[API] Genel hata: {type(e).__name__}: {e}")
+        logger.error(f'[API] Genel hata: {type(e).__name__}: {e}')
         import traceback
-        traceback.print_exc()
+        logger.error(traceback.format_exc())
         return jsonify({'failures': [], 'error': f'General error: {str(e)}'})
 

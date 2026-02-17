@@ -4,6 +4,10 @@ from models import db, MaintenancePlan, Equipment, MaintenanceLog, WorkOrder
 from datetime import datetime
 import pandas as pd
 import os
+import logging
+import sys
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('maintenance', __name__, url_prefix='/maintenance')
 
@@ -31,10 +35,10 @@ def load_trams_from_file(project_code=None):
         tram_list = [str(int(t)).zfill(3) if isinstance(t, (int, float)) else str(t) for t in tram_list]
         tram_list = list(set(tram_list))  # Duplicates kaldır
         tram_list.sort(key=lambda x: int(x) if x.isdigit() else 0)
-        print(f"[MAINTENANCE] load_trams_from_file returned: {tram_list}")
+        logger.debug(f'[MAINTENANCE] load_trams_from_file returned: {tram_list}')
         return tram_list
     except Exception as e:
-        print(f"Veriler.xlsx okuma hatası ({project_code}): {e}")
+        logger.error(f'Veriler.xlsx okuma hatasi ({project_code}): {e}')
         # Fallback: Equipment tablosundan çek (project_code ile filtrele)
         return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None, project_code=project_code).all()]
 
