@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Başlık -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1>
+                <i class="fas fa-shield-alt"></i>
+                Admin Paneli
+            </h1>
+            <p class="text-muted">Sistem, kullanıcı ve proje yönetimi</p>
+        </div>
+    </div>
+
+    <!-- İstatistik Kartları -->
+    <div class="row mb-4">
+        <!-- Toplam Kullanıcılar -->
+        <div class="col-md-3 mb-3">
+            <div class="card border-left-primary h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div>
+                            <div class="text-xs font-weight-bold text-primary mb-1">
+                                Toplam Kullanıcı
+                            </div>
+                            <h3 class="mb-0">{{ total_users }}</h3>
+                        </div>
+                        <i class="fas fa-users fa-2x ml-3 text-primary" style="opacity: 0.5;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Kullanıcılar -->
+        <div class="col-md-3 mb-3">
+            <div class="card border-left-danger h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div>
+                            <div class="text-xs font-weight-bold text-danger mb-1">
+                                Admin Kullanıcı
+                            </div>
+                            <h3 class="mb-0">{{ admin_users }}</h3>
+                        </div>
+                        <i class="fas fa-crown fa-2x ml-3 text-danger" style="opacity: 0.5;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Saha Kullanıcıları -->
+        <div class="col-md-3 mb-3">
+            <div class="card border-left-info h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div>
+                            <div class="text-xs font-weight-bold text-info mb-1">
+                                Saha Kullanıcısı
+                            </div>
+                            <h3 class="mb-0">{{ saha_users }}</h3>
+                        </div>
+                        <i class="fas fa-wrench fa-2x ml-3 text-info" style="opacity: 0.5;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aktif Projeler -->
+        <div class="col-md-3 mb-3">
+            <div class="card border-left-success h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div>
+                            <div class="text-xs font-weight-bold text-success mb-1">
+                                Aktif Projeler
+                            </div>
+                            <h3 class="mb-0">{{ active_projects }} / {{ projects_count }}</h3>
+                        </div>
+                        <i class="fas fa-project-diagram fa-2x ml-3 text-success" style="opacity: 0.5;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kontrol Paneli -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-users fa-3x text-primary mb-3"></i>
+                    <h5 class="card-title">Kullanıcı Yönetimi</h5>
+                    <p class="card-text text-muted">Kullanıcı oluştur, düzenle, sil</p>
+                    <a href="{{ url_for('admin.users') }}" class="btn btn-primary btn-sm">
+                        Git <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-cogs fa-3x text-info mb-3"></i>
+                    <h5 class="card-title">Proje Yönetimi</h5>
+                    <p class="card-text text-muted">Proje oluştur ve yapısını düzenle</p>
+                    <a href="{{ url_for('admin.projects') }}" class="btn btn-info btn-sm">
+                        Git <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-database fa-3x text-warning mb-3"></i>
+                    <h5 class="card-title">Yedekleme</h5>
+                    <p class="card-text text-muted">Yedekleme geçmişi ve geri yükleme</p>
+                    <a href="{{ url_for('admin.backups') }}" class="btn btn-warning btn-sm">
+                        Git <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-bars fa-3x text-success mb-3"></i>
+                    <h5 class="card-title">Sistem Bilgisi</h5>
+                    <p class="card-text text-muted">Sistem ve yapılandırma detayları</p>
+                    <a href="#" class="btn btn-success btn-sm" onclick="return false;">
+                        Yakında <i class="fas fa-ellipsis-h"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Son Yedekleme Durumu -->
+    <div class="row">
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-clock"></i>
+                        Son Yedekleme
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if backup_info %}
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Proje</th>
+                                <th>Son Yedekleme</th>
+                                <th>Yedek Sayısı</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for project_code, info in backup_info.items() %}
+                            <tr>
+                                <td>{{ project_code }}</td>
+                                <td>
+                                    {% if info.last_backup %}
+                                    <small>{{ info.last_backup }}</small>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ info.backup_count }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p class="text-muted">Henüz yedek yapılmamış</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Son Giriş Yapan Kullanıcılar -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Son Giriş Yapanlar
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_users %}
+                    <div class="list-group">
+                        {% for user in recent_users %}
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">
+                                    {{ user.full_name }}
+                                    <span class="badge badge-{% if user.is_admin() %}danger{% else %}info{% endif %}">
+                                        {% if user.is_admin() %}
+                                        <i class="fas fa-crown"></i> Admin
+                                        {% else %}
+                                        <i class="fas fa-wrench"></i> Saha
+                                        {% endif %}
+                                    </span>
+                                </h6>
+                                <small class="text-muted">
+                                    {% if user.last_login %}
+                                    {{ user.last_login.strftime('%d.%m.%Y %H:%M') }}
+                                    {% else %}
+                                    Hiç giriş yapılmamış
+                                    {% endif %}
+                                </small>
+                            </div>
+                            <p class="mb-1 text-muted">{{ user.email }}</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Kullanıcı bulunamadı</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<style>
+    .border-left-primary {
+        border-left: 4px solid #007bff;
+    }
+
+    .border-left-danger {
+        border-left: 4px solid #dc3545;
+    }
+
+    .border-left-info {
+        border-left: 4px solid #17a2b8;
+    }
+
+    .border-left-success {
+        border-left: 4px solid #28a745;
+    }
+
+    .border-left-warning {
+        border-left: 4px solid #ffc107;
+    }
+</style>
+{% endblock %}

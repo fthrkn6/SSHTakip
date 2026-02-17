@@ -14,10 +14,12 @@ from routes.kpi import bp as kpi_bp
 from routes.service_status import bp as service_status_bp
 from routes.dashboard import bp as dashboard_bp
 from routes.reports import reports_bp
+from routes.admin import bp as admin_bp
 from utils_service_status_logger import ServiceStatusLogger
 from utils_root_cause_analysis import RootCauseAnalyzer
 from utils.project_manager import ProjectManager
 from utils.backup_manager import BackupManager
+from utils.auth_decorators import require_admin, require_project_access, check_project_in_session
 import os
 import shutil
 import tempfile
@@ -74,6 +76,44 @@ def create_app():
         app.register_blueprint(service_status_bp)
         app.register_blueprint(dashboard_bp)
         app.register_blueprint(reports_bp)
+        app.register_blueprint(admin_bp)  # Admin paneli
+        
+        # Project session handler
+        @app.before_request
+        def set_project_session():
+            """
+            Navbar proje seçicisinden gelen project query parametresini session'a kaydet
+            """
+            if current_user.is_authenticated:
+                # Query parameter'dan proje kodunu al
+                project_code = request.args.get('project')
+                
+                if project_code:
+                    # Kullanıcının bu projeye erişim yetkisi var mı kontrol et
+                    if current_user.can_access_project(project_code):
+                        session['project_code'] = project_code
+                        # Proje adını da sessionda sakla
+                        projects = ProjectManager.get_all_projects()
+                        for p in projects:
+                            if p['code'] == project_code:
+                                session['project_name'] = p['name']
+                                break
+                
+                # Session'da proje kodu yoksa varsayılan ayarla
+                if 'project_code' not in session:
+                    # Admin ise belgrad, saha ise ilk atanan projeyi al
+                    if current_user.is_admin():
+                        session['project_code'] = 'belgrad'
+                        session['project_name'] = 'Belgrad'
+                    else:
+                        assigned = current_user.get_assigned_projects()
+                        if assigned:
+                            session['project_code'] = assigned[0]
+                            projects = ProjectManager.get_all_projects()
+                            for p in projects:
+                                if p['code'] == assigned[0]:
+                                    session['project_name'] = p['name']
+                                    break
         
         # Initialize reporting system
         with app.app_context():

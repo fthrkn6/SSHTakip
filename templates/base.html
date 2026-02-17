@@ -706,20 +706,39 @@
             {% if current_user.role == 'admin' %}
             <div class="sidebar-menu-title">Yönetim</div>
 
+            <a href="{{ url_for('admin.dashboard') }}"
+                class="sidebar-link {{ 'active' if 'admin' in request.endpoint|string }}">
+                <i class="bi bi-shield-lock"></i>
+                <span>Admin Paneli</span>
+            </a>
+
+            <a href="{{ url_for('admin.users') }}"
+                class="sidebar-link {{ 'active' if 'admin.users' in request.endpoint|string }}">
+                <i class="bi bi-people"></i>
+                <span>Kullanıcı Yönetimi</span>
+            </a>
+
+            <a href="{{ url_for('admin.projects') }}"
+                class="sidebar-link {{ 'active' if 'admin.projects' in request.endpoint|string }}">
+                <i class="bi bi-folder2-open"></i>
+                <span>Proje Yönetimi</span>
+            </a>
+
+            <a href="{{ url_for('admin.backups') }}"
+                class="sidebar-link {{ 'active' if 'admin.backups' in request.endpoint|string }}">
+                <i class="bi bi-database"></i>
+                <span>Yedekleme</span>
+            </a>
+
             <a href="{{ url_for('kullanicilar') }}"
                 class="sidebar-link {{ 'active' if 'kullanici' in request.endpoint|string }}">
-                <i class="bi bi-people"></i>
-                <span>Kullanıcılar</span>
+                <i class="bi bi-people-fill"></i>
+                <span>Eski Kullanıcılar</span>
             </a>
 
             <a href="{{ url_for('audit_log') }}" class="sidebar-link {{ 'active' if request.endpoint == 'audit_log' }}">
-                <i class="bi bi-shield-lock"></i>
+                <i class="bi bi-shield-check"></i>
                 <span>Denetim Günlüğü</span>
-            </a>
-
-            <a href="{{ url_for('proje_sec') }}" class="sidebar-link {{ 'active' if request.endpoint == 'proje_sec' }}">
-                <i class="bi bi-folder2-open"></i>
-                <span>Proje Değiştir</span>
             </a>
             {% endif %}
         </nav>
@@ -735,10 +754,60 @@
             </div>
 
             <div class="navbar-actions">
+                <!-- Proje Seçici (Yalnız Saha Kullanıcıları için) -->
+                {% if current_user.is_saha() or current_user.is_admin() %}
+                <div class="dropdown">
+                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown">
+                        <i class="bi bi-folder2-open"></i>
+                        {% if session.get('project_code') %}
+                        {{ session.get('project_code') }}
+                        {% else %}
+                        Proje Seç
+                        {% endif %}
+                    </button>
+                    <ul class="dropdown-menu">
+                        {% set user_projects = current_user.get_assigned_projects() %}
+                        {% if user_projects == '*' %}
+                        <!-- Admin: Tüm Projeler -->
+                        {% for project_code in ['belgrad', 'gebze', 'iasi', 'kayseri', 'kocaeli', 'timisoara'] %}
+                        <li>
+                            <a class="dropdown-item {% if session.get('project_code') == project_code %}active{% endif %}"
+                                href="?project={{ project_code }}">
+                                <i
+                                    class="bi bi-check {% if session.get('project_code') == project_code %}me-2{% endif %}"></i>
+                                {{ project_code|title }}
+                            </a>
+                        </li>
+                        {% endfor %}
+                        {% elif user_projects %}
+                        <!-- Saha: Atanan Projeler -->
+                        {% for proj_code in user_projects %}
+                        <li>
+                            <a class="dropdown-item {% if session.get('project_code') == proj_code %}active{% endif %}"
+                                href="?project={{ proj_code }}">
+                                <i
+                                    class="bi bi-check {% if session.get('project_code') == proj_code %}me-2{% endif %}"></i>
+                                {{ proj_code|title }}
+                            </a>
+                        </li>
+                        {% endfor %}
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+
                 <button class="navbar-icon-btn">
                     <i class="bi bi-bell"></i>
                     <span class="notification-badge"></span>
                 </button>
+
+                <!-- Admin Panel Link (Yalnız Admin) -->
+                {% if current_user.is_admin() %}
+                <a href="{{ url_for('admin.dashboard') }}" class="navbar-icon-btn" title="Admin Paneli">
+                    <i class="bi bi-shield-lock"></i>
+                </a>
+                {% endif %}
 
                 <div class="dropdown">
                     <div class="user-dropdown" data-bs-toggle="dropdown">
@@ -754,6 +823,13 @@
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" href="{{ url_for('profile') }}"><i
                                     class="bi bi-person me-2"></i>Profil</a></li>
+                        {% if current_user.is_admin() %}
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.dashboard') }}"><i
+                                    class="bi bi-shield-lock me-2"></i>Admin Paneli</a></li>
+                        {% endif %}
                         <li>
                             <hr class="dropdown-divider">
                         </li>

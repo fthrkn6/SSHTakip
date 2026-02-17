@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Yeni Proje Ekle - Admin Paneli{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-plus-circle"></i>
+                        Yeni Proje Ekle
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <!-- Proje Kodu -->
+                        <div class="form-group">
+                            <label for="code">
+                                <i class="fas fa-code"></i> Proje Kodu <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" id="code" name="code" placeholder="örn: ankara"
+                                required>
+                            <small class="form-text text-muted">Küçük harfler ve tire(-) ile</small>
+                        </div>
+
+                        <!-- Proje Adı -->
+                        <div class="form-group">
+                            <label for="name">
+                                <i class="fas fa-project-diagram"></i> Proje Adı <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" id="name" name="name" placeholder="örn: Ankara LRT"
+                                required>
+                        </div>
+
+                        <!-- Açıklama -->
+                        <div class="form-group">
+                            <label for="description">
+                                <i class="fas fa-align-left"></i> Açıklama
+                            </label>
+                            <textarea class="form-control" id="description" name="description" rows="3"
+                                placeholder="Proje hakkında bilgi..."></textarea>
+                        </div>
+
+                        <!-- Konum -->
+                        <div class="form-group">
+                            <label for="location">
+                                <i class="fas fa-map-pin"></i> Konum <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-control" id="location" name="location" required>
+                                <option value="">-- Ülke Seç --</option>
+                                <option value="Türkiye">🇹🇷 Türkiye</option>
+                                <option value="Sırbistan">🇷🇸 Sırbistan</option>
+                                <option value="Romanya">🇷🇴 Romanya</option>
+                                <option value="Diğer">🌍 Diğer</option>
+                            </select>
+                        </div>
+
+                        <!-- İletişim Bilgileri (İsteğe bağlı) -->
+                        <hr>
+                        <h6 class="mb-3">İletişim Bilgileri (İsteğe Bağlı)</h6>
+
+                        <div class="form-group">
+                            <label for="contact_name">
+                                <i class="fas fa-user-circle"></i> Sorumlu Kişi
+                            </label>
+                            <input type="text" class="form-control" id="contact_name" name="contact_name">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="contact_email">
+                                <i class="fas fa-envelope"></i> Email
+                            </label>
+                            <input type="email" class="form-control" id="contact_email" name="contact_email">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="contact_phone">
+                                <i class="fas fa-phone"></i> Telefon
+                            </label>
+                            <input type="tel" class="form-control" id="contact_phone" name="contact_phone">
+                        </div>
+
+                        <hr>
+
+                        <!-- Bilgi -->
+                        <div class="alert alert-light" role="alert">
+                            <strong>ℹ️ Not:</strong>
+                            <small>
+                                Proje oluşturulduktan sonra otomatik olarak klasör yapısı oluşturulacaktır:
+                                <ul class="mb-0 mt-2">
+                                    <li><code>logs/{proje_kodu}/veriler/</code></li>
+                                    <li><code>logs/{proje_kodu}/ariza_listesi/</code></li>
+                                    <li><code>logs/{proje_kodu}/config/</code></li>
+                                    <li><code>logs/{proje_kodu}/archive/</code></li>
+                                </ul>
+                            </small>
+                        </div>
+
+                        <!-- Butonlar -->
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-check"></i> Oluştur
+                            </button>
+                            <a href="{{ url_for('admin.projects') }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> İptal
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

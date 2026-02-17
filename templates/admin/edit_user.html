@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Kullanıcı Düzenle - Admin Paneli{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user-edit"></i>
+                        Kullanıcı Düzenle: {{ user.full_name }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <!-- Ad Soyadı -->
+                        <div class="form-group">
+                            <label for="full_name">
+                                <i class="fas fa-user"></i> Ad Soyadı <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" id="full_name" name="full_name"
+                                value="{{ user.full_name }}" required>
+                        </div>
+
+                        <!-- Kullanıcı Adı (Salt Okunur) -->
+                        <div class="form-group">
+                            <label for="username">
+                                <i class="fas fa-at"></i> Kullanıcı Adı
+                            </label>
+                            <input type="text" class="form-control" id="username" value="{{ user.username }}" disabled>
+                            <small class="form-text text-muted">Değiştirilemez</small>
+                        </div>
+
+                        <!-- Email -->
+                        <div class="form-group">
+                            <label for="email">
+                                <i class="fas fa-envelope"></i> Email <span class="text-danger">*</span>
+                            </label>
+                            <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}"
+                                required>
+                        </div>
+
+                        <!-- Şifre (İsteğe bağlı) -->
+                        <div class="form-group">
+                            <label for="password">
+                                <i class="fas fa-lock"></i> Yeni Şifre
+                            </label>
+                            <input type="password" class="form-control" id="password" name="password">
+                            <small class="form-text text-muted">Boş bırakırsa değişmez</small>
+                        </div>
+
+                        <!-- Rol -->
+                        <div class="form-group">
+                            <label for="role">
+                                <i class="fas fa-shield-alt"></i> Rol <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-control" id="role" name="role" onchange="updateProjectsDisplay()"
+                                required>
+                                <option value="">-- Rol Seç --</option>
+                                <option value="admin" {% if user.role=='admin' %}selected{% endif %}>🔐 Admin - Tüm
+                                    sisteme erişim</option>
+                                <option value="saha" {% if user.role=='saha' %}selected{% endif %}>🔧 Saha - Belirli
+                                    projeler</option>
+                            </select>
+                        </div>
+
+                        <!-- Projeler (Yalnız Saha için) -->
+                        <div class="form-group" id="projects-container"
+                            style="{% if user.role == 'saha' %}display: block;{% else %}display: none;{% endif %}">
+                            <label for="assigned_projects">
+                                <i class="fas fa-folder"></i> Erişebilecek Projeler
+                            </label>
+                            <div class="card">
+                                <div class="card-body">
+                                    {% if projects %}
+                                    {% for project in projects %}
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="project_{{ project.code }}"
+                                            name="assigned_projects" value="{{ project.code }}" {% if project.code in
+                                            current_projects %}checked{% endif %}>
+                                        <label class="form-check-label" for="project_{{ project.code }}">
+                                            <strong>{{ project.name }}</strong>
+                                            <small class="text-muted">({{ project.location }})</small>
+                                        </label>
+                                    </div>
+                                    {% endfor %}
+                                    {% else %}
+                                    <p class="text-muted">Kullanılabilir proje yok</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bilgiler -->
+                        <div class="alert alert-info" role="alert">
+                            <strong>Bilgi:</strong>
+                            <br>
+                            <small>
+                                <i class="fas fa-calendar"></i> Oluşturulma: {{ user.created_at.strftime('%d.%m.%Y
+                                %H:%M') if user.created_at else 'Bilinmiyor' }}
+                                <br>
+                                <i class="fas fa-sign-in-alt"></i> Son Giriş:
+                                {% if user.last_login %}
+                                {{ user.last_login.strftime('%d.%m.%Y %H:%M') }}
+                                {% else %}
+                                Giriş yapılmamış
+                                {% endif %}
+                            </small>
+                        </div>
+
+                        <hr>
+
+                        <!-- Butonlar -->
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fas fa-check"></i> Güncelle
+                            </button>
+                            <a href="{{ url_for('admin.users') }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> İptal
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function updateProjectsDisplay() {
+        const role = document.getElementById('role').value;
+        const projectsContainer = document.getElementById('projects-container');
+
+        if (role === 'saha') {
+            projectsContainer.style.display = 'block';
+        } else {
+            projectsContainer.style.display = 'none';
+        }
+    }
+</script>
+{% endblock %}

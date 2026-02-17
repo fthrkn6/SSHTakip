@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Yedekleme Yönetimi - Admin Paneli{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Başlık -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1>
+                <i class="fas fa-database"></i>
+                Yedekleme Yönetimi
+            </h1>
+        </div>
+        <div class="col-auto">
+            <form method="POST" action="{{ url_for('admin.backup_all') }}" style="display: inline;">
+                <button type="submit" class="btn btn-success" onclick="return confirm('Tüm projeleri yedekle?');">
+                    <i class="fas fa-save"></i> Tüm Projeleri Yedekle
+                </button>
+            </form>
+            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Geri
+            </a>
+        </div>
+    </div>
+
+    {% if backup_data %}
+    <!-- Projeler Bazında Yedek Bilgisi -->
+    {% for project_code, data in backup_data.items() %}
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-folder"></i> {{ data.project_name }} ({{ project_code }})
+                </h5>
+                <span class="badge badge-light">{{ data.count }} Yedek</span>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if data.backups %}
+            <!-- Yedek Listesi -->
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th><i class="fas fa-file"></i> Dosya</th>
+                            <th><i class="fas fa-calendar"></i> Tarih</th>
+                            <th><i class="fas fa-database"></i> Boyut</th>
+                            <th style="width: 120px;"><i class="fas fa-tools"></i> İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for backup in data.backups %}
+                        <tr>
+                            <td>
+                                <code>{{ backup.filename }}</code>
+                            </td>
+                            <td>
+                                <small>{{ backup.date }}</small>
+                            </td>
+                            <td>
+                                <small>{{ backup.size }}</small>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-info" title="Geri Yükle">
+                                    <i class="fas fa-undo"></i>
+                                </button>
+                                <button class="btn btn-sm btn-secondary" title="İndir">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted">Bu proje için henüz yedek yapılmamış</p>
+            {% endif %}
+
+            <!-- Manuel Yedekleme Butonu -->
+            <form method="POST" action="{{ url_for('admin.backup_project', project_code=project_code) }}"
+                style="display: inline;">
+                <button type="submit" class="btn btn-sm btn-warning mt-3">
+                    <i class="fas fa-save"></i> Şimdi Yedekle
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> Aktif proje bulunamadı.
+    </div>
+    {% endif %}
+
+    <!-- Yedekleme İstatistikleri -->
+    <div class="card">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-chart-bar"></i>
+                Yedekleme İstatistikleri
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="text-center p-3 border-right">
+                        <h3 class="text-primary">{{ backup_data|length }}</h3>
+                        <p class="text-muted">Aktif Proje</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-center p-3 border-right">
+                        <h3 class="text-success">
+                            {% set total_backups = backup_data.values()|map(attribute='count')|sum %}
+                            {{ total_backups }}
+                        </h3>
+                        <p class="text-muted">Toplam Yedek</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-center p-3">
+                        <h3 class="text-info">?</h3>
+                        <p class="text-muted">Depolama Alanı*</p>
+                        <small class="text-muted">*Hesaplanıyor...</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Yedekleme Ayarları -->
+    <div class="card mt-4">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-sliders-h"></i>
+                Yedekleme Ayarları
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-light">
+                <strong>Otomatik Yedekleme:</strong>
+                <p class="mb-0">
+                    <i class="fas fa-check text-success"></i>
+                    Her form gönderiminde otomatik yedek yapılır
+                </p>
+            </div>
+            <div class="alert alert-light">
+                <strong>Yedek Saklama:</strong>
+                <p class="mb-0">
+                    <i class="fas fa-calendar"></i>
+                    Son 30 gün boyunca yedekler saklanır
+                </p>
+            </div>
+            <div class="alert alert-light">
+                <strong>Yedek Konumu:</strong>
+                <p class="mb-0">
+                    <code>logs/{project}/archive/</code>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

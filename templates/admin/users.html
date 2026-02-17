@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Kullanıcı Yönetimi - Admin Paneli{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Başlık -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1>
+                <i class="fas fa-users"></i>
+                Kullanıcı Yönetimi
+            </h1>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('admin.add_user') }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Yeni Kullanıcı
+            </a>
+            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Geri
+            </a>
+        </div>
+    </div>
+
+    {% if users %}
+    <!-- Kullanıcı Tablosu -->
+    <div class="card">
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>
+                            <i class="fas fa-user"></i> Ad Soyadı
+                        </th>
+                        <th>
+                            <i class="fas fa-envelope"></i> Email
+                        </th>
+                        <th>
+                            <i class="fas fa-shield-alt"></i> Rol
+                        </th>
+                        <th>
+                            <i class="fas fa-folder"></i> Projeler
+                        </th>
+                        <th>
+                            <i class="fas fa-calendar"></i> Giriş Tarihi
+                        </th>
+                        <th style="width: 150px;">
+                            <i class="fas fa-cogs"></i> İşlemler
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>
+                            <strong>{{ user.full_name }}</strong>
+                            <br>
+                            <small class="text-muted">@{{ user.username }}</small>
+                        </td>
+                        <td>{{ user.email }}</td>
+                        <td>
+                            {% if user.is_admin() %}
+                            <span class="badge badge-danger">
+                                <i class="fas fa-crown"></i> Admin
+                            </span>
+                            {% else %}
+                            <span class="badge badge-info">
+                                <i class="fas fa-wrench"></i> Saha
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user.is_admin() %}
+                            <span class="badge badge-success">Tüm Projeler</span>
+                            {% else %}
+                            {% set projects = user.get_assigned_projects() %}
+                            {% if projects %}
+                            {% for proj in projects %}
+                            <span class="badge badge-info">{{ proj }}</span>
+                            {% endfor %}
+                            {% else %}
+                            <span class="text-muted">Yok</span>
+                            {% endif %}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user.last_login %}
+                            <small>{{ user.last_login.strftime('%d.%m.%Y %H:%M') }}</small>
+                            {% else %}
+                            <small class="text-muted">Giriş yapılmamış</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('admin.edit_user', user_id=user.id) }}" class="btn btn-sm btn-warning"
+                                title="Düzenle">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            {% if user.id != current_user.id %}
+                            <form method="POST" action="{{ url_for('admin.delete_user', user_id=user.id) }}"
+                                style="display: inline;" onsubmit="return confirm('Emin misiniz?');">
+                                <button type="submit" class="btn btn-sm btn-danger" title="Sil">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                            {% else %}
+                            <button type="button" class="btn btn-sm btn-danger" disabled
+                                title="Kendi hesabınızı silemez">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> Henüz kullanıcı oluşturulmamış.
+        <a href="{{ url_for('admin.add_user') }}">Yeni kullanıcı ekle</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

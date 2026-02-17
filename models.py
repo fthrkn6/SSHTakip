@@ -14,7 +14,7 @@ db = SQLAlchemy()
 
 
 class User(UserMixin, db.Model):
-    """Kullanıcı modeli - Rol tabanlı erişim kontrolü"""
+    """Kullanıcı modeli - Rol tabanlı erişim kontrolü (Admin / Saha)"""
     __tablename__ = 'users'
     
     id = db.Column(db.Integer, primary_key=True)
@@ -22,7 +22,8 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255))
     full_name = db.Column(db.String(100))
-    role = db.Column(db.String(20), default='user')
+    role = db.Column(db.String(20), default='saha')  # 'admin' veya 'saha'
+    assigned_projects = db.Column(db.Text)  # JSON: ["belgrad", "ankara"] (admin için "*")
     department = db.Column(db.String(50))
     phone = db.Column(db.String(20))
     employee_id = db.Column(db.String(20))
@@ -48,9 +49,51 @@ class User(UserMixin, db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
     
+    def is_admin(self):
+        """Admin mi kontrol et"""
+        return self.role == 'admin'
+    
+    def is_saha(self):
+        """Saha kullanıcısı mı kontrol et"""
+        return self.role == 'saha'
+    
+    def can_access_project(self, project_code):
+        """Projeye erişim izni var mı kontrol et"""
+        if self.is_admin():
+            return True
+        
+        if self.assigned_projects:
+            try:
+                projects = json.loads(self.assigned_projects)
+                return project_code in projects or '*' in projects
+            except:
+                return False
+        return False
+    
+    def get_assigned_projects(self):
+        """İzin edilen projeleri listele"""
+        if self.role == 'admin':
+            return '*'  # Tüm projeler
+        
+        if self.assigned_projects:
+            try:
+                return json.loads(self.assigned_projects)
+            except:
+                return []
+        return []
+    
+    def set_assigned_projects(self, projects):
+        """İzin edilen projeleri ayarla"""
+        if isinstance(projects, list):
+            self.assigned_projects = json.dumps(projects)
+        else:
+            self.assigned_projects = projects
+    
     def get_role_display(self):
+        """Rol adını Türkçe göster"""
         roles = {
             'admin': 'Yönetici',
+            'saha': 'Saha Kullanıcısı',
             'muhendis': 'Mühendis',
             'teknisyen': 'Teknisyen',
             'operator': 'Operatör',
