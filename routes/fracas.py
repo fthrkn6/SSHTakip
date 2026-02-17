@@ -10,6 +10,8 @@ import numpy as np
 from datetime import datetime, timedelta
 import os
 import json
+from utils.project_manager import ProjectManager
+from utils.backup_manager import BackupManager
 
 bp = Blueprint('fracas', __name__, url_prefix='/fracas')
 
@@ -74,53 +76,28 @@ COLUMN_MAPPING = {
 }
 
 
-def get_excel_path():
-    """Seçili projenin FRACAS Excel dosya yolunu döndür - logs/{project}/ariza_listesi/ klasöründen"""
-    from flask import session
+def get_excel_path(project_code=None):
+    """Projenin FRACAS Excel dosya yolunu döndür"""
+    if not project_code:
+        project_code = session.get('current_project', 'belgrad')
     
-    current_project = session.get('current_project', 'belgrad')
-    
-    # Birincil konum: logs/{project}/ariza_listesi/Fracas_*.xlsx
-    ariza_listesi_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
-    
-    if os.path.exists(ariza_listesi_dir):
-        # Fracas_*.xlsx ara
-        for filename in os.listdir(ariza_listesi_dir):
-            if filename.upper().startswith('FRACAS_') and filename.endswith(('.xlsx', '.xls')) and not filename.startswith('~$'):
-                return os.path.join(ariza_listesi_dir, filename)
-    
-    # Fallback: data/{project}/ klasöründen ara
-    project_folder = os.path.join(current_app.root_path, 'data', current_project)
-    
-    if not os.path.exists(project_folder):
-        return None
-    
-    # FRACAS dosyasını tercihen bul
-    for filename in os.listdir(project_folder):
-        if 'fracas' in filename.lower() and filename.endswith(('.xlsx', '.xls')) and not filename.startswith('~$'):
-            # Dosya adında '_FRACAS' veya '_fracas' varsa ve basit adsa tercih et
-            if '_FRACAS' in filename.upper() and '(' not in filename and ' ' not in filename:
-                return os.path.join(project_folder, filename)
-    
-    # Son seçenek: FRACAS içeren herhangi bir dosya
-    for filename in os.listdir(project_folder):
-        if 'fracas' in filename.lower() and filename.endswith(('.xlsx', '.xls')) and not filename.startswith('~$'):
-            return os.path.join(project_folder, filename)
-    
-    return None
+    return ProjectManager.get_fracas_file(project_code)
 
 
-
-def load_fracas_data():
-    """Excel'den FRACAS verilerini yükle - logs/{project}/ariza_listesi/Fracas_*.xlsx'ten"""
-    excel_path = get_excel_path()
-    if not excel_path:
+def load_fracas_data(project_code=None):
+    """Projenin FRACAS verilerini yükle"""
+    if not project_code:
+        project_code = session.get('current_project', 'belgrad')
+    
+    excel_path = ProjectManager.get_fracas_file(project_code)
+    
+    if not excel_path or not os.path.exists(excel_path):
         return None
     
     try:
         # Path'e göre header satırını belirle
         if 'logs' in excel_path and 'ariza_listesi' in excel_path:
-            # logs/belgrad/ariza_listesi/Fracas_BELGRAD.xlsx format (header 4. satırda)
+            # logs/{project}/ariza_listesi/Fracas_*.xlsx format (header 4. satırda)
             df = pd.read_excel(excel_path, sheet_name='FRACAS', header=3)
         else:
             # Fallback: data/ klasöründen (header 1. satırda)
@@ -140,7 +117,7 @@ def load_fracas_data():
         
         return df
     except Exception as e:
-        print(f"Excel okuma hatası: {e}")
+        print(f"Excel okuma hatası ({project_code}): {e}")
         return None
 
 

@@ -16,6 +16,8 @@ from routes.dashboard import bp as dashboard_bp
 from routes.reports import reports_bp
 from utils_service_status_logger import ServiceStatusLogger
 from utils_root_cause_analysis import RootCauseAnalyzer
+from utils.project_manager import ProjectManager
+from utils.backup_manager import BackupManager
 import os
 import shutil
 import tempfile

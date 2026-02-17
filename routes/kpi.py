@@ -10,6 +10,8 @@ from sqlalchemy import func
 from datetime import datetime, timedelta
 import os
 import pandas as pd
+from utils.project_manager import ProjectManager
+from utils.backup_manager import BackupManager
 
 bp = Blueprint('kpi', __name__, url_prefix='/kpi')
 

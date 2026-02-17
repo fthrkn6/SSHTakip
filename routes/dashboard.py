@@ -5,21 +5,23 @@ from sqlalchemy import func, desc
 from datetime import datetime, timedelta, date
 import pandas as pd
 import os
+from utils.project_manager import ProjectManager
+from utils.backup_manager import BackupManager
 
 
 def get_tram_ids_from_veriler(project_code=None):
-    """Veriler.xlsx Sayfa2'den equipment_code'leri yükle - tüm sayfalarda tek kaynak"""
+    """Veriler.xlsx'den equipment_code'leri yükle - Proje bazlı"""
     if project_code is None:
         project_code = session.get('current_project', 'belgrad')
     
-    veriler_path = os.path.join(current_app.root_path, 'data', project_code, 'Veriler.xlsx')
+    veriler_file = ProjectManager.get_veriler_file(project_code)
     
-    if not os.path.exists(veriler_path):
-        # Fallback: Equipment tablosundan çek (project_code ile filtrele)
+    if not veriler_file or not os.path.exists(veriler_file):
+        # Fallback: Equipment tablosundan çek
         return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None, project_code=project_code).all()]
     
     try:
-        df = pd.read_excel(veriler_path, sheet_name='Sayfa2', header=0)
+        df = pd.read_excel(veriler_file, sheet_name='Sayfa2', header=0)
         # equipment_code sütununu kullan (eğer varsa), yoksa tram_id'leri string'e çevir
         if 'equipment_code' in df.columns:
             equipment_codes = df['equipment_code'].dropna().unique().tolist()
@@ -31,46 +33,31 @@ def get_tram_ids_from_veriler(project_code=None):
         return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None, project_code=project_code).all()]
     except Exception as e:
         print(f"Veriler.xlsx okuma hatası ({project_code}): {e}")
-        # Fallback: Equipment tablosundan çek (project_code ile filtrele)
+        # Fallback: Equipment tablosundan çek
         return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None, project_code=project_code).all()]
 
 bp = Blueprint('dashboard', __name__, url_prefix='/dashboard')
 
 
-def get_failures_from_excel():
-    """Excel dosyasından arıza verilerini oku - Fracas_BELGRAD.xlsx (birleştirilmiş)"""
-    from flask import current_app
+def get_failures_from_excel(project_code=None):
+    """Excel dosyasından arıza verilerini oku - Proje bazlı"""
+    if not project_code:
+        project_code = session.get('current_project', 'belgrad')
     
-    current_project = session.get('current_project', 'belgrad')
+    # ProjectManager'dan Fracas dosyasını al
+    ariza_listesi_file = ProjectManager.get_fracas_file(project_code)
     
-    # Birincil konum: logs/{project}/ariza_listesi/Fracas_{PROJECT}.xlsx
-    ariza_listesi_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
-    ariza_listesi_file = None
-    use_sheet = None
-    header_row = 0
-    
-    if os.path.exists(ariza_listesi_dir):
-        # Fracas_BELGRAD.xlsx ara (birincil)
-        for file in os.listdir(ariza_listesi_dir):
-            if file.upper().startswith('FRACAS_') and file.endswith('.xlsx') and not file.startswith('~$'):
-                ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
-                use_sheet = 'FRACAS'
-                header_row = 3
-                break
-    
-    # Fallback: data/{project}/Veriler.xlsx
-    if not ariza_listesi_file:
-        veriler_file = os.path.join(current_app.root_path, 'data', current_project, 'Veriler.xlsx')
-        if os.path.exists(veriler_file):
-            ariza_listesi_file = veriler_file
-            use_sheet = 'Veriler'
-            header_row = 0
-    
-    if not ariza_listesi_file:
+    if not ariza_listesi_file or not os.path.exists(ariza_listesi_file):
         return [], {}
     
     try:
-        df = pd.read_excel(ariza_listesi_file, sheet_name=use_sheet, header=header_row)
+        # Path'e göre header satırını belirle
+        if 'logs' in ariza_listesi_file and 'ariza_listesi' in ariza_listesi_file:
+            header_row = 3
+        else:
+            header_row = 0
+        
+        df = pd.read_excel(ariza_listesi_file, sheet_name='FRACAS', header=header_row)
         
         # Son 5 açık arızayı al (son 5 satır)
         recent = df.tail(5).to_dict('records') if len(df) > 0 else []
@@ -84,7 +71,7 @@ def get_failures_from_excel():
         
         return recent, sinif_counts
     except Exception as e:
-        print(f"Excel okuma hatası: {e}")
+        print(f"Excel okuma hatası ({project_code}): {e}")
         return [], {}
 
 
