@@ -637,6 +637,12 @@
                 <span>Arıza Listesi - Veriler</span>
             </a>
 
+            <a href="{{ url_for('hbr_listesi') }}"
+                class="sidebar-link {{ 'active' if 'hbr_listesi' in request.endpoint|string }}">
+                <i class="bi bi-file-earmark-pdf"></i>
+                <span>HBR Listesi</span>
+            </a>
+
             <a href="{{ url_for('bakim_planlari') }}"
                 class="sidebar-link {{ 'active' if 'bakim_plan' in request.endpoint|string }}">
                 <i class="bi bi-calendar3"></i>

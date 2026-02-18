@@ -685,10 +685,322 @@ def create_app():
                     except Exception as e:
                         flash(f'❌ Arıza Listesi yazma hatası: {str(e)}', 'danger')
                     
+                    # ===== HBR (HATA BİLDİRİM RAPORU) OLUŞTURMA =====
+                    if request.form.get('create_hbr') == 'true':
+                        try:
+                            import time
+                            from openpyxl import load_workbook
+                            from openpyxl.drawing.image import Image as XLImage
+                            from io import BytesIO
+                            from PIL import Image as PILImage
+                            
+                            project = session.get('current_project', 'belgrad')
+                            hbr_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'HBR')
+                            os.makedirs(hbr_dir, exist_ok=True)
+                            
+                            # Template yükleme
+                            template_path = os.path.join(os.path.dirname(__file__), 'data', project, 'FR_010_R06_SSH HBR.xlsx')
+                            if not os.path.exists(template_path):
+                                print(f"   ⚠️  HBR Template bulunamadı: {template_path}")
+                            else:
+                                # NCR numarası oluştur
+                                hbr_files = [f for f in os.listdir(hbr_dir) if f.startswith('BOZ-NCR-')]
+                                ncr_counter = len(hbr_files) + 1
+                                ncr_number = f"BOZ-NCR-{ncr_counter:03d}"
+                                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                                hbr_filename = f"{ncr_number}_{timestamp}.xlsx"
+                                hbr_filepath = os.path.join(hbr_dir, hbr_filename)
+                                
+                                # Template'i temp dosyaya kopyala
+                                temp_hbr_file = hbr_filepath.replace('.xlsx', '_temp.xlsx')
+                                shutil.copy2(template_path, temp_hbr_file)
+                                
+                                # Excel dosyasını aç
+                                wb = load_workbook(temp_hbr_file)
+                                ws = wb.active
+                                
+                                # Form verilerinden gerekli alanları çıkar (Gerçek form field names'lerine göre)
+                                parca_kodu = form_data.get('parca_kodu', '')  # A6 - Bileşen Numarası
+                                parca_adi = form_data.get('parca_adi', '')    # D6 - Nesne Kısa Metni
+                                arac_numarasi = form_data.get('arac_numarasi', '')
+                                arac_modules = request.form.getlist('arac_module')
+                                arac_modulu = ', '.join(arac_modules) if arac_modules else ''
+                                arac_km = form_data.get('arac_km', '')
+                                hata_tarih = form_data.get('hata_tarih', '')
+                                tedarikci = form_data.get('tedarikci', '')
+                                ariza_tanimi = form_data.get('ariza_tanimi', '')
+                                parca_seri_no = form_data.get('parca_seri_no', '')
+                                ariza_sinifi = form_data.get('ariza_sinifi', '')  # A, B, C
+                                ariza_tipi = form_data.get('ariza_tipi', '')  # Çeşitli türler
+                                
+                                # Hücre yazma helper fonksiyonu - merged cells için unmerge + write + remerge
+                                def write_cell(worksheet, cell_ref, value):
+                                    try:
+                                        # Check if this cell is part of a merged range
+                                        merged_ranges = list(worksheet.merged_cells.ranges)
+                                        merged_range = None
+                                        
+                                        for mr in merged_ranges:
+                                            if cell_ref in mr:
+                                                merged_range = mr
+                                                break
+                                        
+                                        if merged_range:
+                                            # Unmerge
+                                            worksheet.unmerge_cells(str(merged_range))
+                                            # Write value to the cell
+                                            worksheet[cell_ref].value = value
+                                            # Remerge
+                                            worksheet.merge_cells(str(merged_range))
+                                        else:
+                                            # Normal cell, just write
+                                            worksheet[cell_ref].value = value
+                                    except Exception as e:
+                                        print(f"   ⚠️  Hücre yazma hatası {cell_ref}: {str(e)}")
+                                        try:
+                                            worksheet[cell_ref].value = value
+                                        except:
+                                            pass
+
+                                
+                                # Hücreleri doldur (Excel satır/sütun 1-bazlı)
+                                write_cell(ws, 'A6', parca_kodu)          # Bileşen Numarası
+                                write_cell(ws, 'D6', parca_adi)           # Nesne Kısa Metni
+                                write_cell(ws, 'E6', datetime.now().strftime("%d.%m.%Y"))  # Rapor Tarihi
+                                write_cell(ws, 'G6', hata_tarih)          # Arıza Tarihi
+                                write_cell(ws, 'I6', ncr_number)          # NCR Numarası
+                                
+                                write_cell(ws, 'G7', arac_km)
+                                write_cell(ws, 'J7', tedarikci)
+                                
+                                # Müşteri kodu (Örn: BEL25)
+                                veriler_path = os.path.join(os.path.dirname(__file__), 'data', project, 'veriler.xlsx')
+                                if os.path.exists(veriler_path):
+                                    try:
+                                        veriler_wb = load_workbook(veriler_path)
+                                        veriler_ws = veriler_wb.active
+                                        # İlk satırdan proje kodunu bul (B1 türü yerde)
+                                        musteri_kodu = veriler_ws['B1'].value or ''
+                                        write_cell(ws, 'E8', musteri_kodu)
+                                    except:
+                                        write_cell(ws, 'E8', 'BEL25')
+                                
+                                # Tespit Yöntemi (Bozankaya ise check)
+                                if 'bozankaya' in current_user.username.lower():
+                                    write_cell(ws, 'F8', '✓')
+                                
+                                # NOT: muslteri_bildirimi form'da olmadığı için bu alan yazılmıyor
+                                
+                                # Arıza Sınıfı (A, B, C -> specifik hücrelere)
+                                if ariza_sinifi == 'A':
+                                    write_cell(ws, 'G9', '✓')
+                                elif ariza_sinifi == 'B':
+                                    write_cell(ws, 'G10', '✓')
+                                elif ariza_sinifi == 'C':
+                                    write_cell(ws, 'G11', '✓')
+                                
+                                # Arıza Tipi yerleştirme
+                                if 'İlk defa' in ariza_tipi or 'ilk' in ariza_tipi.lower():
+                                    write_cell(ws, 'H9', '✓')
+                                elif 'Tekrarlayan aynı' in ariza_tipi or 'aynı' in ariza_tipi.lower():
+                                    write_cell(ws, 'A12', '✓')
+                                elif 'Tekrarlayan farklı' in ariza_tipi or 'farklı' in ariza_tipi.lower():
+                                    write_cell(ws, 'E12', '✓')
+                                
+                                # Arıza Tanımı
+                                write_cell(ws, 'B17', ariza_tanimi)
+                                
+                                # Araç Modülü
+                                write_cell(ws, 'D19', arac_modulu)
+                                
+                                # Parça Seri No
+                                write_cell(ws, 'G19', parca_seri_no)
+                                
+                                # Fotoğraf (B20)
+                                if 'hbr_fotograf' in request.files:
+                                    hbr_foto = request.files['hbr_fotograf']
+                                    if hbr_foto and hbr_foto.filename != '':
+                                        try:
+                                            # Resmi oku ve boyutlandır
+                                            img = PILImage.open(hbr_foto.stream)
+                                            # Boyut: 100x100 pixel
+                                            img.thumbnail((100, 100), PILImage.Resampling.LANCZOS)
+                                            
+                                            # BytesIO'ya kaydet
+                                            img_buffer = BytesIO()
+                                            img.save(img_buffer, format='PNG')
+                                            img_buffer.seek(0)
+                                            
+                                            # Excel'e ekle
+                                            xl_img = XLImage(img_buffer)
+                                            ws.add_image(xl_img, 'B20')
+                                        except Exception as img_err:
+                                            print(f"   ⚠️  HBR Resim ekleme hatası: {str(img_err)}")
+                                
+                                # SSH Sorumlusu (B22) + Hata Bildiren Kullanıcı (C24, D24)
+                                write_cell(ws, 'B22', current_user.username)  # SSH Sorumlusu
+                                write_cell(ws, 'C24', current_user.username)  # Hata Bildiren Kullanıcı
+                                write_cell(ws, 'D24', current_user.username)  # Hata Bildiren Kullanıcı (Tekrar)
+                                
+                                # Dosyayı kaydet
+                                wb.save(temp_hbr_file)
+                                wb.close()
+                                time.sleep(0.3)
+                                
+                                # Temp dosyasını ana konuma taşı
+                                if os.path.exists(hbr_filepath):
+                                    os.remove(hbr_filepath)
+                                shutil.move(temp_hbr_file, hbr_filepath)
+                                
+                                print(f"   ✅ HBR başarıyla oluşturuldu: {hbr_filename}")
+                                flash(f'✅ HBR başarıyla oluşturuldu: {ncr_number}', 'success')
+                        
+                        except Exception as hbr_error:
+                            import traceback
+                            print(f"   ❌ HBR OLUŞTURMA HATASI: {str(hbr_error)}")
+                            print(f"   Traceback:\n{traceback.format_exc()}")
+                            flash(f'⚠️  HBR oluşturulamadı: {str(hbr_error)[:100]}', 'warning')
+                    
                     return redirect(url_for('yeni_ariza_bildir'))
                 except Exception as e:
                     flash(f'❌ Kayıt hatası: {str(e)}', 'danger')
                     return redirect(url_for('yeni_ariza_bildir'))
+
+        # HBR LİSTESİ ROUTE'U
+        @app.route('/hbr-listesi')
+        @login_required
+        def hbr_listesi():
+            """HBR (Hata Bildirim Raporu) Listesi"""
+            import os
+            from datetime import datetime
+            
+            project = session.get('current_project', 'belgrad')
+            hbr_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'HBR')
+            
+            print(f"\n📂 HBR Listesi yükleniyor...")
+            print(f"   Proje: {project}")
+            print(f"   Yol: {hbr_dir}")
+            print(f"   Mevcut mi?: {os.path.exists(hbr_dir)}")
+            
+            hbr_files = []
+            total_size = 0
+            latest_date = None
+            
+            if os.path.exists(hbr_dir):
+                try:
+                    files_found = os.listdir(hbr_dir)
+                    print(f"   Toplam dosya: {len(files_found)}")
+                    print(f"   Dosyalar: {files_found}")
+                    
+                    for filename in files_found:
+                        # BOZ-NCR- ile başlayan tüm .xlsx dosyalarını al (komple filtre)
+                        if filename.endswith('.xlsx') and filename.startswith('BOZ-NCR-'):
+                            filepath = os.path.join(hbr_dir, filename)
+                            
+                            try:
+                                file_stat = os.stat(filepath)
+                                file_size = file_stat.st_size
+                                file_time = datetime.fromtimestamp(file_stat.st_mtime)
+                                
+                                # Boyutu MB'ye dönüştür
+                                if file_size > 1024 * 1024:
+                                    size_display = f"{file_size / (1024 * 1024):.2f} MB"
+                                else:
+                                    size_display = f"{file_size / 1024:.2f} KB"
+                                
+                                hbr_files.append({
+                                    'name': filename,
+                                    'date': file_time.strftime('%d.%m.%Y %H:%M:%S'),
+                                    'size': file_size,
+                                    'size_display': size_display,
+                                    'download_url': f'/logs/{project}/HBR/{filename}',
+                                    'open_url': f'/logs/{project}/HBR/{filename}'
+                                })
+                                
+                                total_size += file_size
+                                if not latest_date or file_time > latest_date:
+                                    latest_date = file_time.strftime('%d.%m.%Y %H:%M')
+                                
+                                print(f"      ✓ {filename} ({size_display})")
+                            except Exception as e:
+                                print(f"      ⚠️  {filename} - Hata: {e}")
+                    
+                    # Tarihe göre sırala (yeni dosyalar önce)
+                    hbr_files.sort(key=lambda x: x['date'], reverse=True)
+                    print(f"   ✓ Yüklenen HBR dosyaları: {len(hbr_files)}")
+                    
+                except Exception as e:
+                    print(f"   ❌ HBR listesi yükleme hatası: {e}")
+            else:
+                print(f"   ⚠️  HBR klasörü mevcut değil! Oluşturuluyor...")
+                try:
+                    os.makedirs(hbr_dir, exist_ok=True)
+                    print(f"   ✓ Klasör oluşturuldu")
+                except Exception as e:
+                    print(f"   ❌ Klasör oluşturma hatası: {e}")
+            
+            total_size_mb = total_size / (1024 * 1024) if total_size > 0 else 0
+            
+            return render_template('hbr_listesi.html',
+                                 hbr_files=hbr_files,
+                                 total_size_mb=total_size_mb,
+                                 latest_date=latest_date,
+                                 project=project)
+
+        @app.route('/hbr-listesi/sil/<filename>', methods=['POST'])
+        @login_required
+        def hbr_delete(filename):
+            """HBR dosyasını sil"""
+            import os
+            from werkzeug.utils import secure_filename
+            
+            # Güvenlik: sadece BOZ-NCR- formatındaki dosyaları sil
+            if not (filename.startswith('BOZ-NCR-') and filename.endswith('.xlsx')):
+                return {'error': 'Geçersiz dosya adı'}, 400
+            
+            project = session.get('current_project', 'belgrad')
+            hbr_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'HBR')
+            filepath = os.path.join(hbr_dir, secure_filename(filename))
+            
+            try:
+                if os.path.exists(filepath) and filepath.startswith(hbr_dir):
+                    os.remove(filepath)
+                    print(f"   ✅ HBR dosyası silindi: {filename}")
+                    return {'success': True, 'message': 'HBR dosyası silindi'}, 200
+                else:
+                    return {'error': 'Dosya bulunamadı'}, 404
+            except Exception as e:
+                print(f"   ❌ HBR silme hatası: {str(e)}")
+                return {'error': f'Silme hatası: {str(e)}'}, 500
+
+        @app.route('/hbr-download/<filename>')
+        @login_required
+        def hbr_download(filename):
+            """HBR dosyasını indir"""
+            from flask import send_file
+            from werkzeug.utils import secure_filename
+            import os
+            
+            # Güvenlik: sadece BOZ-NCR- formatındaki dosyaları izin ver
+            if not (filename.startswith('BOZ-NCR-') and filename.endswith('.xlsx')):
+                flash('❌ Geçersiz dosya adı', 'danger')
+                return redirect(url_for('hbr_listesi'))
+            
+            project = session.get('current_project', 'belgrad')
+            hbr_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'HBR')
+            filepath = os.path.join(hbr_dir, secure_filename(filename))
+            
+            # Güvenlik: path traversal kontrol et
+            if not filepath.startswith(hbr_dir) or not os.path.exists(filepath):
+                flash('❌ Dosya bulunamadı', 'danger')
+                return redirect(url_for('hbr_listesi'))
+            
+            try:
+                return send_file(filepath, as_attachment=True, download_name=filename)
+            except Exception as e:
+                print(f"   ❌ HBR indirme hatası: {str(e)}")
+                flash(f'❌ İndirme başarısız: {str(e)}', 'danger')
+                return redirect(url_for('hbr_listesi'))
 
         @app.route('/ariza-listesi-veriler')
         @login_required

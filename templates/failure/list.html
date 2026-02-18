@@ -33,8 +33,8 @@
     <div class="col-md-3">
         <div class="card bg-warning">
             <div class="card-body text-center">
-                <h3>{{ stats.critical }}</h3>
-                <small>Kritik Arıza</small>
+                <h3>{{ stats.hbr_total }}</h3>
+                <small>HBR Raporları</small>
             </div>
         </div>
     </div>
@@ -133,4 +133,67 @@
         </table>
     </div>
 </div>
+
+<!-- HBR (Hata Bildirim Raporu) Listesi -->
+{% if hbr_files %}
+<div class="card mt-4">
+    <div class="card-header bg-info text-white">
+        <h5 class="mb-0">
+            <i class="bi bi-file-earmark-pdf"></i> HBR (Hata Bildirim Raporu) Listesi
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th width="40%">Dosya Adı</th>
+                        <th width="20%">Oluşturma Tarihi</th>
+                        <th width="15%">Boyut</th>
+                        <th width="25%" class="text-end">İşlem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for hbr in hbr_files %}
+                    <tr>
+                        <td>
+                            <i class="bi bi-file-earmark-excel text-success"></i>
+                            <strong>{{ hbr.name }}</strong>
+                        </td>
+                        <td>{{ hbr.date }}</td>
+                        <td>
+                            {% set size_mb = hbr.size / (1024 * 1024) %}
+                            {% if size_mb > 1 %}
+                                {{ "%.2f"|format(size_mb) }} MB
+                            {% else %}
+                                {{ (hbr.size / 1024) | int }} KB
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="/logs/{{ session.get('current_project', 'belgrad') }}/HBR/{{ hbr.name }}" 
+                               class="btn btn-sm btn-success"
+                               download target="_blank">
+                                <i class="bi bi-download"></i> İndir
+                            </a>
+                            <button class="btn btn-sm btn-outline-secondary" 
+                                    onclick="viewHBRDetails('{{ hbr.name }}')">
+                                <i class="bi bi-eye"></i> Görüntüle
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+function viewHBRDetails(filename) {
+    // HBR dosyasının detay görüntüleme işlemi
+    // İleriye dönük geliştirme için placeholder
+    alert('HBR Dosya: ' + filename);
+}
+</script>
 {% endblock %}

@@ -596,6 +596,38 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- HBR RAPORU BÖLÜMÜ -->
+                <div class="form-card">
+                    <div class="form-card-header" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white;">
+                        <i class="fas fa-file-pdf"></i>
+                        HBR (Hata Bildirim Raporu)
+                    </div>
+                    <div class="form-card-body">
+                        <div style="background-color: #ffe8e8; padding: 15px; border-radius: 8px; border-left: 4px solid #dc3545;">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="createHBR" name="create_hbr" 
+                                       value="true" style="width: 20px; height: 20px; cursor: pointer;">
+                                <label class="form-check-label" for="createHBR" style="margin-left: 10px; font-size: 1rem; cursor: pointer; margin-top: 2px;">
+                                    <strong style="color: #dc3545;">✓ HBR Excel Dosyası Oluştur</strong>
+                                </label>
+                            </div>
+                            <small class="text-muted d-block mt-2" style="margin-left: 30px;">
+                                Arıza bildiriyle birlikte resmi HBR Excel dosyası oluşturulacak (BOZ-NCR-001 formatında)
+                            </small>
+                        </div>
+
+                        <!-- HBR Fotoğraf Yükleme (gizli, HBR seçilince görünür) -->
+                        <div id="hbrPhotoSection" style="display: none; background-color: #e8f4f8; padding: 15px; border-radius: 8px; border-left: 4px solid #17a2b8; margin-top: 15px;">
+                            <label class="form-label"><i class="fas fa-camera"></i> <strong>Arıza Fotoğrafı (HBR İçin)</strong></label>
+                            <input type="file" name="hbr_fotograf" class="form-control" 
+                                   accept="image/jpeg,image/png,image/jpg" 
+                                   id="hbrFotografInput" style="cursor: pointer;">
+                            <small class="text-muted d-block mt-2">JPG, PNG dosyaları desteklenmektedir (Max 5MB)</small>
+                            <img id="hbrPhotoPreview" style="width: 100%; max-width: 300px; margin-top: 10px; border-radius: 5px; display: none;">
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -882,5 +914,63 @@
             }
         });
     }
+
+    // HBR Checkbox Logic
+    document.addEventListener('DOMContentLoaded', function() {
+        const hbrCheckbox = document.getElementById('createHBR');
+        const hbrPhotoSection = document.getElementById('hbrPhotoSection');
+        const hbrFotografInput = document.getElementById('hbrFotografInput');
+        const hbrPhotoPreview = document.getElementById('hbrPhotoPreview');
+        const formElement = document.querySelector('form');
+        
+        if (!hbrCheckbox) return;
+        
+        // HBR checkbox degiştiğinde
+        hbrCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                hbrPhotoSection.style.display = 'block';
+                hbrFotografInput.required = true;
+            } else {
+                hbrPhotoSection.style.display = 'none';
+                hbrFotografInput.required = false;
+                hbrFotografInput.value = '';
+                hbrPhotoPreview.style.display = 'none';
+                hbrPhotoPreview.src = '';
+            }
+        });
+        
+        // Fotoğraf önizleme
+        hbrFotografInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                // Dosya boyutu kontrolü (5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('⚠️ Dosya boyutu 5MB\'den büyük olamaz!');
+                    hbrFotografInput.value = '';
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    hbrPhotoPreview.src = event.target.result;
+                    hbrPhotoPreview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        // Form submit kontrol
+        if (formElement) {
+            formElement.addEventListener('submit', function(e) {
+                // HBR seçiliyse fotoğraf zorunlu
+                if (hbrCheckbox.checked && !hbrFotografInput.value) {
+                    e.preventDefault();
+                    alert('⚠️ HBR oluşturacaksanız fotoğraf yüklemeniz gerekiyor!');
+                    hbrFotografInput.focus();
+                    return false;
+                }
+            });
+        }
+    });
 </script>
 {% endblock %}
