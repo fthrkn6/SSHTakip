@@ -185,7 +185,7 @@ def get_ariza_counts_by_class():
         return counts
     
     try:
-        df = pd.read_excel(ariza_listesi_file, sheet_name='Ariza Listesi', header=3)
+        df = pd.read_excel(ariza_listesi_file, sheet_name='FRACAS', header=0)
         
         # Arıza sınıfı sütununu bul
         sinif_col = None
@@ -464,7 +464,7 @@ def index():
     total_failures_last_30_days = 0
     if ariza_listesi_file:
         try:
-            df_for_count = pd.read_excel(ariza_listesi_file, sheet_name='Ariza Listesi', header=3)
+            df_for_count = pd.read_excel(ariza_listesi_file, sheet_name='FRACAS', header=0)
             # Tüm arıza sayısı (filtreleme yok, sadece excel'deki tüm)
             total_failures_last_30_days = len(df_for_count[df_for_count.iloc[:, 0].notna()])
         except:
