@@ -417,7 +417,7 @@ def create_app():
                     print(f"\n📤 POST /yeni-ariza-bildir")
                     print(f"   📋 Gelen form alanları: {list(form_data.keys())}")
                     print(f"   🔧 Araç Modül seçimleri: {arac_modules}")
-                    print(f"   ✅ create_hbr değeri: '{request.form.get('create_hbr')}' (type: {type(request.form.get('create_hbr'))})")
+                    print(f"   [OK] create_hbr değeri: '{request.form.get('create_hbr')}' (type: {type(request.form.get('create_hbr'))})")
                     print(f"   🎯 HBR yapılacak mı?: {request.form.get('create_hbr') == 'true'}")
                     
                     # FRACAS ID'yi form'dan al veya hesapla
@@ -448,7 +448,7 @@ def create_app():
                             ws_check = wb_check.active
                             
                             # A sütununda (FRACAS ID) max numarayı bul
-                            print(f"   📊 Arıza Listesi max row: {ws_check.max_row}")
+                            print(f"   [INFO] Arıza Listesi max row: {ws_check.max_row}")
                             for row in range(5, ws_check.max_row + 1):
                                 cell_val = ws_check.cell(row=row, column=1).value
                                 if cell_val:
@@ -461,9 +461,9 @@ def create_app():
                                         pass
                             wb_check.close()
                             os.remove(temp_read_file)
-                            print(f"   ✅ FRACAS ID hesaplandı: {next_fracas_num}")
+                            print(f"   [OK] FRACAS ID hesaplandı: {next_fracas_num}")
                         except Exception as e:
-                            print(f"   ❌ FRACAS ID okuma hatası: {e}")
+                            print(f"   [ERROR] FRACAS ID okuma hatası: {e}")
                             next_fracas_num = 1
                     
                     if not fracas_id:
@@ -645,11 +645,11 @@ def create_app():
                             if backup_success:
                                 print(f"   💾 Dosya yedeklendi: {backup_msg}")
                             else:
-                                print(f"   ⚠️  Yedekleme hatası: {backup_msg}")
+                                print(f"   [WARNING] Yedekleme hatası: {backup_msg}")
                         except Exception as backup_err:
-                            print(f"   ⚠️  Yedek oluşturulamadı: {str(backup_err)}")
+                            print(f"   [WARNING] Yedek oluşturulamadı: {str(backup_err)}")
                         
-                        print(f"   ✅ Arıza kaydedildi: {form_data.get('fracas_id')} -> Satır {next_row}")
+                        print(f"   [OK] Arıza kaydedildi: {form_data.get('fracas_id')} -> Satır {next_row}")
                         
                         # YENI: Fracas_BELGRAD.xlsx template'ine de yaz
                         try:
@@ -661,7 +661,7 @@ def create_app():
                                 fracas_data['arac_module'] = arac_modules
                             
                             print(f"\n   📝 FRACAS yazma başlıyor...")
-                            print(f"   📊 Form alanları: {list(fracas_data.keys())}")
+                            print(f"   [INFO] Form alanları: {list(fracas_data.keys())}")
                             print(f"   📂 App root path: {app.root_path}")
                             
                             # FracasWriter ile Fracas template'ine yaz (Flask root_path geçerek)
@@ -672,7 +672,7 @@ def create_app():
                             result = writer.write_failure_data(fracas_data)
                             
                             if result.get('success'):
-                                print(f"   ✅ Fracas_BELGRAD.xlsx'ye yazıldı - Satır: {result['row']}, FRACAS ID: {result['fracas_id']}")
+                                print(f"   [OK] Fracas_BELGRAD.xlsx'ye yazıldı - Satır: {result['row']}, FRACAS ID: {result['fracas_id']}")
                                 
                                 # FRACAS dosyasını da yedekle
                                 try:
@@ -682,20 +682,20 @@ def create_app():
                                     if backup_success:
                                         print(f"   💾 FRACAS dosyası yedeklendi: {backup_msg}")
                                 except Exception as backup_err:
-                                    print(f"   ⚠️  FRACAS yedekleme hatası: {str(backup_err)}")
+                                    print(f"   [WARNING] FRACAS yedekleme hatası: {str(backup_err)}")
                                 
-                                flash(f'✅ Arıza başarıyla kaydedildi: {form_data.get("fracas_id")} (Fracas + Arıza Listesi)', 'success')
+                                flash(f'[OK] Arıza başarıyla kaydedildi: {form_data.get("fracas_id")} (Fracas + Arıza Listesi)', 'success')
                             else:
-                                print(f"   ⚠️ Fracas yazma kısmi başarısız: {result}")
-                                flash(f'✅ Arıza kaydedildi (Arıza Listesi), Fracas: {result.get("error", "Bilinmeyen hata")}', 'warning')
+                                print(f"   [WARNING] Fracas yazma kısmi başarısız: {result}")
+                                flash(f'[OK] Arıza kaydedildi (Arıza Listesi), Fracas: {result.get("error", "Bilinmeyen hata")}', 'warning')
                         except Exception as fracas_error:
                             import traceback
-                            print(f"\n   ❌ FRACAS YAZMA HATASI:")
+                            print(f"\n   [ERROR] FRACAS YAZMA HATASI:")
                             print(f"   {str(fracas_error)}")
                             print(f"   Traceback:\n{traceback.format_exc()}")
-                            flash(f'❌ FRACAS yazma hatası (Arıza Listesi OK): {str(fracas_error)[:150]}', 'danger')
+                            flash(f'[ERROR] FRACAS yazma hatası (Arıza Listesi OK): {str(fracas_error)[:150]}', 'danger')
                     except Exception as e:
-                        flash(f'❌ Arıza Listesi yazma hatası: {str(e)}', 'danger')
+                        flash(f'[ERROR] Arıza Listesi yazma hatası: {str(e)}', 'danger')
                     
                     # ===== HBR (HATA BİLDİRİM RAPORU) OLUŞTURMA =====
                     print(f"\n🔍 HBR KONTROL")
@@ -704,7 +704,7 @@ def create_app():
                     
                     if request.form.get('create_hbr') == 'true':
                         try:
-                            print(f"\n✅ HBR OLUŞTURMA BAŞLANDI!")
+                            print(f"\n[OK] HBR OLUŞTURMA BAŞLANDI!")
                             import time
                             from openpyxl import load_workbook
                             from openpyxl.drawing.image import Image as XLImage
@@ -718,9 +718,9 @@ def create_app():
                             # Template yükleme
                             template_path = os.path.join(os.path.dirname(__file__), 'data', project, 'FR_010_R06_SSH HBR.xlsx')
                             if not os.path.exists(template_path):
-                                print(f"   ⚠️  HBR Template bulunamadı: {template_path}")
+                                print(f"   [WARNING] HBR Template bulunamadı: {template_path}")
                             else:
-                                print(f"   ✅ Template yüklendi: {template_path}")
+                                print(f"   [OK] Template yüklendi: {template_path}")
                                 # NCR numarası oluştur
                                 hbr_files = [f for f in os.listdir(hbr_dir) if f.startswith('BOZ-NCR-')]
                                 ncr_counter = len(hbr_files) + 1
@@ -789,14 +789,14 @@ def create_app():
                                                 worksheet.unmerge_cells(merged_str)
                                                 print(f"            ✓ Unmerge başarılı")
                                             except Exception as umr_err:
-                                                print(f"            ⚠️  Unmerge başarısız: {umr_err}")
+                                                print(f"            [WARNING] Unmerge başarısız: {umr_err}")
                                             
                                             # Adım 2: Değeri yaz
                                             try:
                                                 worksheet[cell_ref].value = value
                                                 print(f"            ✓ Yazı başarılı: '{value}'")
                                             except Exception as write_err:
-                                                print(f"            ⚠️  Yazı başarısız: {write_err}")
+                                                print(f"            [WARNING] Yazı başarısız: {write_err}")
                                             
                                             # Adım 3: Remerge
                                             try:
@@ -1179,11 +1179,11 @@ def create_app():
                     file_mtime = os.path.getmtime(ariza_listesi_file)
                     file_date = datetime.fromtimestamp(file_mtime).strftime('%d.%m.%Y %H:%M')
                     
-                    print(f"✅ Arıza Listesi yüklendi: {row_count} satır")
+                    print(f"[OK] Arıza Listesi yüklendi: {row_count} satır")
                     
                 except Exception as e:
-                    print(f"❌ Arıza Listesi okuma hatası: {e}")
-                    flash(f'⚠️ Veri okuma hatası: {str(e)}', 'warning')
+                    print(f"[ERROR] Arıza Listesi okuma hatası: {e}")
+                    flash(f'[WARNING] Veri okuma hatası: {str(e)}', 'warning')
             else:
                 flash(f'⚠️ Bugünün Arıza Listesi dosyası bulunamadı', 'warning')
             
