@@ -455,13 +455,9 @@
 <div class="container-fluid mt-4">
     <div class="row mb-4">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <div>
-                    <h1 class="page-title">
-                        <i class="bi bi-tools me-2"></i>Bakım Planlaması
-                    </h1>
-                </div>
-                <button class="btn btn-outline-primary" onclick="exportToExcel()">
+            <!-- Sağ altta sabit rapor indir butonu -->
+            <div style="position: fixed; bottom: 30px; right: 30px; z-index: 100;">
+                <button class="btn btn-primary btn-lg shadow" onclick="exportToExcel()" title="Bakım raporunu indir">
                     <i class="bi bi-download me-2"></i>Rapor İndir
                 </button>
             </div>
