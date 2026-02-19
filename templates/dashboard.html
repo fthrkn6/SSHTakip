@@ -511,53 +511,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Recent Work Orders -->
-    <div class="col-12 col-xl-6">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-clipboard-check me-2 text-primary"></i>Son İş Emirleri</span>
-                <a href="{{ url_for('is_emri_ekle') }}" class="btn btn-sm btn-primary">
-                    <i class="bi bi-plus"></i> Yeni
-                </a>
-            </div>
-            <div class="card-body">
-                {% if son_is_emirleri %}
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Kod</th>
-                                <th>Başlık</th>
-                                <th>Tip</th>
-                                <th>Durum</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for emir in son_is_emirleri %}
-                            <tr style="cursor: pointer;"
-                                onclick="window.location='{{ url_for('is_emri_detay', id=emir.id) }}'">
-                                <td><strong>{{ emir.order_code }}</strong></td>
-                                <td>{{ emir.title[:20] }}{% if emir.title|length > 20 %}...{% endif %}</td>
-                                <td><small>{{ emir.get_work_type_display() }}</small></td>
-                                <td>
-                                    {% set badge = emir.get_status_badge() %}
-                                    <span class="badge bg-{{ badge[0] }}">{{ badge[1] }}</span>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                {% else %}
-                <div class="text-center py-4">
-                    <i class="bi bi-clipboard text-muted" style="font-size: 40px;"></i>
-                    <p class="text-muted mt-3">Henüz iş emri bulunmuyor</p>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
 </div>
 
 <!-- Quick Actions - Modernized -->
