@@ -185,7 +185,9 @@ def get_ariza_counts_by_class():
         return counts
     
     try:
-        df = pd.read_excel(ariza_listesi_file, sheet_name='FRACAS', header=0)
+        # Header row'u belirle - logs klasöründe ise 3, yoksa 0
+        header_row = 3 if 'logs' in ariza_listesi_file and 'ariza_listesi' in ariza_listesi_file else 0
+        df = pd.read_excel(ariza_listesi_file, sheet_name='FRACAS', header=header_row)
         
         # Arıza sınıfı sütununu bul
         sinif_col = None
@@ -208,10 +210,15 @@ def get_ariza_counts_by_class():
                     counts['C']['count'] += 1
                 elif sinif_str.startswith('D'):
                     counts['D']['count'] += 1
+            logger.debug(f'Ariza sınıfı sayıları: {counts}')
+        else:
+            logger.warning(f'Ariza sınıfı sütunu bulunamadı. Mevcut sütunlar: {list(df.columns)}')
         
         return counts
     except Exception as e:
         logger.error(f'Ariza sinifi hesaplama hatasi: {e}')
+        import traceback
+        logger.error(traceback.format_exc())
         return counts
 
 
@@ -464,10 +471,13 @@ def index():
     total_failures_last_30_days = 0
     if ariza_listesi_file:
         try:
-            df_for_count = pd.read_excel(ariza_listesi_file, sheet_name='FRACAS', header=0)
+            # Header row'u belirle - logs klasöründe ise 3, yoksa 0
+            header_row = 3 if 'logs' in ariza_listesi_file and 'ariza_listesi' in ariza_listesi_file else 0
+            df_for_count = pd.read_excel(ariza_listesi_file, sheet_name='FRACAS', header=header_row)
             # Tüm arıza sayısı (filtreleme yok, sadece excel'deki tüm)
-            total_failures_last_30_days = len(df_for_count[df_for_count.iloc[:, 0].notna()])
-        except:
+            total_failures_last_30_days = len(df_for_count)
+        except Exception as e:
+            logger.error(f'Total failures count error: {e}')
             total_failures_last_30_days = len(son_arizalar_list)
     
     # Arıza sınıflarına göre sayı hesapla
