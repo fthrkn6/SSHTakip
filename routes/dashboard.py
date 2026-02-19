@@ -477,33 +477,15 @@ def index():
     son_arizalar_list, _ = get_failures_from_excel()
     son_arizalar = son_arizalar_list
     
-    # Excel'deki TOPLAM arıza sayısı - Proje-dinamik
-    from flask import current_app
-    current_project = session.get('current_project', 'belgrad')
-    ariza_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
-    
-    # Arıza Listesi dosyasını bul
-    ariza_listesi_file = None
-    if os.path.exists(ariza_dir):
-        for file in os.listdir(ariza_dir):
-            if file.endswith('.xlsx') and not file.startswith('~$'):
-                ariza_listesi_file = os.path.join(ariza_dir, file)
-                break
-    
-    total_failures_last_30_days = 0
-    if ariza_listesi_file:
-        try:
-            # Header row'u belirle - logs klasöründe ise 3, yoksa 0
-            header_row = 3 if 'logs' in ariza_listesi_file and 'ariza_listesi' in ariza_listesi_file else 0
-            df_for_count = pd.read_excel(ariza_listesi_file, sheet_name='FRACAS', header=header_row)
-            # Tüm arıza sayısı (filtreleme yok, sadece excel'deki tüm)
-            total_failures_last_30_days = len(df_for_count)
-        except Exception as e:
-            logger.error(f'Total failures count error: {e}')
-            total_failures_last_30_days = len(son_arizalar_list)
-    
     # Arıza sınıflarına göre sayı hesapla
     ariza_by_class = get_ariza_counts_by_class()
+    
+    # Toplam arıza sayısı = A + B + C + D (arıza_by_class'dan)
+    # Bu şekilde her zaman doğru dosyandan veri gelir
+    total_failures_last_30_days = sum(cls_data['count'] for cls_data in ariza_by_class.values())
+    
+    # Log the counts
+    logger.debug(f'A={ariza_by_class["A"]["count"]}, B={ariza_by_class["B"]["count"]}, C={ariza_by_class["C"]["count"]}, D={ariza_by_class["D"]["count"]}, TOTAL={total_failures_last_30_days}')
     
     # Filo durumu istatistikleri - Servis durumundan hesapla
     aktif_count = 0
