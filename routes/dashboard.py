@@ -157,13 +157,32 @@ def get_ariza_counts_by_class():
     current_project = session.get('current_project', 'belgrad')
     ariza_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
     
-    # Arıza Listesi dosyasını bul
-    ariza_listesi_file = None
-    if os.path.exists(ariza_dir):
-        for file in os.listdir(ariza_dir):
-            if file.endswith('.xlsx') and not file.startswith('~$'):
-                ariza_listesi_file = os.path.join(ariza_dir, file)
-                break
+    # FRACAS dosyasını bul - Öncelik: ProjectManager'dan al
+    ariza_listesi_file = ProjectManager.get_fracas_file(current_project)
+    
+    # Fallback: Eğer ProjectManager'dan bulunamazsa manuel ara
+    if not ariza_listesi_file or not os.path.exists(ariza_listesi_file):
+        if os.path.exists(ariza_dir):
+            # Fracas dosyasını spesifik olarak ara
+            for file in ['Fracas_BELGRAD.xlsx', 'Fracas_BELGRAD.xlsx', 'BEL25_FRACAS.xlsx']:
+                test_file = os.path.join(ariza_dir, file)
+                if os.path.exists(test_file):
+                    ariza_listesi_file = test_file
+                    break
+            
+            # Hala bulunamazsa, içinde 'FRACAS' veya 'Fracas' olan dosya ara
+            if not ariza_listesi_file:
+                for file in os.listdir(ariza_dir):
+                    if file.endswith('.xlsx') and not file.startswith('~$') and ('FRACAS' in file.upper() or 'Fracas' in file):
+                        ariza_listesi_file = os.path.join(ariza_dir, file)
+                        break
+            
+            # Son çare: ilk xlsx dosyası
+            if not ariza_listesi_file:
+                for file in os.listdir(ariza_dir):
+                    if file.endswith('.xlsx') and not file.startswith('~$'):
+                        ariza_listesi_file = os.path.join(ariza_dir, file)
+                        break
     
     # Sınıf tanımları
     class_definitions = {
@@ -182,7 +201,10 @@ def get_ariza_counts_by_class():
     }
     
     if not ariza_listesi_file:
+        logger.warning(f'FRACAS dosyası bulunamadı')
         return counts
+    
+    logger.debug(f'FRACAS dosyası: {os.path.basename(ariza_listesi_file)}')
     
     try:
         # Header row'u belirle - logs klasöründe ise 3, yoksa 0
