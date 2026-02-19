@@ -35,7 +35,7 @@ def add_tramvays():
                 
                 tram = Equipment(
                     equipment_code=code,
-                    name=f'{proj_info["name"]} Tramvay {i}',
+                    name=f'{proj_info["name"]} {i}',
                     equipment_type='Tramvay',
                     manufacturer='Siemens',
                     model='Avenio',

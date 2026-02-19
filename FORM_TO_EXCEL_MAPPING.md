@@ -11,7 +11,7 @@
 | **Araç KM** | arac_km | ✓ form_data.get('km') AMA form'da arac_km | G7 | arac_km → km |
 | **Hata Tarihi** | hata_tarih | ✓ form_data.get('ariza_tarihi') AMA form'da hata_tarih | G6 | hata_tarih → ariza_tarihi |
 | **Sistem** | sistem | ❌ HAYIR | - | - |
-| **Tedarikçi** | tedarikci | ✓ | J7 | ✓ |
+| **Tedarikçi** | tedarikci | ✓ | I7 | ✓ |
 | **Arıza Sınıfı** | ariza_sinifi | ✓ | G9/G10/G11 | ✓ |
 | **Arıza Tipi** | ariza_tipi | ✓ | H9/A12/E12 | ✓ |
 | **Arıza Tanımı** | ariza_tanimi | ✓ | B17 | ✓ |
@@ -32,7 +32,7 @@
 | **G6** | Arıza Tarihi | `form_data.get('ariza_tarihi')` | `hata_tarih` | ✓ FIX: form_data.get('hata_tarih') |
 | **I6** | NCR Numarası | Sistematik | Otomatik (BOZ-NCR-XXX) | ✓ OK |
 | **G7** | KM | `form_data.get('km')` | `arac_km` | ✓ FIX: form_data.get('arac_km') |
-| **J7** | Tedarikçi | `form_data.get('tedarikci')` | `tedarikci` | ✓ OK |
+| **I7** | Tedarikçi | `form_data.get('tedarikci')` | `tedarikci` | ✓ OK |
 | **E8** | Müşteri Kodu | Sistematik | veriler.xlsx'ten | ✓ OK |
 | **F8** | Tespit Yöntemi (Bozankaya) | Sistematik | current_user.username | ✓ OK |
 | **H8** | Müşteri Bildirimi | `form_data.get('muslteri_bildirimi')` | ❌ HAYIR (form'da yok) | ⚠️ MISSING FIELD |

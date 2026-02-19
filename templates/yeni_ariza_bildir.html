@@ -274,7 +274,7 @@
         </span>
     </div>
 
-    <form method="POST" enctype="multipart/form-data">
+    <form method="POST" enctype="multipart/form-data" id="arizaBildirimForm">
         <div class="row">
             <!-- Sol Kolon -->
             <div class="col-lg-6">
@@ -917,25 +917,38 @@
 
     // HBR Checkbox Logic
     document.addEventListener('DOMContentLoaded', function() {
+        console.log('🟢 DOMContentLoaded tetiklendi - HBR modülü başlatılıyor...');
+        
         const hbrCheckbox = document.getElementById('createHBR');
         const hbrPhotoSection = document.getElementById('hbrPhotoSection');
         const hbrFotografInput = document.getElementById('hbrFotografInput');
         const hbrPhotoPreview = document.getElementById('hbrPhotoPreview');
-        const formElement = document.querySelector('form');
+        const formElement = document.getElementById('arizaBildirimForm');
         
-        if (!hbrCheckbox) return;
+        console.log('✓ createHBR checkbox:', hbrCheckbox ? '✅ Bulundu' : '❌ Bulunamadı');
+        console.log('✓ hbrPhotoSection div:', hbrPhotoSection ? '✅ Bulundu' : '❌ Bulunamadı');
+        console.log('✓ hbrFotografInput:', hbrFotografInput ? '✅ Bulundu' : '❌ Bulunamadı');
+        console.log('✓ arizaBildirimForm:', formElement ? '✅ Bulundu' : '❌ Bulunamadı');
+        
+        if (!hbrCheckbox) {
+            console.error('❌ HBR checkbox bulunamadı! Script sonlandırılıyor.');
+            return;
+        }
         
         // HBR checkbox degiştiğinde
         hbrCheckbox.addEventListener('change', function() {
+            console.log('⚙️ HBR checkbox durumu değişti:', this.checked);
             if (this.checked) {
                 hbrPhotoSection.style.display = 'block';
                 hbrFotografInput.required = true;
+                console.log('   → Fotoğraf bölümü gösterildi, required=true');
             } else {
                 hbrPhotoSection.style.display = 'none';
                 hbrFotografInput.required = false;
                 hbrFotografInput.value = '';
                 hbrPhotoPreview.style.display = 'none';
                 hbrPhotoPreview.src = '';
+                console.log('   → Fotoğraf bölümü gizlendi');
             }
         });
         
@@ -954,6 +967,7 @@
                 reader.onload = function(event) {
                     hbrPhotoPreview.src = event.target.result;
                     hbrPhotoPreview.style.display = 'block';
+                    console.log('📷 Fotoğraf yüklendi:', file.name);
                 };
                 reader.readAsDataURL(file);
             }
@@ -961,15 +975,36 @@
         
         // Form submit kontrol
         if (formElement) {
+            console.log('✅ Form event listener kayıtlanıyor...');
             formElement.addEventListener('submit', function(e) {
+                console.log('╔════════════════════════════════════════╗');
+                console.log('║ 📋 FORM SUBMIT ETKİNLİĞİ TETİKLENDİ  ║');
+                console.log('╚════════════════════════════════════════╝');
+                console.log('   HBR Checkbox Durumu:', hbrCheckbox.checked);
+                console.log('   Fotoğraf Dosya Adı:', hbrFotografInput.value);
+                console.log('   Fotoğraf Zorunlu mu?:', hbrFotografInput.required);
+                
                 // HBR seçiliyse fotoğraf zorunlu
-                if (hbrCheckbox.checked && !hbrFotografInput.value) {
-                    e.preventDefault();
-                    alert('⚠️ HBR oluşturacaksanız fotoğraf yüklemeniz gerekiyor!');
-                    hbrFotografInput.focus();
-                    return false;
+                if (hbrCheckbox.checked) {
+                    if (!hbrFotografInput.value) {
+                        console.error('❌ HATA: HBR seçili ama fotoğraf yok!');
+                        e.preventDefault();
+                        alert('⚠️ HBR oluşturacaksanız fotoğraf yüklemeniz gerekiyor!');
+                        hbrFotografInput.focus();
+                        return false;
+                    }
+                    // Checked durumunun form'a gönderilmesini sağla
+                    hbrCheckbox.value = 'true';
+                    console.log('   ✅ create_hbr value = "true"');
+                } else {
+                    hbrCheckbox.value = '';
+                    console.log('   ✅ create_hbr value = "" (boş)');
                 }
+                console.log('   📤 FORM SUNUCUYA GÖNDERİLİYOR...');
+                // Form otomatik olarak submit olur
             });
+        } else {
+            console.error('❌ KRITIK HATA: arizaBildirimForm bulunamadı!');
         }
     });
 </script>

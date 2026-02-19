@@ -2,8 +2,8 @@
     "projects": [
         {
             "code": "belgrad",
-            "name": "Belgrad Tramvay",
-            "description": "Belgrad merkez şehir tramvay taşımacılığı",
+            "name": "Belgrad",
+            "description": "Belgrad",
             "status": "aktif",
             "location": "Belgrad, Sırbistan",
             "created": "2025-01-01",
@@ -11,8 +11,8 @@
         },
         {
             "code": "gebze",
-            "name": "Gebze Otobüs",
-            "description": "Gebze şehir otobüs işletmesi",
+            "name": "Gebze",
+            "description": "Gebze",
             "status": "aktif",
             "location": "Gebze, Türkiye",
             "created": "2025-01-01",
@@ -20,8 +20,8 @@
         },
         {
             "code": "iasi",
-            "name": "Iași Tramvay",
-            "description": "Iași şehir tramvay taşımacılığı",
+            "name": "Iași",
+            "description": "Iași",
             "status": "aktif",
             "location": "Iași, Romanya",
             "created": "2025-01-01",
@@ -29,8 +29,8 @@
         },
         {
             "code": "kayseri",
-            "name": "Kayseri Otobüs",
-            "description": "Kayseri şehir otobüs işletmesi",
+            "name": "Kayseri",
+            "description": "Kayseri",
             "status": "aktif",
             "location": "Kayseri, Türkiye",
             "created": "2025-01-01",
@@ -38,8 +38,8 @@
         },
         {
             "code": "kocaeli",
-            "name": "Kocaeli Otobüs",
-            "description": "Kocaeli şehir otobüs işletmesi",
+            "name": "Kocaeli",
+            "description": "Kocaeli",
             "status": "aktif",
             "location": "Kocaeli, Türkiye",
             "created": "2025-01-01",
@@ -47,8 +47,8 @@
         },
         {
             "code": "timisoara",
-            "name": "Timișoara Tramvay",
-            "description": "Timișoara şehir tramvay taşımacılığı",
+            "name": "Timișoara",
+            "description": "Timișoara",
             "status": "aktif",
             "location": "Timișoara, Romanya",
             "created": "2025-01-01",

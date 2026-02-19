@@ -407,6 +407,8 @@ def create_app():
                     print(f"\n📤 POST /yeni-ariza-bildir")
                     print(f"   📋 Gelen form alanları: {list(form_data.keys())}")
                     print(f"   🔧 Araç Modül seçimleri: {arac_modules}")
+                    print(f"   ✅ create_hbr değeri: '{request.form.get('create_hbr')}' (type: {type(request.form.get('create_hbr'))})")
+                    print(f"   🎯 HBR yapılacak mı?: {request.form.get('create_hbr') == 'true'}")
                     
                     # FRACAS ID'yi form'dan al veya hesapla
                     fracas_id = form_data.get('fracas_id', '').strip()
@@ -502,11 +504,11 @@ def create_app():
                         ws_new['A2'].font = Font(italic=True, size=10)
                         ws_new['A2'].alignment = Alignment(horizontal="right")
                         
-                        headers = ['FRACAS ID', 'Araç No', 'Araç Modül', 'Kilometre', 'Tarih', 'Saat', 
+                        headers = ['FRACAS ID', 'Araç No', 'Araç Modül', 'Kilometre', 'Arıza Tarihi', 'Arıza Saati', 
                                   'Sistem', 'Alt Sistem', 'Tedarikçi', 'Arıza Sınıfı', 'Arıza Kaynağı', 'Arıza Tipi',
                                   'Garanti Kapsamı', 'Arıza Tanımı', 'Yapılan İşlem', 'Aksiyon', 'Parça Kodu', 'Parça Adı', 'Parça Seri No', 'Adet',
                                   'Tamir Başlama Tarihi', 'Tamir Başlama Saati', 'Tamir Bitişi Tarihi', 'Tamir Bitişi Saati', 'Tamir Süresi', 'MTTR (dk)',
-                                  'Servise Veriliş Tarihi', 'Servise Veriliş Saati', 'Durum', 'Personel Sayısı']
+                                  'Servise Veriliş Tarihi', 'Servise Veriliş Saati', 'Kayıt Durumu', 'Personel Sayısı']
                         
                         # Sütun genişlikleri (30 sütun)
                         column_widths = [13, 10, 12, 10, 12, 10, 12, 12, 12, 14, 14, 18, 12, 20, 14, 10, 12, 12, 12, 10, 15, 14, 14, 14, 14, 12, 14, 14, 10, 12]
@@ -686,8 +688,13 @@ def create_app():
                         flash(f'❌ Arıza Listesi yazma hatası: {str(e)}', 'danger')
                     
                     # ===== HBR (HATA BİLDİRİM RAPORU) OLUŞTURMA =====
+                    print(f"\n🔍 HBR KONTROL")
+                    print(f"   Form'dan gelen create_hbr değeri: '{request.form.get('create_hbr')}'")
+                    print(f"   Koşul sonucu (== 'true'): {request.form.get('create_hbr') == 'true'}")
+                    
                     if request.form.get('create_hbr') == 'true':
                         try:
+                            print(f"\n✅ HBR OLUŞTURMA BAŞLANDI!")
                             import time
                             from openpyxl import load_workbook
                             from openpyxl.drawing.image import Image as XLImage
@@ -703,6 +710,7 @@ def create_app():
                             if not os.path.exists(template_path):
                                 print(f"   ⚠️  HBR Template bulunamadı: {template_path}")
                             else:
+                                print(f"   ✅ Template yüklendi: {template_path}")
                                 # NCR numarası oluştur
                                 hbr_files = [f for f in os.listdir(hbr_dir) if f.startswith('BOZ-NCR-')]
                                 ncr_counter = len(hbr_files) + 1
@@ -730,13 +738,29 @@ def create_app():
                                 tedarikci = form_data.get('tedarikci', '')
                                 ariza_tanimi = form_data.get('ariza_tanimi', '')
                                 parca_seri_no = form_data.get('parca_seri_no', '')
-                                ariza_sinifi = form_data.get('ariza_sinifi', '')  # A, B, C
-                                ariza_tipi = form_data.get('ariza_tipi', '')  # Çeşitli türler
+                                ariza_sinifi = form_data.get('ariza_sinifi', '').strip()  # A, B, C - STRIP() EKLEDIK
+                                ariza_tipi = form_data.get('ariza_tipi', '').strip()  # Çeşitli türler - STRIP() EKLEDIK
+                                
+                                # DEBUG: Form'dan gelen değerleri loglayalım
+                                print(f"\n   🎯 TIK YAZMA KONDİSYONLARI DEBUG")
+                                print(f"      ariza_sinifi = '{ariza_sinifi}' (uzunluk: {len(ariza_sinifi)})")
+                                print(f"      ariza_tipi = '{ariza_tipi}' (uzunluk: {len(ariza_tipi)})")
                                 
                                 # Hücre yazma helper fonksiyonu - merged cells için unmerge + write + remerge
-                                def write_cell(worksheet, cell_ref, value):
+                                def write_cell(worksheet, cell_ref, value, append=False):
+                                    """
+                                    Hücreye değer yaz. Merged hücreler için önce unmerge et, yaz, sonra remerge et.
+                                    append=True ise mevcut değerin yanına ekle.
+                                    """
                                     try:
-                                        # Check if this cell is part of a merged range
+                                        # Hücreyi oku
+                                        cell = worksheet[cell_ref]
+                                        
+                                        # Append modunu yaz
+                                        if append and cell.value:
+                                            value = f"{cell.value} {value}"
+                                        
+                                        # Merged range kontrolü
                                         merged_ranges = list(worksheet.merged_cells.ranges)
                                         merged_range = None
                                         
@@ -746,21 +770,44 @@ def create_app():
                                                 break
                                         
                                         if merged_range:
-                                            # Unmerge
-                                            worksheet.unmerge_cells(str(merged_range))
-                                            # Write value to the cell
-                                            worksheet[cell_ref].value = value
-                                            # Remerge
-                                            worksheet.merge_cells(str(merged_range))
+                                            # MERGED HÜCRE YAZMA PROSEDÜRÜ
+                                            merged_str = str(merged_range)
+                                            print(f"         → {cell_ref} merged hücrede yazılıyor [{merged_str}]")
+                                            
+                                            # Adım 1: Unmerge
+                                            try:
+                                                worksheet.unmerge_cells(merged_str)
+                                                print(f"            ✓ Unmerge başarılı")
+                                            except Exception as umr_err:
+                                                print(f"            ⚠️  Unmerge başarısız: {umr_err}")
+                                            
+                                            # Adım 2: Değeri yaz
+                                            try:
+                                                worksheet[cell_ref].value = value
+                                                print(f"            ✓ Yazı başarılı: '{value}'")
+                                            except Exception as write_err:
+                                                print(f"            ⚠️  Yazı başarısız: {write_err}")
+                                            
+                                            # Adım 3: Remerge
+                                            try:
+                                                worksheet.merge_cells(merged_str)
+                                                print(f"            ✓ Remerge başarılı")
+                                            except Exception as mrg_err:
+                                                print(f"            ⚠️  Remerge başarısız: {mrg_err}")
+                                                print(f"            → Merged olmadan devam edilecek")
                                         else:
-                                            # Normal cell, just write
+                                            # NORMAL HÜCRE - basit yazma
                                             worksheet[cell_ref].value = value
+                                            print(f"         → {cell_ref} normal hücreye yazıldı: '{value}'")
+                                    
                                     except Exception as e:
-                                        print(f"   ⚠️  Hücre yazma hatası {cell_ref}: {str(e)}")
+                                        print(f"   ⚠️  KRİTİK HATA ({cell_ref}): {str(e)}")
+                                        # Son çare - zorla yaz
                                         try:
                                             worksheet[cell_ref].value = value
+                                            print(f"      → Zorlu yazı başarılı (merged unmerged)")
                                         except:
-                                            pass
+                                            print(f"      ❌ Zorlu yazı da başarısız!")
 
                                 
                                 # Hücreleri doldur (Excel satır/sütun 1-bazlı)
@@ -770,42 +817,75 @@ def create_app():
                                 write_cell(ws, 'G6', hata_tarih)          # Arıza Tarihi
                                 write_cell(ws, 'I6', ncr_number)          # NCR Numarası
                                 
-                                write_cell(ws, 'G7', arac_km)
-                                write_cell(ws, 'J7', tedarikci)
+                                # A8: Araç No (template'de boş olacak, A8'in eski hali korunacak)
+                                write_cell(ws, 'A8', arac_numarasi, append=True)
                                 
-                                # Müşteri kodu (Örn: BEL25)
+                                write_cell(ws, 'G7', arac_km)
+                                write_cell(ws, 'I7', tedarikci)
+                                
+                                # E8: Müşteri bilgisi (veriler.xlsx'den C3'ten çek)
+                                musteri_code = 'equipment_code'
                                 veriler_path = os.path.join(os.path.dirname(__file__), 'data', project, 'veriler.xlsx')
                                 if os.path.exists(veriler_path):
                                     try:
                                         veriler_wb = load_workbook(veriler_path)
                                         veriler_ws = veriler_wb.active
-                                        # İlk satırdan proje kodunu bul (B1 türü yerde)
-                                        musteri_kodu = veriler_ws['B1'].value or ''
-                                        write_cell(ws, 'E8', musteri_kodu)
+                                        musteri_code = veriler_ws['C3'].value or 'equipment_code'
                                     except:
-                                        write_cell(ws, 'E8', 'BEL25')
+                                        pass
+                                write_cell(ws, 'E8', musteri_code, append=True)
                                 
-                                # Tespit Yöntemi (Bozankaya ise check)
-                                if 'bozankaya' in current_user.username.lower():
-                                    write_cell(ws, 'F8', '✓')
+                                # Tespit Yöntemi (Bozankaya ise F8, Müşteri ise H8)
+                                ariza_tespit_yontemi = form_data.get('ariza_tespit_yontemi', '')
+                                if 'bozankaya' in current_user.username.lower() or 'Bozankaya' in ariza_tespit_yontemi:
+                                    write_cell(ws, 'F8', '[X]', append=True)
+                                    print(f"      ✓ F8'e [X] eklendi (Tespit: Bozankaya)")
+                                elif 'müşteri' in ariza_tespit_yontemi.lower():
+                                    write_cell(ws, 'H8', '[X]', append=True)
+                                    print(f"      ✓ H8'e [X] eklendi (Tespit: Müşteri)")
                                 
                                 # NOT: muslteri_bildirimi form'da olmadığı için bu alan yazılmıyor
                                 
-                                # Arıza Sınıfı (A, B, C -> specifik hücrelere)
-                                if ariza_sinifi == 'A':
-                                    write_cell(ws, 'G9', '✓')
-                                elif ariza_sinifi == 'B':
-                                    write_cell(ws, 'G10', '✓')
-                                elif ariza_sinifi == 'C':
-                                    write_cell(ws, 'G11', '✓')
+                                # Arıza Sınıfı (Kritik, Yüksek, Orta, Düşük -> tümü için [X] yaz)
+                                # Form'dan gelen değerler: başında "A-", "B-", "C-" gibi prefixler var
+                                sinif_mapping = {}
+                                if 'A' in ariza_sinifi or 'Kritik' in ariza_sinifi:
+                                    sinif_mapping = {'cell': 'G9', 'type': 'Kritik'}
+                                elif 'B' in ariza_sinifi or 'Yüksek' in ariza_sinifi or 'Fonksiyonel' in ariza_sinifi:
+                                    sinif_mapping = {'cell': 'G10', 'type': 'Yüksek'}
+                                elif 'C' in ariza_sinifi or 'Orta' in ariza_sinifi:
+                                    sinif_mapping = {'cell': 'G11', 'type': 'Orta'}
+                                elif 'D' in ariza_sinifi or 'Düşük' in ariza_sinifi:
+                                    sinif_mapping = {'cell': 'G11', 'type': 'Düşük'}
                                 
-                                # Arıza Tipi yerleştirme
-                                if 'İlk defa' in ariza_tipi or 'ilk' in ariza_tipi.lower():
-                                    write_cell(ws, 'H9', '✓')
-                                elif 'Tekrarlayan aynı' in ariza_tipi or 'aynı' in ariza_tipi.lower():
-                                    write_cell(ws, 'A12', '✓')
-                                elif 'Tekrarlayan farklı' in ariza_tipi or 'farklı' in ariza_tipi.lower():
-                                    write_cell(ws, 'E12', '✓')
+                                if sinif_mapping and 'cell' in sinif_mapping:
+                                    write_cell(ws, sinif_mapping['cell'], '[X]', append=True)
+                                    print(f"      ✓ {sinif_mapping['cell']}'e [X] eklendi (Arıza Sınıfı = {sinif_mapping['type']})")
+                                else:
+                                    print(f"      ⚠️  Arıza Sınıfı '{ariza_sinifi}' harita'da yok - DEBUG: {repr(ariza_sinifi)}")
+                                
+                                # Arıza Tipi yerleştirme - Form'dan gelen değerler incelenecek
+                                # Olası değerler: 'ilk_defa', 'tekrarlayan_ayni_arac', 'tekrarlayan_farkli_arac'
+                                print(f"      DEBUG Arıza Tipi: '{ariza_tipi}' (type: {type(ariza_tipi)})")
+                                if ariza_tipi:
+                                    ariza_tipi_lower = str(ariza_tipi).lower().strip()
+                                    
+                                    # İlk Defa
+                                    if 'ilk' in ariza_tipi_lower or 'first' in ariza_tipi_lower or 'ilk_defa' in ariza_tipi_lower:
+                                        write_cell(ws, 'H9', '[X]', append=True)
+                                        print(f"      ✓ H9'a [X] eklendi (İlk defa)")
+                                    
+                                    # Aynı araçta tekrarlayan
+                                    if ('tekrarlayan' in ariza_tipi_lower or 'repeat' in ariza_tipi_lower) and ('aynı' in ariza_tipi_lower or 'same' in ariza_tipi_lower or 'ayni_arac' in ariza_tipi_lower):
+                                        write_cell(ws, 'A12', '[X]', append=True)
+                                        print(f"      ✓ A12'ye [X] eklendi (Tekrarlayan aynı araçta)")
+                                    
+                                    # Farklı araçta tekrarlayan
+                                    if ('tekrarlayan' in ariza_tipi_lower or 'repeat' in ariza_tipi_lower) and ('farklı' in ariza_tipi_lower or 'different' in ariza_tipi_lower or 'farkli_arac' in ariza_tipi_lower):
+                                        write_cell(ws, 'E12', '[X]', append=True)
+                                        print(f"      ✓ E12'ye [X] eklendi (Tekrarlayan farklı araçta)")
+                                else:
+                                    print(f"      ⚠️  Arıza Tipi seçilmedi")
                                 
                                 # Arıza Tanımı
                                 write_cell(ws, 'B17', ariza_tanimi)
@@ -823,8 +903,8 @@ def create_app():
                                         try:
                                             # Resmi oku ve boyutlandır
                                             img = PILImage.open(hbr_foto.stream)
-                                            # Boyut: 100x100 pixel
-                                            img.thumbnail((100, 100), PILImage.Resampling.LANCZOS)
+                                            # Boyut: 300x300 pixel (daha yüksek kalite)
+                                            img.thumbnail((300, 300), PILImage.Resampling.LANCZOS)
                                             
                                             # BytesIO'ya kaydet
                                             img_buffer = BytesIO()
@@ -837,10 +917,12 @@ def create_app():
                                         except Exception as img_err:
                                             print(f"   ⚠️  HBR Resim ekleme hatası: {str(img_err)}")
                                 
-                                # SSH Sorumlusu (B22) + Hata Bildiren Kullanıcı (C24, D24)
-                                write_cell(ws, 'B22', current_user.username)  # SSH Sorumlusu
-                                write_cell(ws, 'C24', current_user.username)  # Hata Bildiren Kullanıcı
-                                write_cell(ws, 'D24', current_user.username)  # Hata Bildiren Kullanıcı (Tekrar)
+                                # SSH Sorumlusu (B22) - GÜNCELLEME YAPMA!
+                                # write_cell(ws, 'B22', current_user.username)  # SSH Sorumlusu
+                                kullanici_adi_soyadi = current_user.full_name if current_user.full_name else current_user.username
+                                write_cell(ws, 'B24', kullanici_adi_soyadi)  # Hata Bildiren (B24)
+                                write_cell(ws, 'C24', kullanici_adi_soyadi)  # Hata Bildiren Kullanıcı
+                                write_cell(ws, 'D24', kullanici_adi_soyadi)  # Hata Bildiren Kullanıcı (Tekrar)
                                 
                                 # Dosyayı kaydet
                                 wb.save(temp_hbr_file)

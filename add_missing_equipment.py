@@ -50,13 +50,13 @@ with app.app_context():
         # Create new equipment
         eq = Equipment(
             equipment_code=tram_id,
-            name=f"Belgrad Tramvay {tram_id}",
+            name=f"Belgrad {tram_id}",
             equipment_type='Tramvay',
             status='aktif',
             manufacturer='Belgrad'
         )
         db.session.add(eq)
-        print(f"Adding: {tram_id} - Belgrad Tramvay {tram_id}")
+        print(f"Adding: {tram_id} - Belgrad {tram_id}")
         added_count += 1
     
     print("\n" + "=" * 80)
