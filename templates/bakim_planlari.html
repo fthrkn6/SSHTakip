@@ -786,6 +786,15 @@
         loadData();
         loadState();
         loadSchedule();
+        
+        // Tab 2'ye geçişi dinle
+        const bakim_tablosu_tab = document.getElementById('bakim-tablosu-tab');
+        if (bakim_tablosu_tab) {
+            bakim_tablosu_tab.addEventListener('shown.bs.tab', function() {
+                // Tab 2 gösterilince transpoze tabloyu yükle
+                setTimeout(() => loadTransposeMaintenance(), 200);
+            });
+        }
     });
 
     function loadState() {
@@ -1549,15 +1558,6 @@
         const modal = new bootstrap.Modal(document.getElementById('bakimDetailsModal'));
         modal.show();
     }
-
-    // Sayfa yüklenirken 2. tab için veri yükle
-    document.addEventListener('DOMContentLoaded', function() {
-        // Mevcut loadData() vs çalışıyor, biz ekstra olarak transpoze tabloyu da yükle
-        const originalLoadSchedule = loadSchedule;
-        loadSchedule = function() {
-            loadTransposeMaintenance();
-        };
-    });
 </script>
 
 {% endblock %}
