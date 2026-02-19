@@ -55,6 +55,50 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+# Global parts cache - initialized once
+_parts_cache = None
+_parts_cache_time = None
+
+def load_parts_cache():
+    """Excel dosyasını yükle ve cache'e al"""
+    global _parts_cache, _parts_cache_time
+    import pandas as pd
+    from datetime import datetime
+    
+    data_dir = os.path.join(os.path.dirname(__file__), 'data', 'belgrad')
+    part_file = os.path.join(data_dir, 'GÜNCEL BELGRAD TRAMVAY 11.09.2025.XLSX')
+    
+    if not os.path.exists(part_file):
+        _parts_cache = []
+        return []
+    
+    try:
+        df = pd.read_excel(part_file)
+        parts = []
+        
+        # Excel'den parçaları oku ve cache'e koy
+        for idx, row in df.iterrows():
+            bilesen_no = str(row['Bileşen numarası']).strip().upper() if pd.notna(row['Bileşen numarası']) else ''
+            nesne_metni = str(row['Nesne kısa metni']).strip().upper() if pd.notna(row['Nesne kısa metni']) else ''
+            
+            if bilesen_no or nesne_metni:
+                parts.append({
+                    'bilesen_no': bilesen_no,
+                    'nesne_metni': nesne_metni,
+                    'bilesen_no_lower': bilesen_no.lower(),
+                    'nesne_metni_lower': nesne_metni.lower()
+                })
+        
+        _parts_cache = parts
+        _parts_cache_time = datetime.now()
+        print(f"[OK] Parts cache yükle: {len(parts)} parça")
+        return parts
+    except Exception as e:
+        print(f"Parts cache hatas: {e}")
+        _parts_cache = []
+        return []
+
+
 def create_app():
     try:
         app = Flask(__name__, static_folder='static', static_url_path='/static')
@@ -1267,51 +1311,8 @@ def create_app():
                 
                 return response
             except Exception as e:
-                flash(f'❌ İndirme hatası: {str(e)}', 'danger')
+                flash(f'[ERROR] İndirme hatas: {str(e)}', 'danger')
                 return redirect(url_for('ariza_listesi_veriler'))
-
-        # Global parts cache - initialized once
-        _parts_cache = None
-        _parts_cache_time = None
-        
-        def load_parts_cache():
-            """Excel dosyasını yükle ve cache'e al"""
-            global _parts_cache, _parts_cache_time
-            import pandas as pd
-            from datetime import datetime
-            
-            data_dir = os.path.join(os.path.dirname(__file__), 'data', 'belgrad')
-            part_file = os.path.join(data_dir, 'GÜNCEL BELGRAD TRAMVAY 11.09.2025.XLSX')
-            
-            if not os.path.exists(part_file):
-                _parts_cache = []
-                return []
-            
-            try:
-                df = pd.read_excel(part_file)
-                parts = []
-                
-                # Excel'den parçaları oku ve cache'e koy
-                for idx, row in df.iterrows():
-                    bilesen_no = str(row['Bileşen numarası']).strip().upper() if pd.notna(row['Bileşen numarası']) else ''
-                    nesne_metni = str(row['Nesne kısa metni']).strip().upper() if pd.notna(row['Nesne kısa metni']) else ''
-                    
-                    if bilesen_no or nesne_metni:
-                        parts.append({
-                            'bilesen_no': bilesen_no,
-                            'nesne_metni': nesne_metni,
-                            'bilesen_no_lower': bilesen_no.lower(),
-                            'nesne_metni_lower': nesne_metni.lower()
-                        })
-                
-                _parts_cache = parts
-                _parts_cache_time = datetime.now()
-                print(f"✅ Parts cache yüklendi: {len(parts)} parça")
-                return parts
-            except Exception as e:
-                print(f"Parts cache hatası: {e}")
-                _parts_cache = []
-                return []
 
         @app.route('/api/parts-lookup', methods=['GET'])
         @login_required
@@ -3304,6 +3305,8 @@ if __name__ == '__main__':
     if app:
         with app.app_context():
             db.create_all()  # Ensure all tables exist
+            # Cache'i app başlangıcında yükle
+            load_parts_cache()
         init_sample_data(app)  # Initialize sample data
     # Cloud ve local deployment için PORT ayarı
     port = int(os.environ.get('PORT', 5000))
