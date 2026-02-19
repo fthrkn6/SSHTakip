@@ -3,17 +3,6 @@
 {% block title %}FRACAS Analiz - CMMS{% endblock %}
 
 {% block content %}
-<div class="mb-4">
-    <h1 class="page-title">
-        <i class="bi bi-graph-up-arrow"></i> FRACAS Analiz Dashboard
-        <span class="badge bg-secondary fs-6 ms-2">{{ session.get('project_name', 'Proje Seçilmedi') }}</span>
-    </h1>
-    <p class="page-subtitle">EN 50126 RAMS Standartlarına Uygun Arıza Analizi</p>
-    <div class="alert alert-info d-inline-block mt-2">
-        <small><i class="bi bi-info-circle"></i> Veri Kaynağı: <strong>{{ data_source }}</strong></small>
-    </div>
-</div>
-
 {% if not data_available %}
 <div class="alert alert-warning">
     <h5><i class="bi bi-exclamation-triangle me-2"></i>Excel Dosyası Bulunamadı</h5>
