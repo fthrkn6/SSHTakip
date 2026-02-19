@@ -3,22 +3,6 @@
 {% block title %}HBR Listesi - Hata Bildirim Raporları{% endblock %}
 
 {% block content %}
-<!-- Başlık Bölümü -->
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h1 class="page-title">HBR Listesi
-        </h1>
-    </div>
-    <div>
-        <a href="{{ url_for('yeni_ariza_bildir') }}" class="btn btn-danger me-2">
-            <i class="bi bi-plus-circle me-2"></i>Yeni HBR Oluştur
-        </a>
-        <button onclick="location.reload()" class="btn btn-outline-secondary" title="Sayfayı yenile">
-            <i class="bi bi-arrow-clockwise me-2"></i>Yenile
-        </button>
-    </div>
-</div>
-
 <!-- İstatistik Kartları -->
 <div class="row g-3 mb-4">
     <div class="col-12 col-md-4">
