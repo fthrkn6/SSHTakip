@@ -6,11 +6,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h1 class="page-title">FRACAS Arıza Verileri
-            <span class="badge bg-secondary fs-6">Fracas_*.xlsx</span>
         </h1>
-        <p class="page-subtitle">logs/{proje}/ariza_listesi/ klasöründen FRACAS template verilerini görüntüleyin ve
-            indirin
-        </p>
     </div>
     <div>
         <a href="{{ url_for('ariza_listesi_veriler_export') }}" class="btn btn-info me-2">
@@ -76,7 +72,16 @@
                 </select>
             </div>
         </div>
-        <hr class="my-2">
+        <div class="row mb-3 g-2">
+            <div class="col-12 col-md-6">
+                <label class="form-label fw-bold">Arıza Tanımı</label>
+                <input type="text" id="filterArizaTanimi" class="form-control form-control-sm" placeholder="Arıza tanımında arama...">
+            </div>
+            <div class="col-12 col-md-6">
+                <label class="form-label fw-bold">Yapılan İşlem</label>
+                <input type="text" id="filterYapılanIslem" class="form-control form-control-sm" placeholder="Yapılan işlemde arama...">
+            </div>
+        </div>
     </div>
 
     <div class="card-body p-0">
@@ -474,6 +479,8 @@
         const filterAracNo = aracNoSelect?.value || '';
         const filterTedarikci = tedarikciSelect?.value || '';
         const filterArizaSinifi = arizaSinifiSelect?.value || '';
+        const filterArizaTanimi = document.getElementById('filterArizaTanimi')?.value.toLowerCase() || '';
+        const filterYapılanIslem = document.getElementById('filterYapılanIslem')?.value.toLowerCase() || '';
 
         rows.forEach((row, idx) => {
             const cells = row.querySelectorAll('td');
@@ -502,11 +509,28 @@
                 }
             }
 
+            // Get Arıza Tanımı (cell 4)
+            let arizaTanimi = '';
+            if (cells.length > 4) {
+                arizaTanimi = cells[4].textContent.trim().toLowerCase();
+            }
+
+            // Get Yapılan İşlem from detail row (ddElements'in index 10)
+            let yapılanIslem = '';
+            if (detailRow && detailRow.classList.contains('detail-row')) {
+                const ddElements = detailRow.querySelectorAll('dd.small');
+                if (ddElements.length > 10) {
+                    yapılanIslem = ddElements[10]?.textContent?.trim().toLowerCase() || '';
+                }
+            }
+
             // Apply filters
             let show = true;
             if (filterAracNo && !aracNo.includes(filterAracNo)) show = false;
             if (filterTedarikci && !tedarikci.includes(filterTedarikci)) show = false;
             if (filterArizaSinifi && !arizaSinifi.includes(filterArizaSinifi)) show = false;
+            if (filterArizaTanimi && !arizaTanimi.includes(filterArizaTanimi)) show = false;
+            if (filterYapılanIslem && !yapılanIslem.includes(filterYapılanIslem)) show = false;
 
             row.style.display = show ? '' : 'none';
             if (detailRow && detailRow.classList.contains('detail-row')) {
@@ -523,5 +547,11 @@
     if (aracNoSelect) aracNoSelect.addEventListener('change', applyFilters);
     if (tedarikciSelect) tedarikciSelect.addEventListener('change', applyFilters);
     if (arizaSinifiSelect) arizaSinifiSelect.addEventListener('change', applyFilters);
+    
+    const filterArizaTanimi = document.getElementById('filterArizaTanimi');
+    const filterYapılanIslem = document.getElementById('filterYapılanIslem');
+    
+    if (filterArizaTanimi) filterArizaTanimi.addEventListener('input', applyFilters);
+    if (filterYapılanIslem) filterYapılanIslem.addEventListener('input', applyFilters);
 </script>
 {% endblock %}

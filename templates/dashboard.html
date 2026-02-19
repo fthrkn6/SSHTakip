@@ -271,21 +271,6 @@
 {% endblock %}
 
 {% block content %}
-<div class="page-header d-flex justify-content-between align-items-center">
-    <div>
-        <h1 class="page-title">Dashboard
-            {% if project_name %}<span class="badge bg-secondary fs-6">{{ project_name }}</span>{% endif %}
-        </h1>
-        <p class="page-subtitle">Tramvay Filosu - Anlık Performans Görünümü
-            {% if excel_data %}<span class="badge bg-info">Excel Verisi</span>{% endif %}
-        </p>
-    </div>
-    <div class="text-muted">
-        <i class="bi bi-clock me-1"></i>
-        <span id="current-time">{{ now().strftime('%d.%m.%Y %H:%M') if now is defined else '' }}</span>
-    </div>
-</div>
-
 <!-- KPI Cards - Professional Design -->
 <div class="row g-4 mb-4">
     <div class="col-12 col-lg-3 col-md-6">
@@ -371,37 +356,27 @@
 </div>
 
 <!-- Metrics Row -->
-<div class="row g-4 mb-4">
+<div class="d-flex gap-4 mb-4 flex-wrap">
     <!-- Toplam Arıza Sınıfları -->
-    <div class="col-6 col-lg-2">
-        <div class="metric-card">
-            <h6>Toplam Arıza<br><small>(A-Kritik)</small></h6>
-            <div class="metric-value text-danger">{{ ariza_sinif_counts.A.count }}</div>
-        </div>
+    <div class="metric-card flex-fill" style="min-width: 160px;">
+        <h6>Toplam Arıza<br><small>(A-Kritik)</small></h6>
+        <div class="metric-value text-danger">{{ ariza_sinif_counts.A.count }}</div>
     </div>
-    <div class="col-6 col-lg-2">
-        <div class="metric-card">
-            <h6>Toplam Arıza<br><small>(B-Yüksek)</small></h6>
-            <div class="metric-value text-danger">{{ ariza_sinif_counts.B.count }}</div>
-        </div>
+    <div class="metric-card flex-fill" style="min-width: 160px;">
+        <h6>Toplam Arıza<br><small>(B-Yüksek)</small></h6>
+        <div class="metric-value text-danger">{{ ariza_sinif_counts.B.count }}</div>
     </div>
-    <div class="col-6 col-lg-2">
-        <div class="metric-card">
-            <h6>Toplam Arıza<br><small>(C-Hafif)</small></h6>
-            <div class="metric-value text-warning">{{ ariza_sinif_counts.C.count }}</div>
-        </div>
+    <div class="metric-card flex-fill" style="min-width: 160px;">
+        <h6>Toplam Arıza<br><small>(C-Hafif)</small></h6>
+        <div class="metric-value text-warning">{{ ariza_sinif_counts.C.count }}</div>
     </div>
-    <div class="col-6 col-lg-2">
-        <div class="metric-card">
-            <h6>Toplam Arıza<br><small>(D-Diğer)</small></h6>
-            <div class="metric-value text-info">{{ ariza_sinif_counts.D.count }}</div>
-        </div>
+    <div class="metric-card flex-fill" style="min-width: 160px;">
+        <h6>Toplam Arıza<br><small>(D-Diğer)</small></h6>
+        <div class="metric-value text-info">{{ ariza_sinif_counts.D.count }}</div>
     </div>
-    <div class="col-6 col-lg-2">
-        <div class="metric-card">
-            <h6>Toplam Arızalar</h6>
-            <div class="metric-value text-danger">{{ total_failures_last_30_days }}</div>
-        </div>
+    <div class="metric-card flex-fill" style="min-width: 160px;">
+        <h6>Toplam Arızalar</h6>
+        <div class="metric-value text-danger">{{ total_failures_last_30_days }}</div>
     </div>
 </div>
 
@@ -631,9 +606,12 @@
 <script>
     // Update time every second
     function updateTime() {
-        const now = new Date();
-        const formatted = now.toLocaleDateString('tr-TR') + ' ' + now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-        document.getElementById('current-time').textContent = formatted;
+        const timeElement = document.getElementById('current-time');
+        if (timeElement) {
+            const now = new Date();
+            const formatted = now.toLocaleDateString('tr-TR') + ' ' + now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+            timeElement.textContent = formatted;
+        }
     }
     setInterval(updateTime, 1000);
     updateTime();
@@ -706,8 +684,14 @@
             card.classList.remove('selected');
         });
 
+        // vehicleCode TRN- gerektiren formata dönüştür
+        let fullVehicleCode = vehicleCode;
+        if (!vehicleCode.includes('TRN-')) {
+            fullVehicleCode = 'TRN-' + vehicleCode;
+        }
+
         // Seçili tramvay kartına selected sınıfı ekle
-        const selectedCard = document.querySelector(`.tramvay-card[data-vehicle="${vehicleCode}"]`);
+        const selectedCard = document.querySelector(`.tramvay-card[data-vehicle="${fullVehicleCode}"]`);
         if (selectedCard) {
             selectedCard.classList.add('selected');
         }
@@ -718,15 +702,25 @@
         const normalizedCode = vehicleCode.replace('TRN-', '').trim();
 
         // API'den o araçla ilgili arızaları getir
-        fetch(`/dashboard/api/failures/${vehicleCode}`)
+        fetch(`/dashboard/api/failures/${normalizedCode}`)
             .then(response => response.json())
             .then(data => {
                 const arizaContainer = document.getElementById('ariza-container');
 
                 if (data.failures && data.failures.length > 0) {
-                    // Arızaları göster
                     let html = '';
                     data.failures.forEach(ariza => {
+                        // Araç no'yu normalize et (1547.0 → 1547)
+                        let aracNoNormalized = ariza.arac_no;
+                        try {
+                            const aracNoFloat = parseFloat(aracNoNormalized);
+                            if (!isNaN(aracNoFloat)) {
+                                aracNoNormalized = parseInt(aracNoFloat).toString();
+                            }
+                        } catch (e) {
+                            // String olarak bırak
+                        }
+                        
                         html += `
                             <div class="ariza-item d-flex align-items-start p-3 mb-2 rounded-3" style="background: #fef2f2;">
                                 <div class="me-3">
@@ -735,7 +729,7 @@
                                 <div class="flex-grow-1">
                                     <h6 class="mb-1 text-dark">${ariza.fracas_id}</h6>
                                     <small class="text-muted">
-                                        <i class="bi bi-train-front me-1"></i>${ariza.arac_no}
+                                        <i class="bi bi-train-front me-1"></i><span class="arac-code" onclick="filterArizalar('${aracNoNormalized}')" style="cursor: pointer; text-decoration: underline;">${aracNoNormalized}</span>
                                     </small>
                                     <br>
                                     <small class="text-muted">${ariza.sistem}: ${ariza.ariza_tanimi}</small>
@@ -746,6 +740,7 @@
                         `;
                     });
                     arizaContainer.innerHTML = html;
+                    document.getElementById('ariza-count').textContent = data.failures.length;
                 } else {
                     // Arıza yok
                     arizaContainer.innerHTML = `
@@ -787,6 +782,17 @@
                 if (data.failures && data.failures.length > 0) {
                     let html = '';
                     data.failures.forEach(ariza => {
+                        // Araç no'yu normalize et (1547.0 → 1547)
+                        let aracNoNormalized = ariza.arac_no;
+                        try {
+                            const aracNoFloat = parseFloat(aracNoNormalized);
+                            if (!isNaN(aracNoFloat)) {
+                                aracNoNormalized = parseInt(aracNoFloat).toString();
+                            }
+                        } catch (e) {
+                            // String olarak bırak
+                        }
+                        
                         html += `
                             <div class="ariza-item d-flex align-items-start p-3 mb-2 rounded-3" style="background: #fef2f2;">
                                 <div class="me-3">
@@ -795,7 +801,7 @@
                                 <div class="flex-grow-1">
                                     <h6 class="mb-1 text-dark">${ariza.fracas_id}</h6>
                                     <small class="text-muted">
-                                        <i class="bi bi-train-front me-1"></i>${ariza.arac_no}
+                                        <i class="bi bi-train-front me-1"></i><span class="arac-code" onclick="filterArizalar('${aracNoNormalized}')" style="cursor: pointer; text-decoration: underline;">${aracNoNormalized}</span>
                                     </small>
                                     <br>
                                     <small class="text-muted">${ariza.sistem}: ${ariza.ariza_tanimi}</small>

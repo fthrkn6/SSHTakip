@@ -590,7 +590,23 @@ def get_equipment_failures(equipment_code=None):
             return jsonify({'failures': [], 'error': 'Fracas file not found'})
         
         try:
-            df = pd.read_excel(ariza_listesi_file, sheet_name='FRACAS', header=3)
+            # Sheet adını dinamik olarak bul
+            sheet_names = pd.ExcelFile(ariza_listesi_file).sheet_names
+            logger.info(f'[API] Mevcut Sheet adları: {sheet_names}')
+            
+            # FRACAS sheet'i ara, yoksa ilk sheet'i kullan
+            sheet_to_use = None
+            if 'FRACAS' in sheet_names:
+                sheet_to_use = 'FRACAS'
+            elif sheet_names:
+                sheet_to_use = sheet_names[0]
+            else:
+                return jsonify({'failures': [], 'error': 'No sheets found in Excel file'})
+            
+            logger.info(f'[API] Kullanılan sheet: {sheet_to_use}')
+            
+            # Header satırını dinamik olarak bul (varsayılan: 3, yani 4. satırdan başla)
+            df = pd.read_excel(ariza_listesi_file, sheet_name=sheet_to_use, header=3)
             logger.info(f'[API] Excel okundu - {len(df)} satir, Sutunlar: {list(df.columns)[:5]}...')
             
             # FRACAS ID sütununu doğrula
@@ -614,8 +630,26 @@ def get_equipment_failures(equipment_code=None):
             
             # Eğer equipment_code verildiyse filtrele, değilse son 5'i getir
             if equipment_code and equipment_code.strip():
+                # TRN- prefix'ini kaldır (eğer varsa)
+                equipment_code_clean = equipment_code.replace('TRN-', '').strip()
+                
                 if arac_no_col:
-                    filtered_df = df[df[arac_no_col].astype(str).str.strip() == str(equipment_code).strip()]
+                    # Araç numarasını normalize et (float da olabilir)
+                    try:
+                        # Float olarak deneyerek normalleştir
+                        equipment_code_float = float(equipment_code_clean)
+                        equipment_code_normalized = str(int(equipment_code_float))
+                        
+                        # DataFrame'deki araç no'larını da normalize et
+                        arac_no_series = df[arac_no_col].astype(str).str.strip()
+                        # Float parse et
+                        arac_no_normalized = arac_no_series.apply(lambda x: str(int(float(x))) if x and x != '-' else x)
+                        
+                        filtered_df = df[arac_no_normalized == equipment_code_normalized]
+                    except (ValueError, TypeError):
+                        # String karşılaştırması yap
+                        filtered_df = df[df[arac_no_col].astype(str).str.strip() == str(equipment_code_clean).strip()]
+                    
                     filtered_df = filtered_df.tail(5)
                 else:
                     filtered_df = df.tail(5)
@@ -630,7 +664,14 @@ def get_equipment_failures(equipment_code=None):
                 try:
                     # Pandas Series olarak erişim, sütun adlarını dinamik ara
                     fracas_id = str(row[fracas_id_col]).strip() if fracas_id_col and pd.notna(row[fracas_id_col]) else ''
-                    arac_no = str(row[arac_no_col]).strip() if arac_no_col and pd.notna(row[arac_no_col]) else ''
+                    
+                    # Araç no'yu normalize et (1547.0 → 1547)
+                    arac_no_raw = str(row[arac_no_col]).strip() if arac_no_col and pd.notna(row[arac_no_col]) else ''
+                    try:
+                        arac_no_float = float(arac_no_raw)
+                        arac_no = str(int(arac_no_float))
+                    except (ValueError, TypeError):
+                        arac_no = arac_no_raw
                     
                     # Sistem sütunu ara
                     sistem_col = next((col for col in df.columns if 'sistem' in str(col).lower()), None)

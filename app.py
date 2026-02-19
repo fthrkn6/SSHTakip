@@ -1744,6 +1744,186 @@ def create_app():
                 return redirect(url_for('bakim_planlari'))
             return render_template('bakim_plani_ekle.html')
 
+        @app.route('/api/bakim-upload', methods=['POST'])
+        @login_required
+        def bakim_upload():
+            """Bakım kartı dosyası upload (imza ile)"""
+            try:
+                file = request.files.get('file')
+                tram_id = request.form.get('tram_id')
+                level = request.form.get('level')
+                signature = request.form.get('signature', '')  # Base64 imza
+                
+                if not file or not tram_id or not level:
+                    return jsonify({'error': 'Eksik parametreler'}), 400
+                
+                # Klasör oluştur
+                from datetime import datetime
+                current_project = session.get('current_project', 'belgrad')
+                bakim_dir = os.path.join(os.path.dirname(__file__), 'logs', current_project, 'Bakım')
+                os.makedirs(bakim_dir, exist_ok=True)
+                
+                # Dosya adı: YYYYMMDD_TramID_Level_filename
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                filename = f"{timestamp}_{tram_id}_{level}_{file.filename}"
+                filepath = os.path.join(bakim_dir, filename)
+                
+                # Dosyayı kaydet
+                file.save(filepath)
+                
+                # Imza varsa ayrı dosya olarak kaydet
+                if signature and signature.startswith('data:image'):
+                    # Base64'ten PNG'ye dönüştür
+                    import base64
+                    header, encoded = signature.split(',')
+                    signature_bytes = base64.b64decode(encoded)
+                    signature_filename = f"{timestamp}_{tram_id}_{level}_signature.png"
+                    signature_filepath = os.path.join(bakim_dir, signature_filename)
+                    with open(signature_filepath, 'wb') as f:
+                        f.write(signature_bytes)
+                
+                logger.info(f'[BAKIM] Dosya yüklendi: {filename}')
+                
+                return jsonify({
+                    'success': True,
+                    'message': 'Bakım kartı başarıyla yüklendi',
+                    'file': filename
+                })
+            except Exception as e:
+                logger.error(f'[BAKIM] Upload hatası: {e}')
+                return jsonify({'error': str(e)}), 500
+
+        @app.route('/api/bakim-excel-sheets')
+        @login_required
+        def bakim_excel_sheets():
+            """Belgrad-Bakım.xlsx'deki sheet'leri listele"""
+            try:
+                import pandas as pd
+                bakim_excel = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'Belgrad-Bakım.xlsx')
+                
+                if not os.path.exists(bakim_excel):
+                    return jsonify({'error': 'Belgrad-Bakım.xlsx bulunamadı'}), 404
+                
+                # Sheet adlarını al
+                xl_file = pd.ExcelFile(bakim_excel)
+                sheets = xl_file.sheet_names
+                
+                return jsonify({'sheets': sheets})
+            except Exception as e:
+                logger.error(f'[BAKIM] Excel sheet listesi hatası: {e}')
+                return jsonify({'error': str(e)}), 500
+
+        @app.route('/api/bakim-sheet-items/<sheet_name>')
+        @login_required
+        def bakim_sheet_items(sheet_name):
+            """Belgrad-Bakım.xlsx'deki belirli sheet'in maddeleri"""
+            try:
+                import pandas as pd
+                bakim_excel = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'Belgrad-Bakım.xlsx')
+                
+                if not os.path.exists(bakim_excel):
+                    return jsonify({'error': 'Belgrad-Bakım.xlsx bulunamadı'}), 404
+                
+                # Sheet'i oku (tüm rows veriye baştan doldurulmuş olabilir)
+                df = pd.read_excel(bakim_excel, sheet_name=sheet_name)
+                
+                # Boş olmayan satırları al
+                df = df.dropna(how='all')
+                
+                # JSON formatına çev
+                items = []
+                for idx, row in df.iterrows():
+                    # Sütununları dictionary'ye dönüştür
+                    item = {}
+                    for col in df.columns:
+                        val = row.get(col)
+                        if pd.notna(val):
+                            item[col] = str(val)
+                    if item:  # Boş olmayan satırları ekle
+                        items.append(item)
+                
+                return jsonify({
+                    'sheet': sheet_name,
+                    'items': items,
+                    'count': len(items)
+                })
+            except Exception as e:
+                logger.error(f'[BAKIM] Sheet items hatası: {e}')
+                return jsonify({'error': str(e)}), 500
+
+        @app.route('/api/bakim-tablosu-transpose')
+        @login_required
+        def bakim_tablosu_transpose():
+            """Transpoze bakım tablosu: Satırda araçlar, sütunda bakımlar"""
+            try:
+                import json
+                from models import Equipment
+                
+                # Bakım verilerini yükle
+                maintenance_file = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'maintenance.json')
+                maintenance_data = {}
+                
+                if os.path.exists(maintenance_file):
+                    with open(maintenance_file, 'r', encoding='utf-8') as f:
+                        maintenance_data = json.load(f)
+                
+                # Bakım seviyeleri (6K, 18K, 24K, vb.)
+                maintenance_levels = sorted([k for k in maintenance_data.keys() if k not in ['70K', '140K']], 
+                                           key=lambda x: int(x.replace('K', '')) * 1000)
+                
+                # Equipment tablosundan araçları ve km verileri al
+                current_project = session.get('current_project', 'belgrad')
+                equipments = Equipment.query.filter_by(project_code=current_project, is_active=True).all()
+                
+                # Transpoze tablo: satırda araçlar, sütunda bakımlar
+                result = {
+                    'maintenance_levels': maintenance_levels,  # Sütun başlıkları
+                    'tramps': []  # Satır verileri
+                }
+                
+                # Araçlar için veri hazırla
+                for equipment in equipments:
+                    current_km = equipment.current_km or 0
+                    
+                    row_data = {
+                        'tram_id': equipment.equipment_code,
+                        'current_km': int(current_km),
+                        'maintenance_status': {}
+                    }
+                    
+                    # Her bakım seviyesi için durum hesapla
+                    for level in maintenance_levels:
+                        level_km = maintenance_data[level]['km']
+                        next_maintenance_km = ((current_km // level_km) + 1) * level_km
+                        km_left = next_maintenance_km - current_km
+                        
+                        # Durum belirle (%)
+                        progress_percent = (level_km - km_left) / level_km * 100
+                        
+                        # Durum: normal (0-70%), warning (70-90%), urgent (90-100%), overdue (<0%)
+                        if km_left < 0:
+                            status = 'overdue'
+                        elif progress_percent >= 90:
+                            status = 'urgent'
+                        elif progress_percent >= 70:
+                            status = 'warning'
+                        else:
+                            status = 'normal'
+                        
+                        row_data['maintenance_status'][level] = {
+                            'status': status,
+                            'progress': progress_percent,
+                            'km_left': int(km_left),
+                            'next_km': next_maintenance_km
+                        }
+                    
+                    result['tramps'].append(row_data)
+                
+                return jsonify(result)
+            except Exception as e:
+                logger.error(f'[BAKIM] Transpoze tablo hatası: {e}')
+                return jsonify({'error': str(e)}), 500
+
         @app.route('/dokuman-listesi')
         @login_required
         def dokuman_listesi():

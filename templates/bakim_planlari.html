@@ -638,18 +638,15 @@
             <div class="card shadow-sm table-card">
                 <div class="table-responsive">
                     <table class="table table-hover mb-0 maintenance-schedule-table" id="scheduleTable">
-                        <thead class="table-dark sticky-top" style="top: 0;">
+                        <thead class="table-dark sticky-top" style="top: 0;" id="scheduleTableHead">
                             <tr>
-                                <th style="width: 100px;" class="text-center">
-                                    <i class="bi bi-speedometer2 me-2"></i>KM
+                                <th style="width: 140px;" class="text-center">
+                                    <i class="bi bi-bus-front me-2"></i>Araç
                                 </th>
-                                <th>Yapılacak Bakımlar</th>
                                 <th style="width: 120px;" class="text-center">
-                                    <i class="bi bi-hammer me-2"></i>İş Sayısı
+                                    <i class="bi bi-speedometer2 me-2"></i>Mevcut KM
                                 </th>
-                                <th style="width: 130px;" class="text-center">
-                                    <i class="bi bi-info-circle me-2"></i>Kapsamı
-                                </th>
+                                <!-- Bakım seviyeleri buraya dinamik olarak eklenir -->
                             </tr>
                         </thead>
                         <tbody id="scheduleTableBody">
@@ -666,6 +663,71 @@
         <!-- /TAB 2: Bakım Planı Tablosu -->
     </div>
     <!-- /Tab Content -->
+</div>
+
+<!-- Bakım Kartı Upload Modal -->
+<div class="modal fade" id="bakim_upload_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-file-earmark-pdf me-2"></i>Bakım Kartı Yükle
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="bakim_upload_form" enctype="multipart/form-data">
+                    <input type="hidden" id="bakim_upload_tram_id">
+                    <input type="hidden" id="bakim_upload_level">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Araç: <strong id="bakim_upload_tram_display"></strong></label>
+                        <br>
+                        <label class="form-label">Bakım Seviyesi: <strong id="bakim_upload_level_display"></strong></label>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="bakim_file" class="form-label">Bakım Kartı Dosyası (PDF, Excel, etc.)</label>
+                        <input type="file" class="form-control" id="bakim_file" name="file" accept=".pdf,.xlsx,.xls,.doc,.docx,.jpg,.png" required>
+                        <small class="text-muted">Kabul edilen formatlar: PDF, Excel, Word, Resim</small>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="mb-3">
+                        <label class="form-label d-flex align-items-center">
+                            <input type="checkbox" id="bakim_sign_checkbox" class="form-check-input me-2">
+                            Kartı İmzala
+                        </label>
+                    </div>
+                    
+                    <div id="bakim_signature_container" style="display: none;">
+                        <label class="form-label">İmza Alanı</label>
+                        <div style="border: 1px solid #ddd; border-radius: 8px; background: white; margin-bottom: 1rem;">
+                            <canvas id="bakim_signature_canvas" width="100%" height="150" 
+                                style="border: 1px solid #ddd; border-radius: 8px; cursor: crosshair;"></canvas>
+                        </div>
+                        <div class="d-grid gap-2 d-sm-flex">
+                            <button type="button" class="btn btn-outline-secondary" onclick="clearBakimSignature()">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i>Temizle
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" onclick="downloadBakimSignature()">
+                                <i class="bi bi-download me-1"></i>İmzayı İndir
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <input type="hidden" id="bakim_signature_data">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-primary" onclick="submitBakimUpload()">
+                    <i class="bi bi-cloud-upload me-2"></i>Yükle
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Bakım Detay Modal -->
@@ -979,7 +1041,7 @@
                     </div>
                 </div>
                 <button class="btn btn-sm ${isCompleted ? 'btn-success' : 'btn-outline-success'}" 
-                        onclick="toggleMaintenanceComplete('${tramId}', '${level}')">
+                        onclick="openBakimUploadModal('${tramId}', '${level}')">
                     ${isCompleted ? '✓ Tamamlandı' : 'Tamamla'}
                 </button>
             </div>
@@ -1167,6 +1229,335 @@
     function exportToExcel() {
         alert('Excel raporu indirme özelliği yakında eklenecektir');
     }
+
+    // ============================================
+    // BAKIM UPLOAD VE İMZA FONKSİYONLARI
+    // ============================================
+    let signaturePad = null;
+
+    function openBakimUploadModal(tramId, level) {
+        // Upload modal'ı aç
+        document.getElementById('bakim_upload_tram_id').value = tramId;
+        document.getElementById('bakim_upload_level').value = level;
+        document.getElementById('bakim_upload_tram_display').textContent = tramId;
+        document.getElementById('bakim_upload_level_display').textContent = level + ' Bakımı';
+        
+        // İmza checkbox dinleyicisi
+        document.getElementById('bakim_sign_checkbox').onchange = function() {
+            document.getElementById('bakim_signature_container').style.display = 
+                this.checked ? 'block' : 'none';
+            
+            if (this.checked && !signaturePad) {
+                initBakimSignaturePad();
+            }
+        };
+        
+        const modal = new bootstrap.Modal(document.getElementById('bakim_upload_modal'));
+        modal.show();
+    }
+
+    function initBakimSignaturePad() {
+        const canvas = document.getElementById('bakim_signature_canvas');
+        if (!canvas) return;
+        
+        // Canvas responsive yapma
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = 150;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#000';
+        
+        let isDrawing = false;
+        
+        canvas.addEventListener('mousedown', (e) => {
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            ctx.lineTo(x, y);
+            ctx.stroke();
+        });
+        
+        canvas.addEventListener('mouseup', () => {
+            isDrawing = false;
+        });
+        
+        canvas.addEventListener('mouseout', () => {
+            isDrawing = false;
+        });
+        
+        signaturePad = canvas;
+    }
+
+    function clearBakimSignature() {
+        const canvas = document.getElementById('bakim_signature_canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function downloadBakimSignature() {
+        const canvas = document.getElementById('bakim_signature_canvas');
+        if (!canvas) return;
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        link.download = 'signature.png';
+        link.click();
+    }
+
+    function submitBakimUpload() {
+        const form = document.getElementById('bakim_upload_form');
+        const fileInput = document.getElementById('bakim_file');
+        const tramId = document.getElementById('bakim_upload_tram_id').value;
+        const level = document.getElementById('bakim_upload_level').value;
+        
+        if (!fileInput.files.length) {
+            alert('Lütfen bir dosya seçin');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('tram_id', tramId);
+        formData.append('level', level);
+        
+        // İmza varsa ekle
+        const canvas = document.getElementById('bakim_signature_canvas');
+        if (document.getElementById('bakim_sign_checkbox').checked && canvas) {
+            formData.append('signature', canvas.toDataURL('image/png'));
+        }
+        
+        // Upload
+        fetch('/api/bakim-upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert('Bakım kartı başarıyla yüklendi: ' + data.file);
+                
+                // State güncelle
+                if (!maintenanceState[tramId]) maintenanceState[tramId] = {};
+                maintenanceState[tramId][level] = { completed: true, works: [] };
+                saveState();
+                
+                // Modal'ları kapat
+                bootstrap.Modal.getInstance(document.getElementById('bakim_upload_modal')).hide();
+                bootstrap.Modal.getInstance(document.getElementById('maintenanceModal')).hide();
+                
+                // Tabloyu ve modalı yenile
+                renderTable();
+                
+                // Başarı mesajı
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3';
+                alert.style.zIndex = '9999';
+                alert.innerHTML = `
+                    <i class="bi bi-check-circle me-2"></i>
+                    ${data.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.body.appendChild(alert);
+                setTimeout(() => alert.remove(), 3000);
+            } else {
+                alert('Hata: ' + (data.error || 'Bilinmeyen hata'));
+            }
+        })
+        .catch(err => {
+            console.error('Upload hatası:', err);
+            alert('Upload işlemi başarısız oldu');
+        });
+    }
+
+    // ============================================
+    // TRANSPOZE BAKIM TABLOSU FONKSİYONLARI
+    // ============================================
+    function loadTransposeMaintenance() {
+        fetch('/api/bakim-tablosu-transpose')
+            .then(r => r.json())
+            .then(data => {
+                renderTransposeTable(data);
+            })
+            .catch(err => {
+                console.error('Transpoze tablo yükleme hatası:', err);
+            });
+    }
+
+    function renderTransposeTable(data) {
+        const tbody = document.getElementById('scheduleTableBody');
+        const thead = document.getElementById('scheduleTableHead');
+        
+        if (!tbody || !thead) return;
+        
+        // Header'ı oluştur (bakım seviyeleri)
+        let headerHtml = `
+            <th style="width: 140px;" class="text-center">
+                <i class="bi bi-bus-front me-2"></i>Araç
+            </th>
+            <th style="width: 120px;" class="text-center">
+                <i class="bi bi-speedometer2 me-2"></i>Mevcut KM
+            </th>
+        `;
+        
+        if (data.maintenance_levels) {
+            data.maintenance_levels.forEach(level => {
+                headerHtml += `
+                    <th style="width: 110px;" class="text-center">
+                        <strong>${level}</strong>
+                    </th>
+                `;
+            });
+        }
+        
+        const headerRow = document.querySelector('#scheduleTableHead tr');
+        if (headerRow) {
+            headerRow.innerHTML = headerHtml;
+        }
+        
+        // Body'yi oluştur
+        tbody.innerHTML = '';
+        
+        if (!data.tramps || data.tramps.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="${(data.maintenance_levels ? data.maintenance_levels.length : 0) + 2}" class="text-center text-muted">Veri bulunamadı</td></tr>`;
+            return;
+        }
+        
+        data.tramps.forEach(tram => {
+            const row = document.createElement('tr');
+            
+            // Araç kolonu
+            let html = `
+                <td class="text-center fw-bold">
+                    <span class="badge bg-primary" style="font-size: 0.95em;">${tram.tram_id}</span>
+                </td>
+                <td class="text-center" style="font-size: 0.9em;">
+                    <strong>${tram.current_km.toLocaleString('tr-TR')} KM</strong>
+                </td>
+            `;
+            
+            // Bakım seviyeleri
+            data.maintenance_levels.forEach(level => {
+                const status = tram.maintenance_status[level];
+                let statusColor = '';
+                let statusLabel = '';
+                
+                if (status.status === 'overdue') {
+                    statusColor = '#e2e3e5';
+                    statusLabel = 'GEÇMİŞ';
+                } else if (status.status === 'urgent') {
+                    statusColor = '#f8d7da';
+                    statusLabel = 'ACİL';
+                } else if (status.status === 'warning') {
+                    statusColor = '#fff3cd';
+                    statusLabel = 'UYARI';
+                } else {
+                    statusColor = '#d4edda';
+                    statusLabel = 'NORMAL';
+                }
+                
+                html += `
+                    <td class="text-center" style="background: ${statusColor}; cursor: pointer; padding: 8px;" 
+                        onclick="showBakimDetails('${level}', '${tram.tram_id}', ${status.progress})">
+                        <strong style="font-size: 0.9em;">${level}</strong><br>
+                        <small class="text-muted">${Math.round(status.progress)}%</small><br>
+                        <tiny class="text-muted" style="font-size: 0.8em;">${status.km_left} KM</tiny>
+                    </td>
+                `;
+            });
+            
+            row.innerHTML = html;
+            tbody.appendChild(row);
+        });
+    }
+
+    function showBakimDetails(level, tramId, progress) {
+        // Belgrad-Bakım.xlsx'den bakım level'inin detaylarını göster
+        fetch(`/api/bakim-sheet-items/${level}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.items && data.items.length > 0) {
+                    showBakimDetailsModal(level, tramId, data.items, progress);
+                } else {
+                    alert(`${level} bakımı detayları bulunamadı`);
+                }
+            })
+            .catch(err => {
+                console.error('Detay yükleme hatası:', err);
+                alert('Detaylar yüklenemedi');
+            });
+    }
+
+    function showBakimDetailsModal(level, tramId, items, progress) {
+        const itemsHtml = items.map((item, idx) => {
+            const values = Object.values(item).filter(v => v && v.trim().length > 0);
+            return `<li class="list-group-item"><small>${values.join(' - ')}</small></li>`;
+        }).join('');
+        
+        const modalHtml = `
+            <div class="modal fade" id="bakimDetailsModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header bg-info text-white">
+                            <h5 class="modal-title">
+                                <i class="bi bi-info-circle me-2"></i>${level} Bakımı - ${tramId}
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="d-flex align-items-center mb-3">
+                                <div style="width: 100%; height: 20px; background: #f0f0f0; border-radius: 10px; overflow: hidden;">
+                                    <div style="width: ${progress}%; height: 100%; background: linear-gradient(90deg, #0d6efd, #0856ca); border-radius: 10px;">
+                                    </div>
+                                </div>
+                                <span class="ms-3 fw-bold">${Math.round(progress)}%</span>
+                            </div>
+                            
+                            <h6>Yapılacak İşler:</h6>
+                            <ul class="list-group" style="max-height: 400px; overflow-y: auto;">
+                                ${itemsHtml}
+                            </ul>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                            <button type="button" class="btn btn-primary" onclick="openBakimUploadModal('${tramId}', '${level}')">
+                                <i class="bi bi-cloud-upload me-2"></i>Bakım Kartı Yükle
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const oldModal = document.getElementById('bakimDetailsModal');
+        if (oldModal) oldModal.remove();
+        
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById('bakimDetailsModal'));
+        modal.show();
+    }
+
+    // Sayfa yüklenirken 2. tab için veri yükle
+    document.addEventListener('DOMContentLoaded', function() {
+        // Mevcut loadData() vs çalışıyor, biz ekstra olarak transpoze tabloyu da yükle
+        const originalLoadSchedule = loadSchedule;
+        loadSchedule = function() {
+            loadTransposeMaintenance();
+        };
+    });
 </script>
 
 {% endblock %}
