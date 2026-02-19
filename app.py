@@ -23,9 +23,19 @@ from utils.auth_decorators import require_admin, require_project_access, check_p
 import os
 import shutil
 import tempfile
+import logging
 
 # Initialize reporting system
 from utils_reporting import init_reporting_system
+
+# Initialize logger at module level
+logger = logging.getLogger('ssh_takip')
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
 
 ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'dwg', 'jpg', 'png', 'jpeg'}
@@ -1854,74 +1864,382 @@ def create_app():
         @app.route('/api/bakim-tablosu-transpose')
         @login_required
         def bakim_tablosu_transpose():
-            """Transpoze bakım tablosu: Satırda araçlar, sütunda bakımlar"""
+            """Transpoze bakım tablosu: Satırda araçlar, sütunda KM noktaları"""
             try:
                 import json
                 from models import Equipment
                 
-                # Bakım verilerini yükle
-                maintenance_file = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'maintenance.json')
-                maintenance_data = {}
+                def get_color_by_progress(progress_percent):
+                    """Progress'e göre renk döndür (0% yeşil, 100% kırmızı)"""
+                    if progress_percent < 0:
+                        progress_percent = 0
+                    if progress_percent > 100:
+                        progress_percent = 100
+                    
+                    # Gradient: yeşil -> sarı -> turuncu -> kırmızı
+                    if progress_percent < 50:
+                        # Yeşil (#d4edda) -> Sarı (#fff3cd)
+                        # 0% -> 50%
+                        p = progress_percent / 50
+                        r = int(0xd4 + (0xff - 0xd4) * p)
+                        g = int(0xed + (0xf3 - 0xed) * p)
+                        b = int(0xda + (0xcd - 0xda) * p)
+                    elif progress_percent < 70:
+                        # Sarı (#fff3cd) -> Turuncu (#ffc107)
+                        # 50% -> 70%
+                        p = (progress_percent - 50) / 20
+                        r = int(0xff)
+                        g = int(0xf3 + (0xc1 - 0xf3) * p)
+                        b = int(0xcd + (0x07 - 0xcd) * p)
+                    elif progress_percent < 90:
+                        # Turuncu (#ffc107) -> Koyu Turuncu (#ff8c00)
+                        # 70% -> 90%
+                        p = (progress_percent - 70) / 20
+                        r = int(0xff)
+                        g = int(0xc1 + (0x8c - 0xc1) * p)
+                        b = int(0x07 + (0x00 - 0x07) * p)
+                    else:
+                        # Koyu Turuncu -> Kırmızı (#f8d7da)
+                        # 90% -> 100%
+                        p = (progress_percent - 90) / 10
+                        r = int(0xff)
+                        g = int(0x8c + (0xd7 - 0x8c) * p)
+                        b = int(0x00 + (0xda - 0x00) * p)
+                    
+                    return f'#{r:02x}{g:02x}{b:02x}'
                 
-                if os.path.exists(maintenance_file):
-                    with open(maintenance_file, 'r', encoding='utf-8') as f:
-                        maintenance_data = json.load(f)
+                logger.info('[BAKIM] Transpoze tablo yükleniyor...')
                 
-                # Bakım seviyeleri (6K, 18K, 24K, vb.)
-                maintenance_levels = sorted([k for k in maintenance_data.keys() if k not in ['70K', '140K']], 
-                                           key=lambda x: int(x.replace('K', '')) * 1000)
+                # Bakım seviyeleri ve KM değerleri
+                maintenance_km = {
+                    '6K': 6000,
+                    '18K': 18000,
+                    '24K': 24000,
+                    '36K': 36000,
+                    '60K': 60000,
+                    '70K': 70000,
+                    '100K': 100000,
+                    '140K': 140000,
+                    '210K': 210000,
+                    '300K': 300000
+                }
                 
-                # Equipment tablosundan araçları ve km verileri al
+                # KM noktaları: 6000'ün katları (6000, 12000, 18000... 300000'a kadar)
+                km_points = list(range(6000, 300001, 6000))
+                logger.info(f'[BAKIM] KM noktaları: {len(km_points)} adet')
+                
+                # Equipment tablosundan araçları al
                 current_project = session.get('current_project', 'belgrad')
-                equipments = Equipment.query.filter_by(project_code=current_project, is_active=True).all()
+                # Sadece mevcut KM verisi olan araçları al (0'dan büyük)
+                equipments = Equipment.query.filter_by(project_code=current_project)\
+                    .filter(Equipment.current_km > 0)\
+                    .order_by(Equipment.equipment_code).all()
+                logger.info(f'[BAKIM] {len(equipments)} araç bulundu (current_km > 0)')
                 
-                # Transpoze tablo: satırda araçlar, sütunda bakımlar
                 result = {
-                    'maintenance_levels': maintenance_levels,  # Sütun başlıkları
-                    'tramps': []  # Satır verileri
+                    'km_points': km_points,
+                    'tramps': []
                 }
                 
                 # Araçlar için veri hazırla
                 for equipment in equipments:
-                    current_km = equipment.current_km or 0
-                    
-                    row_data = {
-                        'tram_id': equipment.equipment_code,
-                        'current_km': int(current_km),
-                        'maintenance_status': {}
-                    }
-                    
-                    # Her bakım seviyesi için durum hesapla
-                    for level in maintenance_levels:
-                        level_km = maintenance_data[level]['km']
-                        next_maintenance_km = ((current_km // level_km) + 1) * level_km
-                        km_left = next_maintenance_km - current_km
+                    try:
+                        current_km = int(equipment.current_km or 0)
                         
-                        # Durum belirle (%)
-                        progress_percent = (level_km - km_left) / level_km * 100
-                        
-                        # Durum: normal (0-70%), warning (70-90%), urgent (90-100%), overdue (<0%)
-                        if km_left < 0:
-                            status = 'overdue'
-                        elif progress_percent >= 90:
-                            status = 'urgent'
-                        elif progress_percent >= 70:
-                            status = 'warning'
-                        else:
-                            status = 'normal'
-                        
-                        row_data['maintenance_status'][level] = {
-                            'status': status,
-                            'progress': progress_percent,
-                            'km_left': int(km_left),
-                            'next_km': next_maintenance_km
+                        row_data = {
+                            'tram_id': equipment.equipment_code,
+                            'current_km': current_km,
+                            'maintenance_at_km': {}  # Her KM noktası için yapılacak bakımlar
                         }
-                    
-                    result['tramps'].append(row_data)
+                        
+                        # Her KM noktası için yapılacak bakımları hesapla
+                        for km_point in km_points:
+                            bakimlar = []
+                            
+                            # Her bakım seviyesi için kontrol et
+                            for level, level_km in maintenance_km.items():
+                                if km_point > 0 and km_point % level_km == 0:
+                                    bakimlar.append(level)
+                            
+                            # Renk belirle: current_km'e göre progress hesapla
+                            if km_point > current_km:
+                                # Gelecek bakım - yüzde 0
+                                progress_percent = 0
+                                status = 'pending'
+                            else:
+                                # Geçmiş bakım - ne kadar ilerledik?
+                                # Önceki KM noktasını bul (KM noktaları 6000'ün katları)
+                                prev_km_point = km_point - 6000
+                                if prev_km_point < 0:
+                                    prev_km_point = 0
+                                
+                                # current_km, prev_km_point ile km_point arasında kaç %?
+                                if km_point > prev_km_point:
+                                    progress_percent = ((current_km - prev_km_point) / (km_point - prev_km_point)) * 100
+                                    progress_percent = max(0, min(100, progress_percent))
+                                else:
+                                    progress_percent = 100
+                                
+                                if progress_percent >= 100:
+                                    status = 'completed'
+                                elif progress_percent >= 90:
+                                    status = 'urgent'
+                                elif progress_percent >= 70:
+                                    status = 'warning'
+                                else:
+                                    status = 'normal'
+                            
+                            # Renk belirle
+                            color = get_color_by_progress(progress_percent)
+                            
+                            row_data['maintenance_at_km'][km_point] = {
+                                'bakimlar': bakimlar,  # Hangi bakımlar yapılacak: ['6K', '18K']
+                                'color': color,
+                                'status': status,
+                                'progress': round(progress_percent, 1)
+                            }
+                        
+                        result['tramps'].append(row_data)
+                    except Exception as eq_err:
+                        logger.error(f'[BAKIM] Araç işleme hatası {equipment.equipment_code}: {eq_err}')
+                        continue
                 
+                logger.info(f'[BAKIM] {len(result["tramps"])} araç işlendi')
                 return jsonify(result)
             except Exception as e:
-                logger.error(f'[BAKIM] Transpoze tablo hatası: {e}')
+                logger.error(f'[BAKIM] Transpoze tablo hatası: {type(e).__name__}: {e}')
+                import traceback
+                logger.error(traceback.format_exc())
+                return jsonify({'error': str(e)}), 500
+
+        @app.route('/api/bakim-pdf/<int:km>')
+        @login_required
+        def bakim_pdf(km):
+            """Excel sekmesini PDF olarak döndür"""
+            try:
+                import openpyxl
+                from io import BytesIO
+                from reportlab.lib.pagesizes import A4, landscape
+                from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+                from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                from reportlab.lib.units import inch
+                from reportlab.lib import colors
+                
+                # KM'ye göre sekme adını belirle
+                km_mapping = {
+                    6000: '6K',
+                    18000: '18K',
+                    24000: '24K',
+                    36000: '36K',
+                    60000: '60K',
+                    70000: '70K',
+                    100000: '100K',
+                    140000: '140K',
+                    210000: '210K',
+                    300000: '300K'
+                }
+                
+                sheet_name = km_mapping.get(km)
+                if not sheet_name:
+                    return jsonify({'error': f'{km} KM için bakım tablosu bulunamadı'}), 404
+                
+                current_project = session.get('current_project', 'belgrad')
+                excel_file = os.path.join(os.path.dirname(__file__), 'data', current_project, f'{current_project.capitalize()}-Bakım.xlsx')
+                
+                if not os.path.exists(excel_file):
+                    logger.error(f'[BAKIM] Dosya bulunamadı: {excel_file}')
+                    return jsonify({'error': 'Excel dosyası bulunamadı'}), 404
+                
+                # Excel dosyasını oku
+                wb = openpyxl.load_workbook(excel_file)
+                if sheet_name not in wb.sheetnames:
+                    return jsonify({'error': f'{sheet_name} sekmesi bulunamadı'}), 404
+                
+                ws = wb[sheet_name]
+                
+                # Verileri oku
+                data = []
+                for row in ws.iter_rows(min_row=1, max_row=ws.max_row, values_only=False):
+                    row_data = []
+                    for cell in row:
+                        value = cell.value
+                        if value is None:
+                            row_data.append('')
+                        else:
+                            row_data.append(str(value))
+                    data.append(row_data)
+                
+                # PDF oluştur
+                pdf_buffer = BytesIO()
+                doc = SimpleDocTemplate(pdf_buffer, pagesize=landscape(A4), topMargin=0.5*inch, bottomMargin=0.5*inch)
+                
+                styles = getSampleStyleSheet()
+                story = []
+                
+                # Başlık ekle
+                title_style = ParagraphStyle(
+                    'CustomTitle',
+                    parent=styles['Heading1'],
+                    fontSize=16,
+                    textColor=colors.HexColor('#1a2332'),
+                    spaceAfter=12
+                )
+                title = Paragraph(f'{km:,} KM Bakım Tablosu', title_style)
+                story.append(title)
+                story.append(Spacer(1, 0.2*inch))
+                
+                # Tabloyu oluştur
+                if data:
+                    # İlk 50 satır max (PDF'yi çok uzun yapmaması için)
+                    table_data = data[:50]
+                    
+                    # Boş satırları filtrele
+                    table_data = [row for row in table_data if any(cell.strip() for cell in row)]
+                    
+                    if table_data:
+                        table = Table(table_data, colWidths=[0.5*inch]*len(table_data[0]))
+                        table.setStyle(TableStyle([
+                            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0d6efd')),
+                            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                            ('FONTSIZE', (0, 0), (-1, 0), 8),
+                            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                            ('FONTSIZE', (0, 1), (-1, -1), 7),
+                            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9f9f9')])
+                        ]))
+                        story.append(table)
+                
+                # PDF oluştur
+                doc.build(story)
+                pdf_buffer.seek(0)
+                
+                logger.info(f'[BAKIM] {km} KM PDF oluşturuldu')
+                
+                # PDF'yi download olarak döndür
+                return send_file(
+                    pdf_buffer,
+                    mimetype='application/pdf',
+                    as_attachment=True,
+                    download_name=f'{km}km_bakim.pdf'
+                )
+            except Exception as e:
+                logger.error(f'[BAKIM] PDF oluşturma hatası: {type(e).__name__}: {e}')
+                import traceback
+                logger.error(traceback.format_exc())
+                return jsonify({'error': str(e)}), 500
+
+        @app.route('/api/bakim-upload/<project>/<int:km>', methods=['POST'])
+        @login_required
+        def bakim_km_upload(project, km):
+            """Bakım dosyası yükle"""
+            try:
+                # Kullanıcı yetkisi kontrol et
+                if not current_user.can_access_project(project):
+                    return jsonify({'error': 'Yetkisiz'}), 403
+                
+                if 'file' not in request.files:
+                    return jsonify({'error': 'Dosya gerekli'}), 400
+                
+                file = request.files['file']
+                if file.filename == '':
+                    return jsonify({'error': 'Dosya seç'}), 400
+                
+                if not allowed_file(file.filename):
+                    return jsonify({'error': f'Dosya türü desteklenmiyor. İzin verilen: {ALLOWED_EXTENSIONS}'}), 400
+                
+                # Bakım klasörünü oluştur
+                bakim_folder = os.path.join(os.path.dirname(__file__), 'data', project, 'Bakim')
+                os.makedirs(bakim_folder, exist_ok=True)
+                
+                # Dosya adını belirle: {km}km_bakim_{timestamp}.{ext}
+                from datetime import datetime
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                filename = secure_filename(f'{km}km_bakim_{timestamp}_{file.filename}')
+                filepath = os.path.join(bakim_folder, filename)
+                
+                # Dosyayı kaydet
+                file.save(filepath)
+                
+                logger.info(f'[BAKIM] Dosya yüklendi: {project}/{km}km - {filename}')
+                
+                return jsonify({
+                    'success': True,
+                    'filename': filename,
+                    'path': filepath,
+                    'km': km
+                })
+            except Exception as e:
+                logger.error(f'[BAKIM] Dosya yükleme hatası: {type(e).__name__}: {e}')
+                import traceback
+                logger.error(traceback.format_exc())
+                return jsonify({'error': str(e)}), 500
+
+        @app.route('/bakim-dosyalar/<project>/<int:km>')
+        @login_required
+        def bakim_dosyalar(project, km):
+            """O KM'de yüklenen dosyaları listele"""
+            try:
+                if not current_user.can_access_project(project):
+                    return jsonify({'error': 'Yetkisiz'}), 403
+                
+                bakim_folder = os.path.join(os.path.dirname(__file__), 'data', project, 'Bakim')
+                
+                if not os.path.exists(bakim_folder):
+                    return jsonify({'files': []})
+                
+                # O KM'nin dosyalarını bul
+                files = []
+                for filename in os.listdir(bakim_folder):
+                    if filename.startswith(f'{km}km_bakim_'):
+                        filepath = os.path.join(bakim_folder, filename)
+                        file_size = os.path.getsize(filepath)
+                        file_date = os.path.getmtime(filepath)
+                        
+                        files.append({
+                            'filename': filename,
+                            'size': file_size,
+                            'date': file_date,
+                            'display_name': filename.replace(f'{km}km_bakim_', '')
+                        })
+                
+                # Son yüklenen sırada göster
+                files.sort(key=lambda x: x['date'], reverse=True)
+                
+                logger.info(f'[BAKIM] {project}/{km}km dosyaları: {len(files)} adet')
+                return jsonify({'files': files})
+            except Exception as e:
+                logger.error(f'[BAKIM] Dosya listesi hatası: {type(e).__name__}: {e}')
+                return jsonify({'error': str(e)}), 500
+
+        @app.route('/bakim-dosya-indir/<project>/<int:km>/<filename>')
+        @login_required
+        def bakim_dosya_indir(project, km, filename):
+            """Yüklenen dosyayı indir"""
+            try:
+                if not current_user.can_access_project(project):
+                    return jsonify({'error': 'Yetkisiz'}), 403
+                
+                bakim_folder = os.path.join(os.path.dirname(__file__), 'data', project, 'Bakim')
+                filepath = os.path.join(bakim_folder, filename)
+                
+                # Güvenlik: dosyanın belirtilen klasörde olup olmadığını kontrol et
+                if not os.path.abspath(filepath).startswith(os.path.abspath(bakim_folder)):
+                    return jsonify({'error': 'Dosya bulunamadı'}), 404
+                
+                if not os.path.exists(filepath):
+                    return jsonify({'error': 'Dosya bulunamadı'}), 404
+                
+                logger.info(f'[BAKIM] Dosya indirildi: {project}/{km}km - {filename}')
+                
+                return send_file(
+                    filepath,
+                    as_attachment=True,
+                    download_name=filename
+                )
+            except Exception as e:
+                logger.error(f'[BAKIM] Dosya indirme hatası: {type(e).__name__}: {e}')
                 return jsonify({'error': str(e)}), 500
 
         @app.route('/dokuman-listesi')
@@ -2947,6 +3265,10 @@ def create_app():
         
     except Exception as e:
         # Critical error occurred during app initialization
+        import traceback
+        print('CRITICAL ERROR in create_app():')
+        print(f'{type(e).__name__}: {e}')
+        traceback.print_exc()
         return None
 
 

@@ -616,34 +616,15 @@
                 </div>
             </div>
 
-            <div class="row mb-3">
-                <div class="col-12">
-                    <div class="btn-group w-100 filter-btn-schedule" role="group">
-                        <button type="button" class="btn btn-outline-secondary active" onclick="filterSchedule('all')">
-                            <i class="bi bi-funnel me-2"></i>Tümü
-                        </button>
-                        <button type="button" class="btn btn-outline-danger" onclick="filterSchedule('urgent')">
-                            <i class="bi bi-exclamation-octagon me-2"></i>ÇOK KAPSAMLI (30+ iş)
-                        </button>
-                        <button type="button" class="btn btn-outline-warning" onclick="filterSchedule('heavy')">
-                            <i class="bi bi-exclamation-triangle me-2"></i>KAPSAMLI (20-29 iş)
-                        </button>
-                        <button type="button" class="btn btn-outline-info" onclick="filterSchedule('normal')">
-                            <i class="bi bi-info-circle me-2"></i>ORTA (10-19 iş)
-                        </button>
-                    </div>
-                </div>
-            </div>
-
             <div class="card shadow-sm table-card">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0 maintenance-schedule-table" id="scheduleTable">
-                        <thead class="table-dark sticky-top" style="top: 0;" id="scheduleTableHead">
+                <div class="table-responsive" style="overflow-x: auto; max-width: 100%;">
+                    <table class="table table-hover mb-0 maintenance-schedule-table" id="scheduleTable" style="min-width: 100%;">
+                        <thead class="table-dark" style="position: sticky; top: 0; z-index: 10;" id="scheduleTableHead">
                             <tr>
-                                <th style="width: 140px;" class="text-center">
+                                <th style="position: sticky; left: 0; z-index: 11; background: #212529; width: 140px;" class="text-center">
                                     <i class="bi bi-bus-front me-2"></i>Araç
                                 </th>
-                                <th style="width: 120px;" class="text-center">
+                                <th style="position: sticky; left: 140px; z-index: 11; background: #212529; width: 120px;" class="text-center">
                                     <i class="bi bi-speedometer2 me-2"></i>Mevcut KM
                                 </th>
                                 <!-- Bakım seviyeleri buraya dinamik olarak eklenir -->
@@ -774,6 +755,11 @@
 </div>
 
 <script>
+    // URL'den project bilgisini al veya belgrad kullan
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentProject = urlParams.get('project') || localStorage.getItem('project_code') || 'belgrad';
+    sessionStorage.setItem('current_project', currentProject);
+    
     let maintenanceData = null;
     let maintenanceState = {}; // {tram_id: {level: {completed: bool, works: []}}}
     let currentTramId = null;
@@ -1412,21 +1398,22 @@
         
         if (!tbody || !thead) return;
         
-        // Header'ı oluştur (bakım seviyeleri)
+        // Header'ı oluştur (KM noktaları)
         let headerHtml = `
-            <th style="width: 140px;" class="text-center">
+            <th style="position: sticky; left: 0; z-index: 10;" class="text-center bg-light">
                 <i class="bi bi-bus-front me-2"></i>Araç
             </th>
-            <th style="width: 120px;" class="text-center">
+            <th style="position: sticky; left: 90px; z-index: 10;" class="text-center bg-light">
                 <i class="bi bi-speedometer2 me-2"></i>Mevcut KM
             </th>
         `;
         
-        if (data.maintenance_levels) {
-            data.maintenance_levels.forEach(level => {
+        if (data.km_points) {
+            data.km_points.forEach(km => {
                 headerHtml += `
-                    <th style="width: 110px;" class="text-center">
-                        <strong>${level}</strong>
+                    <th style="width: 90px;" class="text-center">
+                        <small class="d-block"><strong>${(km/1000).toFixed(0)}K</strong></small>
+                        <tiny>${km.toLocaleString('tr-TR')}</tiny>
                     </th>
                 `;
             });
@@ -1441,56 +1428,261 @@
         tbody.innerHTML = '';
         
         if (!data.tramps || data.tramps.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="${(data.maintenance_levels ? data.maintenance_levels.length : 0) + 2}" class="text-center text-muted">Veri bulunamadı</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="2">Veri bulunamadı</td></tr>`;
             return;
         }
         
         data.tramps.forEach(tram => {
             const row = document.createElement('tr');
             
-            // Araç kolonu
+            // Araç bilgisi kolonu
             let html = `
-                <td class="text-center fw-bold">
-                    <span class="badge bg-primary" style="font-size: 0.95em;">${tram.tram_id}</span>
+                <td style="position: sticky; left: 0; z-index: 9; background: white; min-width: 90px;" class="text-center fw-bold">
+                    <span class="badge bg-primary" style="font-size: 0.9em;">${tram.tram_id}</span>
                 </td>
-                <td class="text-center" style="font-size: 0.9em;">
-                    <strong>${tram.current_km.toLocaleString('tr-TR')} KM</strong>
+                <td style="position: sticky; left: 90px; z-index: 9; background: white; min-width: 100px;" class="text-center">
+                    <strong style="font-size: 0.9em;">${tram.current_km.toLocaleString('tr-TR')} KM</strong>
                 </td>
             `;
             
-            // Bakım seviyeleri
-            data.maintenance_levels.forEach(level => {
-                const status = tram.maintenance_status[level];
-                let statusColor = '';
-                let statusLabel = '';
-                
-                if (status.status === 'overdue') {
-                    statusColor = '#e2e3e5';
-                    statusLabel = 'GEÇMİŞ';
-                } else if (status.status === 'urgent') {
-                    statusColor = '#f8d7da';
-                    statusLabel = 'ACİL';
-                } else if (status.status === 'warning') {
-                    statusColor = '#fff3cd';
-                    statusLabel = 'UYARI';
-                } else {
-                    statusColor = '#d4edda';
-                    statusLabel = 'NORMAL';
-                }
-                
-                html += `
-                    <td class="text-center" style="background: ${statusColor}; cursor: pointer; padding: 8px;" 
-                        onclick="showBakimDetails('${level}', '${tram.tram_id}', ${status.progress})">
-                        <strong style="font-size: 0.9em;">${level}</strong><br>
-                        <small class="text-muted">${Math.round(status.progress)}%</small><br>
-                        <tiny class="text-muted" style="font-size: 0.8em;">${status.km_left} KM</tiny>
-                    </td>
-                `;
-            });
+            // Her KM noktası için bakım durumu
+            if (data.km_points) {
+                data.km_points.forEach(km => {
+                    const maintenance = tram.maintenance_at_km[km];
+                    const bakimlar = maintenance.bakimlar.join('+') || '-';
+                    const bgColor = maintenance.color;
+                    const status = maintenance.status;
+                    const progress = maintenance.progress || 0;
+                    
+                    // Status'e göre text rengi belirle
+                    let textColor = '#000'; // Varsayılan: siyah
+                    let statusLabel = '';
+                    
+                    if (status === 'pending') {
+                        textColor = '#000';
+                        statusLabel = 'Gelecek';
+                    } else if (status === 'completed') {
+                        textColor = '#fff';
+                        statusLabel = 'Tamamlandı';
+                    } else if (status === 'urgent') {
+                        textColor = '#fff';
+                        statusLabel = 'ACİL';
+                    } else if (status === 'warning') {
+                        textColor = '#000';
+                        statusLabel = 'Uyarı';
+                    } else {
+                        textColor = '#000';
+                        statusLabel = 'Normal';
+                    }
+                    
+                    html += `
+                        <td class="text-center" style="background: ${bgColor}; color: ${textColor}; cursor: pointer; padding: 6px; border: 1px solid #ccc; min-width: 90px; font-weight: bold;"
+                            onclick="showBakimModal(${km}, '${tram.tram_id}')"
+                            title="${bakimlar}">
+                            <small class="d-block fw-bold">${bakimlar}</small>
+                        </td>
+                    `;
+                });
+            }
             
             row.innerHTML = html;
             tbody.appendChild(row);
         });
+    }
+
+    function showBakimModal(km, tramId) {
+        // Modal'ı aç ve KM bakım bilgilerini yükle
+        const modalHtml = `
+            <div class="modal fade" id="bakimModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">${km.toLocaleString('tr-TR')} KM Bakım - <span class="badge bg-primary">${tramId}</span></h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <ul class="nav nav-tabs mb-3" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="pdf-tab" data-bs-toggle="tab" data-bs-target="#pdf-content">📄 PDF</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="files-tab" data-bs-toggle="tab" data-bs-target="#files-content">📁 Dosyalar</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload-content">⬆️ Yükle</button>
+                                </li>
+                            </ul>
+                            
+                            <div class="tab-content">
+                                <div class="tab-pane fade show active" id="pdf-content">
+                                    <div class="text-center mb-3">
+                                        <button class="btn btn-primary" onclick="downloadBakimPDF(${km})">
+                                            <i class="bi bi-download me-2"></i>PDF İndir
+                                        </button>
+                                    </div>
+                                    <div id="pdfViewer" style="height: 400px; background: #f0f0f0; display: flex; align-items: center; justify-content: center;">
+                                        <p class="text-muted">PDF yükleniyor...</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="tab-pane fade" id="files-content">
+                                    <div id="filesList" class="list-group">
+                                        <p class="text-muted text-center py-3">Dosya yükleniyor...</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="tab-pane fade" id="upload-content">
+                                    <form id="uploadForm" class="border-top pt-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">Dosya Seç (PDF, Excel, vb.)</label>
+                                            <input type="file" class="form-control" id="fileInput" accept=".pdf,.xlsx,.xls,.doc,.docx,.jpg,.jpeg,.png" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-success">
+                                            <i class="bi bi-upload me-2"></i>Yükle
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Modal'ı DOM'a ekle
+        const existingModal = document.getElementById('bakimModal');
+        if (existingModal) existingModal.remove();
+        
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById('bakimModal'));
+        modal.show();
+        
+        // İçerikleri yükle
+        loadBakimPDF(km);
+        loadBakimFiles(km);
+        setupUploadForm(km);
+    }
+
+    function loadBakimPDF(km) {
+        const viewer = document.getElementById('pdfViewer');
+        if (!viewer) return;
+        
+        // PDF'yi fetch et
+        fetch(`/api/bakim-pdf/${km}`)
+            .then(r => r.blob())
+            .then(blob => {
+                const blobUrl = URL.createObjectURL(blob);
+                // Basit bir viewer: PDF'yi iframe'de göster
+                viewer.innerHTML = `
+                    <iframe src="${blobUrl}" style="width: 100%; height: 100%; border: none;"></iframe>
+                `;
+            })
+            .catch(err => {
+                console.error('PDF yüklenme hatası:', err);
+                viewer.innerHTML = '<p class="text-danger">PDF yüklenemedi</p>';
+            });
+    }
+
+    function downloadBakimPDF(km) {
+        // PDF'yi indir
+        const link = document.createElement('a');
+        link.href = `/api/bakim-pdf/${km}`;
+        link.download = `${km}km_bakim.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function loadBakimFiles(km) {
+        const currentProject = sessionStorage.getItem('current_project') || 'belgrad';
+        
+        fetch(`/bakim-dosyalar/${currentProject}/${km}`)
+            .then(r => r.json())
+            .then(data => {
+                const filesList = document.getElementById('filesList');
+                if (!filesList) return;
+                
+                if (!data.files || data.files.length === 0) {
+                    filesList.innerHTML = '<p class="text-muted text-center py-3">Henüz dosya yüklenmedi</p>';
+                    return;
+                }
+                
+                let html = '';
+                data.files.forEach(file => {
+                    const date = new Date(file.date * 1000).toLocaleDateString('tr-TR');
+                    const size = (file.size / 1024).toFixed(2) + ' KB';
+                    
+                    html += `
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">${file.display_name}</h6>
+                                <small class="text-muted">${date} - ${size}</small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary" onclick="downloadFile('${currentProject}', ${km}, '${file.filename}')">
+                                <i class="bi bi-download"></i> İndir
+                            </button>
+                        </div>
+                    `;
+                });
+                
+                filesList.innerHTML = html;
+            })
+            .catch(err => {
+                console.error('Dosyalar yüklenme hatası:', err);
+                const filesList = document.getElementById('filesList');
+                if (filesList) filesList.innerHTML = '<p class="text-danger">Dosyalar yüklenemedi</p>';
+            });
+    }
+
+    function downloadFile(project, km, filename) {
+        const link = document.createElement('a');
+        link.href = `/bakim-dosya-indir/${project}/${km}/${filename}`;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function setupUploadForm(km) {
+        const currentProject = sessionStorage.getItem('current_project') || 'belgrad';
+        const uploadForm = document.getElementById('uploadForm');
+        
+        if (!uploadForm) return;
+        
+        uploadForm.onsubmit = async (e) => {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Dosya seç');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch(`/api/bakim-upload/${currentProject}/${km}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    alert('Dosya başarıyla yüklendi');
+                    fileInput.value = '';
+                    uploadForm.reset();
+                    loadBakimFiles(km); // Dosya listesini yenile
+                } else {
+                    const error = await response.json();
+                    alert('Hata: ' + (error.error || 'Bilinmeyen hata'));
+                }
+            } catch (err) {
+                console.error('Upload hatası:', err);
+                alert('Upload hatası: ' + err.message);
+            }
+        };
     }
 
     function showBakimDetails(level, tramId, progress) {
