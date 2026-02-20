@@ -169,6 +169,39 @@ def create_app():
                                     session['project_name'] = p['name']
                                     break
         
+        # ========== GLOBAL SYNC MIDDLEWARE (OPTIMIZED) ==========
+        # Sync time tracking (her project için ayrı)
+        _sync_cache = {}  # {project: last_sync_time}
+        SYNC_INTERVAL = 3600  # 1 saat (3600 saniye)
+        
+        def should_sync_excel(project_code):
+            """Sync'in yapılması gerekip gerekmediğini kontrol et (1 saatte 1 kere)"""
+            import time
+            current_time = time.time()
+            last_sync = _sync_cache.get(project_code, 0)
+            
+            # İlk kez veya 1 saat geçmişse sync yap
+            if (current_time - last_sync) >= SYNC_INTERVAL:
+                _sync_cache[project_code] = current_time
+                return True
+            return False
+        
+        @app.before_request
+        def global_excel_sync():
+            """Excel senkronizasyonu (OPTIMIZED: 1 saatte 1 kere)"""
+            if current_user.is_authenticated:
+                current_project = session.get('current_project', session.get('project_code', 'belgrad'))
+                
+                # Sync'in gerekli olup olmadığını kontrol et
+                if should_sync_excel(current_project):
+                    try:
+                        from routes.dashboard import sync_excel_to_equipment
+                        sync_excel_to_equipment(current_project)
+                        print(f'[SYNC OK] {current_project} senkronize edildi - {datetime.now().strftime("%H:%M:%S")}')
+                    except Exception as e:
+                        logger.error(f'Global sync hatası: {e}')
+                # Sync gerekli değilse hiçbir şey yapma (çok hızlı!)
+        
         # Initialize reporting system
         with app.app_context():
             init_reporting_system()
@@ -440,10 +473,35 @@ def create_app():
                 
                 sistem_detay = {k: {'tedarikciler': list(set(v['tedarikciler'])), 'alt_sistemler': list(set(v['alt_sistemler']))} for k, v in sistemler.items()}
                 
+                # Veriler.xlsx'in Sayfa2 B2'sinden FRACAS kodunu oku
+                fracas_code = None
+                if veriler_path and os.path.exists(veriler_path):
+                    try:
+                        wb_veriler = load_workbook(veriler_path)
+                        if 'Sayfa2' in wb_veriler.sheetnames:
+                            ws_sayfa2 = wb_veriler['Sayfa2']
+                            fracas_code = ws_sayfa2['B2'].value
+                            print(f"   ✓ FRACAS kodu ({project}): {fracas_code}")
+                        wb_veriler.close()
+                    except Exception as e:
+                        print(f"   [WARNING] Veriler.xlsx'ten FRACAS kodu okunamadı: {e}")
+                
+                # Fallback: Proje kodu kısaltması
+                if not fracas_code:
+                    project_code_map = {
+                        'belgrad': 'BEL25',
+                        'iasi': 'IAS25',
+                        'timisoara': 'TIM25',
+                        'kayseri': 'KAY25',
+                        'kocaeli': 'KOC25',
+                        'gebze': 'GEB25'
+                    }
+                    fracas_code = project_code_map.get(project, 'BOZ')
+                
                 return render_template('yeni_ariza_bildir.html', 
                                      sistem_detay=sistem_detay, 
                                      modules=modules,
-                                     next_fracas_id=f"BOZ-BEL25-FF-{next_fracas_id:03d}",
+                                     next_fracas_id=f"BOZ-{fracas_code}-FF-{next_fracas_id:03d}",
                                      tramvaylar=tramvaylar,
                                      sistemler=list(sistemler.keys()),
                                      ariza_siniflari=ariza_siniflari,
@@ -511,7 +569,38 @@ def create_app():
                             next_fracas_num = 1
                     
                     if not fracas_id:
-                        fracas_id = f"BOZ-BEL25-FF-{next_fracas_num:03d}"
+                        # Veriler.xlsx'in Sayfa2 B2'sinden FRACAS kodunu oku
+                        fracas_code = None
+                        veriler_path = None
+                        if os.path.exists(data_dir):
+                            for file in os.listdir(data_dir):
+                                if 'veriler' in file.lower() and file.endswith('.xlsx'):
+                                    veriler_path = os.path.join(data_dir, file)
+                                    break
+                        
+                        if veriler_path and os.path.exists(veriler_path):
+                            try:
+                                wb_veriler = load_workbook(veriler_path)
+                                if 'Sayfa2' in wb_veriler.sheetnames:
+                                    ws_sayfa2 = wb_veriler['Sayfa2']
+                                    fracas_code = ws_sayfa2['B2'].value
+                                wb_veriler.close()
+                            except Exception as e:
+                                print(f"   [WARNING] Veriler.xlsx'ten FRACAS kodu okunamadı: {e}")
+                        
+                        # Fallback
+                        if not fracas_code:
+                            project_code_map = {
+                                'belgrad': 'BEL25',
+                                'iasi': 'IAS25',
+                                'timisoara': 'TIM25',
+                                'kayseri': 'KAY25',
+                                'kocaeli': 'KOC25',
+                                'gebze': 'GEB25'
+                            }
+                            fracas_code = project_code_map.get(project, 'BOZ')
+                        
+                        fracas_id = f"BOZ-{fracas_code}-FF-{next_fracas_num:03d}"
                         print(f"   ✓ Hesaplanan FRACAS ID: {fracas_id}")
                         form_data['fracas_id'] = fracas_id
                     
@@ -1515,16 +1604,23 @@ def create_app():
                     except:
                         pass
             
-            # Tüm araçları ekipman tablosundan al (1531-1555 range'i - Belgrad projesi)
+            # Excel'den araç listesini al ve Equipment'dan filtrele
             current_project = session.get('current_project', 'belgrad')
-            equipment_list = Equipment.query.filter(
-                Equipment.equipment_code >= '1531',
-                Equipment.equipment_code <= '1555',
-                Equipment.parent_id == None,
-                Equipment.project_code == current_project
-            ).order_by(Equipment.equipment_code).all()
             
-            # Fallback: range'de veri yoksa, proje tüm equipment'ları al
+            # Excel'den araçları çek
+            from routes.maintenance import load_trams_from_file
+            excel_trams = load_trams_from_file(current_project)
+            
+            # Equipment'dan çek (Excel'deki araçlar)
+            equipment_list = []
+            if excel_trams:
+                equipment_list = Equipment.query.filter(
+                    Equipment.equipment_code.in_(excel_trams),
+                    Equipment.parent_id == None,
+                    Equipment.project_code == current_project
+                ).order_by(Equipment.equipment_code).all()
+            
+            # Fallback: Excel'de veri yoksa, tüm equipment'ları al
             if not equipment_list:
                 equipment_list = Equipment.query.filter(
                     Equipment.parent_id == None,
@@ -3254,6 +3350,10 @@ def create_app():
         @app.after_request
         def log_response(response):
             """Log all responses"""
+            # Cache headers - Dynamic content should not be cached
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
             print(f"<< {response.status_code} {response.status} - {request.path}")
             return response
 
@@ -3310,4 +3410,14 @@ if __name__ == '__main__':
         init_sample_data(app)  # Initialize sample data
     # Cloud ve local deployment için PORT ayarı
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True, threaded=True)
+    # **PRODUCTION'A AYARLI (debug=False default)**
+    # DEBUG MODE'U AÇMAK İÇİN: set FLASK_ENV=development
+    debug_mode = os.environ.get('FLASK_ENV', 'production') == 'development'
+    print(f"\n{'='*60}")
+    print(f"🚀 APP BAŞLAMAK ÜZERE")
+    print(f"{'='*60}")
+    print(f"Port: {port}")
+    print(f"Debug Mode: {debug_mode}")
+    print(f"FLASK_ENV: {os.environ.get('FLASK_ENV', 'production (DEFAULT)')}")
+    print(f"{'='*60}\n")
+    app.run(host='0.0.0.0', port=port, debug=debug_mode, threaded=True)

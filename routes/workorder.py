@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from flask_login import login_required, current_user
 from models import db, WorkOrder, Equipment, MaintenancePlan, User
 from datetime import datetime
@@ -10,11 +10,12 @@ bp = Blueprint('workorder', __name__, url_prefix='/workorder')
 @login_required
 def index():
     """İş emirleri listesi"""
+    current_project = session.get('current_project', 'belgrad')
     status = request.args.get('status', 'all')
     priority = request.args.get('priority', 'all')
     page = request.args.get('page', 1, type=int)
     
-    query = WorkOrder.query
+    query = WorkOrder.query.filter_by(project_code=current_project)
     
     # Teknisyenler sadece kendilerine atanan emirleri görür
     if current_user.role == 'technician':
@@ -38,7 +39,11 @@ def index():
 @login_required
 def detail(work_order_id):
     """İş emri detayları"""
-    work_order = WorkOrder.query.get_or_404(work_order_id)
+    current_project = session.get('current_project', 'belgrad')
+    work_order = WorkOrder.query.filter_by(
+        id=work_order_id,
+        project_code=current_project
+    ).first_or_404()
     
     # Yetki kontrolü
     if current_user.role == 'technician' and work_order.assigned_to != current_user.id:
@@ -52,6 +57,8 @@ def detail(work_order_id):
 @login_required
 def create():
     """Yeni iş emri oluşturma"""
+    current_project = session.get('current_project', 'belgrad')
+    
     if current_user.role not in ['admin', 'manager', 'operator']:
         flash('İş emri oluşturma yetkiniz yok.', 'error')
         return redirect(url_for('workorder.index'))
@@ -65,8 +72,8 @@ def create():
         scheduled_start = request.form.get('scheduled_start')
         assigned_to = request.form.get('assigned_to', type=int)
         
-        # İş emri numarası oluştur
-        last_wo = WorkOrder.query.order_by(WorkOrder.id.desc()).first()
+        # İş emri numarası oluştur (project_code filtresiyle)
+        last_wo = WorkOrder.query.filter_by(project_code=current_project).order_by(WorkOrder.id.desc()).first()
         wo_number = f"WO-{datetime.utcnow().strftime('%Y%m')}-{(last_wo.id + 1) if last_wo else 1:04d}"
         
         new_wo = WorkOrder(
@@ -78,7 +85,8 @@ def create():
             priority=priority,
             status='pending',
             created_by=current_user.id,
-            assigned_to=assigned_to if assigned_to else None
+            assigned_to=assigned_to if assigned_to else None,
+            project_code=current_project  # Proje kodu ata
         )
         
         if scheduled_start:
@@ -103,7 +111,11 @@ def create():
 @login_required
 def update_status(work_order_id):
     """İş emri durumu güncelleme"""
-    work_order = WorkOrder.query.get_or_404(work_order_id)
+    current_project = session.get('current_project', 'belgrad')
+    work_order = WorkOrder.query.filter_by(
+        id=work_order_id,
+        project_code=current_project
+    ).first_or_404()
     
     # Yetki kontrolü
     if current_user.role == 'technician' and work_order.assigned_to != current_user.id:

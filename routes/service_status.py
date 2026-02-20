@@ -86,7 +86,8 @@ def service_status_page():
             # ServiceStatus'ten bugünün kaydını getir
             status_record = ServiceStatus.query.filter_by(
                 tram_id=equipment.equipment_code,
-                date=today_date
+                date=today_date,
+                project_code=current_project
             ).first()
             
             # Durum belirle
@@ -95,18 +96,21 @@ def service_status_page():
             status_badge = 'Aktif'
             
             if status_record:
-                status_value = status_record.status.lower() if status_record.status else ''
+                status_value = status_record.status if status_record.status else ''
                 aciklama = status_record.aciklama if status_record.aciklama else ''
                 
-                if 'işletme kaynaklı' in status_value:
+                # CRITICAL: Check "İşletme Kaynaklı" FIRST before "Servis Dışı" 
+                # because "İşletme Kaynaklı Servis Dışı" contains both patterns!
+                # Use case-insensitive Turkish pattern matching (no lower() to avoid Unicode issues)
+                if 'İşletme' in status_value or 'işletme' in status_value:
                     status_color = 'warning'
-                    status_display = 'aktif'  # İşletme kaynaklı = aktif göster
+                    status_display = 'isletme'  # İşletme kaynaklı = special status for counting
                     status_badge = 'İşletme Kaynaklı'
-                elif 'servis dışı' in status_value:
+                elif 'Dışı' in status_value or 'dışı' in status_value:
                     status_color = 'danger'
                     status_display = 'ariza'
                     status_badge = 'Servis Dışı'
-                elif 'servis' in status_value:
+                elif 'Servis' in status_value or 'servis' in status_value:
                     status_color = 'success'
                     status_display = 'aktif'
                     status_badge = 'Aktif'
@@ -115,20 +119,11 @@ def service_status_page():
                     status_display = 'aktif'
                     status_badge = 'Aktif'
             else:
-                # Equipment status'unu kullan
-                eq_status = equipment.status.lower() if equipment.status else 'active'
-                if 'active' in eq_status or 'operational' in eq_status:
-                    status_color = 'success'
-                    status_display = 'aktif'
-                    status_badge = 'Aktif'
-                elif 'maintenance' in eq_status or 'bakım' in eq_status:
-                    status_color = 'warning'
-                    status_display = 'aktif'
-                    status_badge = 'Bakımda'
-                else:
-                    status_color = 'danger'
-                    status_display = 'ariza'
-                    status_badge = 'Arızalı'
+                # ServiceStatus yoksa default 'aktif'
+                status_color = 'success'
+                status_display = 'aktif'
+                status_badge = 'Aktif'
+                aciklama = ''
             
             # Availability metrikleri getir
             latest_metric = AvailabilityMetrics.query.filter_by(
@@ -150,18 +145,49 @@ def service_status_page():
                 'operational': latest_metric.operational_hours if latest_metric else 0
             })
         
-        # Son servis durumu kayıtlarını getir (tüm araçlar)
-        recent_statuses = ServiceStatus.query.order_by(
+        # Son servis durumu kayıtlarını getir (tüm araçlar - sadece aktif proje)
+        recent_statuses = ServiceStatus.query.filter_by(
+            project_code=current_project
+        ).order_by(
             desc(ServiceStatus.updated_at)
         ).limit(100).all()
         
+        # DYNAMIC STATS HESAPLAMA - ServiceStatus'ten
+        servis_disi_count = 0
+        isletme_count = 0
+        aktif_count = 0
+        toplam = len(tram_status_data)
+        
+        for tram in tram_status_data:
+            if tram['status'] == 'ariza':
+                servis_disi_count += 1
+            elif tram['status'] == 'isletme':
+                isletme_count += 1
+            elif tram['status'] == 'aktif':
+                aktif_count += 1
+        
+        # Availability = (Aktif + İşletme Kaynaklı) / Toplam * 100
+        # İşletme Kaynaklı olanlar çalışabilir durumda olsa da tamir bekliyordur
+        # Sadece Aktif olanlar tam kullanılabilir
+        availability = ((aktif_count) / toplam * 100) if toplam > 0 else 0
+        
         # Seçili dönem
         period = request.args.get('period', 'monthly')
+        
+        # STATS dict'i oluştur
+        stats = {
+            'servis_disi': servis_disi_count,
+            'isletme': isletme_count,
+            'aktif': aktif_count,
+            'toplam': toplam,
+            'availability': round(availability, 1)
+        }
         
         return render_template('servis_durumu_enhanced.html', 
                              equipment_list=tram_status_data,
                              tram_ids=[eq['equipment_code'] for eq in tram_status_data],
                              recent_logs=recent_statuses,
+                             stats=stats,
                              period=period,
                              current_date=datetime.now())
     
@@ -178,35 +204,95 @@ def service_status_page():
 @bp.route('/durumu/tablo', methods=['GET'])
 @login_required
 def service_status_table():
-    """Servis durumu tablosunu getir"""
+    """Servis durumu tablosunu getir - DASHBOARD LOGIC COPY"""
     try:
-        tram_ids = [eq.equipment_code for eq in Equipment.query.all()]
+        current_project = session.get('current_project', 'belgrad')
+        today_date = str(date.today())
         
+        # Veriler.xlsx'ten tram_id'leri al (proje-spesifik)
+        tram_ids = get_tram_ids_from_veriler(current_project)
+        
+        # Equipment'leri Project filtresiyle al - Aynı dashboard gibi
+        equipment_list = Equipment.query.filter(
+            Equipment.equipment_code.in_(tram_ids) if tram_ids else True,
+            Equipment.parent_id == None,
+            Equipment.project_code == current_project
+        ).order_by(Equipment.equipment_code).all()
+        
+        # Her tramvay için ServiceStatus'ten durum al - DASHBOARD LOGİĞİ
         table_data = []
-        for tram_id in tram_ids:
-            equipment = Equipment.query.filter_by(equipment_code=tram_id).first()
-            
-            # Son log'u getir
-            latest_log = ServiceLog.query.filter_by(tram_id=tram_id).order_by(
-                ServiceLog.log_date.desc()
+        aktif_count = 0
+        isletme_count = 0  # İşletme Kaynaklı Servis Dışı
+        ariza_count = 0
+        
+        for equipment in equipment_list:
+            # PRIMARY: ServiceStatus'ten bugünün kaydını al
+            service_record = ServiceStatus.query.filter_by(
+                tram_id=equipment.equipment_code,
+                date=today_date,
+                project_code=current_project
             ).first()
             
-            # Availability hesapla
-            start_date = date.today() - timedelta(days=30)
-            daily_availability = AvailabilityCalculator.calculate_daily_availability(tram_id)
+            # Durum belirle - DASHBOARD LOGİĞİ
+            status_display = 'Aktif'
+            status_type = 'aktif'
+            
+            # ServiceStatus varsa onu kullan
+            if service_record and service_record.status:
+                service_status = service_record.status
+                
+                # İşletme Kaynaklı check FIRST (çünkü "Dışı" yazı içeriyor)
+                if 'İşletme' in service_status or 'işletme' in service_status.lower():
+                    status_display = 'İşletme Kaynaklı Servis Dışı'
+                    status_type = 'işletme'
+                    isletme_count += 1
+                elif 'Dışı' in service_status or 'dişi' in service_status.lower() or 'ariza' in service_status.lower():
+                    status_display = 'Servis Dışı'
+                    status_type = 'ariza'
+                    ariza_count += 1
+                else:
+                    status_display = 'Aktif'
+                    status_type = 'aktif'
+                    aktif_count += 1
+            else:
+                # ServiceStatus yoksa default 'aktif'
+                status_display = 'Aktif'
+                status_type = 'aktif'
+                aktif_count += 1
+            
+            # Availability metrikleri getir
+            latest_metric = AvailabilityMetrics.query.filter_by(
+                tram_id=equipment.equipment_code
+            ).order_by(AvailabilityMetrics.metric_date.desc()).first()
             
             table_data.append({
-                'tram_id': tram_id,
-                'name': equipment.name if equipment else '-',
-                'status': latest_log.new_status if latest_log else 'Bilinmiyor',
-                'sistem': latest_log.sistem if latest_log else '-',
-                'alt_sistem': latest_log.alt_sistem if latest_log else '-',
-                'last_status_change': latest_log.log_date.strftime('%d.%m.%Y %H:%M') if latest_log else '-',
-                'availability': daily_availability.availability_percentage if daily_availability else 0,
-                'downtime': daily_availability.downtime_hours if daily_availability else 0
+                'tram_id': equipment.equipment_code,
+                'name': equipment.name,
+                'status': status_display,
+                'sistem': service_record.system if service_record and hasattr(service_record, 'system') else '-',
+                'alt_sistem': service_record.subsystem if service_record and hasattr(service_record, 'subsystem') else '-',
+                'last_status_change': service_record.created_at.strftime('%d.%m.%Y %H:%M') if service_record and hasattr(service_record, 'created_at') else '-',
+                'availability': latest_metric.availability_percentage if latest_metric else 0,
+                'downtime': latest_metric.downtime_hours if latest_metric else 0
             })
         
-        return jsonify(table_data)
+        # TOPLAM HESAPLAMA - DASHBOARD LOGİĞİ
+        # Fleet Kullanılabilirlik Oranı = (Aktif + İşletme Kaynaklı) / Toplam * 100
+        total_tram = len(equipment_list)
+        kullanilabilir = aktif_count + isletme_count
+        availability_percent = round((kullanilabilir / total_tram * 100), 1) if total_tram > 0 else 0
+        
+        # Response'ta stats'ı da geri gönder
+        return jsonify({
+            'table_data': table_data,
+            'stats': {
+                'operational': aktif_count,
+                'maintenance': isletme_count,
+                'outofservice': ariza_count,
+                'total': total_tram,
+                'availability': availability_percent
+            }
+        })
     
     except Exception as e:
         logger.error(f"Error getting service status table: {str(e)}")
@@ -726,8 +812,10 @@ def export_daily_table_excel():
         
         current_project = session.get('current_project', 'belgrad')
         
-        # Tüm tarihsel verileri al
-        all_status_records = ServiceStatus.query.order_by(
+        # Tüm tarihsel verileri al (sadece aktif proje)
+        all_status_records = ServiceStatus.query.filter_by(
+            project_code=current_project
+        ).order_by(
             ServiceStatus.date.desc(), 
             ServiceStatus.tram_id
         ).all()

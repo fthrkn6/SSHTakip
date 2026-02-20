@@ -383,9 +383,7 @@
             <div class="d-flex justify-content-between align-items-center gap-2">
                 <div>
                     <h6 class="mb-0 text-muted" style="font-size: 0.85rem; font-weight: 600;">Serviste</h6>
-                    <h3 class="mb-0" style="font-size: 1.75rem; font-weight: 700; color: #10b981;">{{
-                        stats.get('Servis',
-                        0) or stats.Servis or '0' }}</h3>
+                    <h3 class="mb-0" style="font-size: 1.75rem; font-weight: 700; color: #10b981;">{{ stats.get('aktif', 0) }}</h3>
                 </div>
                 <i class="bi bi-check-circle text-success" style="font-size: 1.3rem;"></i>
             </div>
@@ -397,8 +395,7 @@
             <div class="d-flex justify-content-between align-items-center gap-2">
                 <div>
                     <h6 class="mb-0 text-muted" style="font-size: 0.85rem; font-weight: 600;">Servis Dışı</h6>
-                    <h3 class="mb-0" style="font-size: 1.75rem; font-weight: 700; color: #ef4444;">{{ stats.get('Servis
-                        Dışı', 0) or stats['Servis Dışı'] or '0' }}</h3>
+                    <h3 class="mb-0" style="font-size: 1.75rem; font-weight: 700; color: #ef4444;">{{ stats.get('servis_disi', 0) }}</h3>
                 </div>
                 <i class="bi bi-x-circle text-danger" style="font-size: 1.3rem;"></i>
             </div>
@@ -410,8 +407,7 @@
             <div class="d-flex justify-content-between align-items-center gap-2">
                 <div>
                     <h6 class="mb-0 text-muted" style="font-size: 0.85rem; font-weight: 600;">İşletme</h6>
-                    <h3 class="mb-0" style="font-size: 1.75rem; font-weight: 700; color: #f59e0b;">{{ stats.get('İşletme
-                        Kaynaklı Servis Dışı', 0) or stats['İşletme Kaynaklı Servis Dışı'] or '0' }}</h3>
+                    <h3 class="mb-0" style="font-size: 1.75rem; font-weight: 700; color: #f59e0b;">{{ stats.get('isletme', 0) }}</h3>
                 </div>
                 <i class="bi bi-exclamation-circle text-warning" style="font-size: 1.3rem;"></i>
             </div>
@@ -423,8 +419,7 @@
             <div class="d-flex justify-content-between align-items-center gap-2">
                 <div>
                     <h6 class="mb-0 text-muted" style="font-size: 0.85rem; font-weight: 600;">Toplam</h6>
-                    <h3 class="mb-0" style="font-size: 1.75rem; font-weight: 700; color: #6366f1;">{{ tramvaylar|length
-                        }}</h3>
+                    <h3 class="mb-0" style="font-size: 1.75rem; font-weight: 700; color: #6366f1;">{{ stats.get('toplam', 0) }}</h3>
                 </div>
                 <i class="bi bi-bus-front text-primary" style="font-size: 1.3rem;"></i>
             </div>
@@ -436,8 +431,7 @@
             <div class="d-flex justify-content-between align-items-center gap-2">
                 <div>
                     <h6 class="mb-0 text-muted" style="font-size: 0.85rem; font-weight: 600;">Availability</h6>
-                    <h3 class="mb-0" style="font-size: 1.75rem; font-weight: 800; color: #3b82f6;">{{
-                        stats.get('erisebilirlik', '0%') }}</h3>
+                    <h3 class="mb-0" style="font-size: 1.75rem; font-weight: 800; color: #3b82f6;">{{ stats.get('availability', 0) }}%</h3>
                 </div>
                 <i class="bi bi-speedometer2 text-info" style="font-size: 1.3rem;"></i>
             </div>

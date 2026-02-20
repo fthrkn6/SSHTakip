@@ -555,20 +555,26 @@
     <div class="analytics-grid">
         <div class="analytics-card">
             <h3>Toplam Araç</h3>
-            <div class="value" id="totalVehicles">{{ tram_ids|length }}</div>
+            <div class="value" id="totalVehicles">0</div>
             <div class="description">Sistemde kayıtlı araç sayısı</div>
         </div>
 
         <div class="analytics-card">
-            <h3>Operasyonel</h3>
+            <h3>Serviste</h3>
             <div class="value" id="operationalCount">0</div>
             <div class="description">Şu an çalışmakta olan araçlar</div>
         </div>
 
         <div class="analytics-card">
-            <h3>Bakım/Servis</h3>
+            <h3>Servis Dışı</h3>
+            <div class="value" id="outofserviceCount">0</div>
+            <div class="description">Servis dışında olan araçlar</div>
+        </div>
+
+        <div class="analytics-card">
+            <h3>İşletme</h3>
             <div class="value" id="maintenanceCount">0</div>
-            <div class="description">Bakım yapılmakta olan araçlar</div>
+            <div class="description">İşletme kaynaklı servis dışı</div>
         </div>
 
         <div class="analytics-card">
@@ -709,22 +715,31 @@
             .then(response => response.json())
             .then(data => {
                 let html = '';
-                let operational = 0;
-                let maintenance = 0;
-                let totalAvailability = 0;
+                
+                // Yeni response format: {table_data: [...], stats: {...}}
+                let table_items = data.table_data || data;  // Fallback to old format if needed
+                let stats = data.stats || {};  // New stats object
+                
+                // Eğer stats response'ta varsa, doğrudan kullan
+                let operational = stats.operational || 0;
+                let maintenance = stats.maintenance || 0;
+                let availability_percent = stats.availability || 0;
 
-                data.forEach(item => {
-                    const statusClass = item.status === 'operasyonel' ? 'operational' :
-                        item.status === 'bakımda' ? 'maintenance' :
-                            item.status === 'servis_dışı' ? 'outofservice' : 'unknown';
+                table_items.forEach(item => {
+                    // Normalize status values to match UI expectations
+                    let status_display = item.status;
+                    let statusClass = 'operational';
+                    
+                    if (item.status && item.status.includes('Servis Dışı')) {
+                        statusClass = 'outofservice';
+                    } else if (item.status && item.status.includes('İşletme')) {
+                        statusClass = 'maintenance';
+                    } else if (item.status && item.status.includes('Aktif')) {
+                        statusClass = 'operational';
+                    }
 
                     const availabilityClass = item.availability >= 95 ? 'availability-high' :
                         item.availability >= 80 ? 'availability-medium' : 'availability-low';
-
-                    if (item.status === 'operasyonel') operational++;
-                    if (item.status === 'bakımda') maintenance++;
-
-                    totalAvailability += item.availability;
 
                     html += `
                         <tr>
@@ -732,7 +747,7 @@
                             <td>${item.name}</td>
                             <td>
                                 <span class="status-badge status-${statusClass}">
-                                    ${item.status}
+                                    ${status_display}
                                 </span>
                             </td>
                             <td>${item.sistem}</td>
@@ -755,11 +770,15 @@
 
                 document.getElementById('statusTableBody').innerHTML = html || '<tr><td colspan="9" style="text-align: center; padding: 20px;">Veri bulunamadı</td></tr>';
 
-                // Update analytics
+                // Update analytics - stats'tan doğrudan al
+                document.getElementById('totalVehicles').textContent = stats.total || 0;
                 document.getElementById('operationalCount').textContent = operational;
+                document.getElementById('outofserviceCount').textContent = stats.outofservice || 0;
                 document.getElementById('maintenanceCount').textContent = maintenance;
-                document.getElementById('avgAvailability').textContent =
-                    data.length > 0 ? (totalAvailability / data.length).toFixed(1) : 0;
+                
+                // Format availability with % sign
+                let availabilityText = availability_percent.toFixed(1) + '%';
+                document.getElementById('avgAvailability').textContent = availabilityText;
             })
             .catch(error => {
                 console.error('Error:', error);

@@ -1,22 +1,57 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session, current_app
 from flask_login import login_required, current_user
-from models import db, Equipment, MaintenanceLog, WorkOrder, SensorData, Failure
+from models import db, Equipment, MaintenancePlan, WorkOrder, SensorData, Failure
 from datetime import datetime, timedelta
 from sqlalchemy import func
+import os
+import pandas as pd
 
 bp = Blueprint('equipment', __name__, url_prefix='/equipment')
+
+
+def get_equipment_trams_from_excel(project_code=None):
+    """Excel'den araç listesini çek - Equipment sayfasında filtre için"""
+    if project_code is None:
+        project_code = session.get('current_project', 'belgrad')
+    
+    veriler_path = os.path.join(current_app.root_path, 'data', project_code, 'Veriler.xlsx')
+    
+    if not os.path.exists(veriler_path):
+        # Fallback: Tüm equipment çek
+        return None
+    
+    try:
+        df = pd.read_excel(veriler_path, sheet_name='Sayfa2', header=0)
+        if 'tram_id' in df.columns:
+            tram_ids = [str(t) for t in df['tram_id'].dropna().unique().tolist()]
+            return tram_ids
+        return None
+    except Exception as e:
+        import logging
+        logging.error(f'Excel oku hatası ({project_code}): {e}')
+        return None
 
 
 @bp.route('/')
 @login_required
 def index():
-    """Ekipman listesi"""
+    """Ekipman listesi - Excel'den filtrelenmiş veriler"""
     equipment_type = request.args.get('type', 'all')
     status = request.args.get('status', 'all')
     page = request.args.get('page', 1, type=int)
     per_page = 50
     
-    query = Equipment.query.filter_by(parent_id=None)  # Sadece ana ekipmanlar
+    current_project = session.get('current_project', 'belgrad')
+    
+    # Excel'den araç listesini çek
+    excel_trams = get_equipment_trams_from_excel(current_project)
+    
+    # Query yap - Excel'deki araçları filtrele
+    query = Equipment.query.filter_by(parent_id=None, project_code=current_project)
+    
+    # Excel'den çekilen araçları filtrele
+    if excel_trams:
+        query = query.filter(Equipment.equipment_code.in_(excel_trams))
     
     if equipment_type != 'all':
         query = query.filter_by(equipment_type=equipment_type)

@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
 from flask_login import login_required, current_user
-from models import db, MaintenancePlan, Equipment, MaintenanceLog, WorkOrder
+from models import db, MaintenancePlan, Equipment, WorkOrder
 from datetime import datetime
 import pandas as pd
 import os
@@ -54,36 +54,32 @@ def plans():
     current_project = session.get('current_project', 'belgrad')
     project_name = session.get('project_name', 'Proje Seçilmedi')
     
-    # Database'den 1531-1555 range'ini al (Dashboard gibi)
-    tramvaylar_equipment = Equipment.query.filter(
-        Equipment.equipment_code >= '1531',
-        Equipment.equipment_code <= '1555',
+    # Excel'den araçları yükle (SABİT SINIR YOKTUR - Dinamik)
+    tram_ids = load_trams_from_file(current_project)
+    
+    # Equipment table'dan Excel'deki araçları al
+    equipment = Equipment.query.filter(
+        Equipment.equipment_code.in_(tram_ids),
         Equipment.parent_id == None,
         Equipment.project_code == current_project
     ).order_by(Equipment.equipment_code).all()
     
-    print(f"[MAINTENANCE FILTER 1531-1555] Found {len(tramvaylar_equipment)} trams")
-    for t in tramvaylar_equipment[:3]:
-        print(f"  - {t.equipment_code}: {t.name}")
-    
-    # Fallback: eğer range'de veri yoksa tüm proje equipment'larını al
-    if not tramvaylar_equipment:
-        print(f"[MAINTENANCE FALLBACK] No trams in 1531-1555 range, using all project equipment")
-        tramvaylar_equipment = Equipment.query.filter_by(
-            parent_id=None, 
-            project_code=current_project
-        ).order_by(Equipment.equipment_code).all()
-        print(f"[MAINTENANCE FALLBACK] Found {len(tramvaylar_equipment)} trams")
+    print(f"[MAINTENANCE PLANS ROUTE]")
+    print(f"  Project: {current_project}")
+    print(f"  load_trams_from_file returned: {len(tram_ids)} araç")
+    print(f"  Equipment query returned: {len(equipment)} araç")
+    print(f"  Araçlar: {[eq.equipment_code for eq in equipment[:3]]} ... {[eq.equipment_code for eq in equipment[-3:]]}")
     
     # Her tramvay için KM ve durum bilgisini derle
     tram_equipment_data = []
     today = str(date.today())
     
-    for tramvay in tramvaylar_equipment:
+    for tramvay in equipment:
         # ServiceStatus'ten bugünün kaydını getir
         status_record = ServiceStatus.query.filter_by(
             tram_id=tramvay.equipment_code,
-            date=today
+            date=today,
+            project_code=current_project
         ).first()
         
         status_display = 'Servis'
@@ -98,7 +94,10 @@ def plans():
             'status': status_display
         })
     
-    query = MaintenancePlan.query.filter_by(is_active=True)
+    query = MaintenancePlan.query.filter_by(
+        is_active=True,
+        project_code=current_project
+    )
     
     if maintenance_type != 'all':
         query = query.filter_by(maintenance_type=maintenance_type)
@@ -115,7 +114,11 @@ def plans():
 @login_required
 def plan_detail(plan_id):
     """Bakım planı detayları"""
-    plan = MaintenancePlan.query.get_or_404(plan_id)
+    current_project = session.get('current_project', 'belgrad')
+    plan = MaintenancePlan.query.filter_by(
+        id=plan_id,
+        project_code=current_project
+    ).first_or_404()
     
     # Bu plana bağlı iş emirleri
     work_orders = plan.work_orders.order_by(WorkOrder.scheduled_start.desc()).limit(20).all()

@@ -230,10 +230,11 @@ def index():
                 logger.error(f'Aylik trend hesaplama hatasi: {e}')
     
     # Veritabanından ek veriler
+    current_project = session.get('current_project', 'belgrad')
     db_stats = {
-        'active_equipment': Equipment.query.filter_by(status='aktif').count(),
-        'open_failures': Failure.query.filter_by(status='acik').count(),
-        'pending_workorders': WorkOrder.query.filter_by(status='beklemede').count()
+        'active_equipment': Equipment.query.filter_by(status='aktif', project_code=current_project).count(),
+        'open_failures': Failure.query.filter_by(status='acik', project_code=current_project).count(),
+        'pending_workorders': WorkOrder.query.filter_by(status='beklemede', project_code=current_project).count()
     }
     
     return render_template('kpi/index.html', 

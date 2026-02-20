@@ -138,15 +138,49 @@ class FracasWriter:
         return row
     
     def generate_next_fracas_id(self):
-        """BOZ-BEL25-FF-NNN formatında FRACAS ID oluştur (Arıza Listesi ile senkronize)"""
+        """BOZ-{FRACAS_CODE}-FF-NNN formatında FRACAS ID oluştur (Arıza Listesi ile senkronize)"""
         from openpyxl import load_workbook
         import os
+        from flask import session
+        
+        # Aktif projeyi al
+        project = session.get('current_project', 'belgrad')
+        
+        # Veriler.xlsx'in Sayfa2 B2'sinden FRACAS kodunu oku
+        fracas_code = None
+        data_dir = os.path.join(os.path.dirname(__file__), 'data', project)
+        
+        if os.path.exists(data_dir):
+            for file in os.listdir(data_dir):
+                if 'veriler' in file.lower() and file.endswith('.xlsx'):
+                    veriler_path = os.path.join(data_dir, file)
+                    try:
+                        wb_veriler = load_workbook(veriler_path)
+                        if 'Sayfa2' in wb_veriler.sheetnames:
+                            ws_sayfa2 = wb_veriler['Sayfa2']
+                            fracas_code = ws_sayfa2['B2'].value
+                        wb_veriler.close()
+                    except Exception as e:
+                        print(f"⚠️ Veriler.xlsx'ten FRACAS kodu okunamadı: {e}")
+                    break
+        
+        # Fallback
+        if not fracas_code:
+            project_code_map = {
+                'belgrad': 'BEL25',
+                'iasi': 'IAS25',
+                'timisoara': 'TIM25',
+                'kayseri': 'KAY25',
+                'kocaeli': 'KOC25',
+                'gebze': 'GEB25'
+            }
+            fracas_code = project_code_map.get(project, 'BOZ')
         
         # Arıza Listesi dosyasından son numarayı al (aynı sistem)
         ariza_listesi_file = os.path.join(
             os.path.dirname(__file__), 
-            'logs', 'belgrad', 'ariza_listesi', 
-            'Ariza_Listesi_BELGRAD.xlsx'
+            'logs', project, 'ariza_listesi', 
+            f'Ariza_Listesi_{project.upper()}.xlsx'
         )
         
         next_num = 1
@@ -168,7 +202,7 @@ class FracasWriter:
                 print(f"⚠️ Arıza Listesi'nden FRACAS ID hesaplanamadı: {e}")
                 pass
         
-        fracas_id = f'BOZ-BEL25-FF-{next_num:03d}'
+        fracas_id = f'BOZ-{fracas_code}-FF-{next_num:03d}'
         return fracas_id
     
     def validate_form_data(self, form_data):

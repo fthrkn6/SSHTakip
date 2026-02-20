@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, session
 from flask_login import login_required, current_user
 from models import db, Equipment, Failure
 from datetime import datetime
@@ -13,12 +13,11 @@ bp = Blueprint('failure', __name__, url_prefix='/arizalar')
 @login_required
 def list():
     """Arıza listesi"""
-    from flask import session
-    
+    current_project = session.get('current_project', 'belgrad')
     status_filter = request.args.get('status', 'all')
     arac_filter = request.args.get('arac', 'all')
     
-    query = Failure.query
+    query = Failure.query.filter_by(project_code=current_project)
     
     if status_filter == 'active':
         query = query.filter_by(resolved=False)
@@ -31,18 +30,17 @@ def list():
     arizalar = query.order_by(Failure.failure_date.desc()).all()
     
     # Araçları al (dropdown için)
-    araclar = Equipment.query.filter_by(equipment_type='arac').all()
+    araclar = Equipment.query.filter_by(equipment_type='arac', project_code=current_project).all()
     
     # HBR listesini yükle
-    project_code = session.get('current_project', 'belgrad')
-    hbr_files = _load_hbr_files(project_code)
+    hbr_files = _load_hbr_files(current_project)
     
     # İstatistikler
     stats = {
-        'total': Failure.query.count(),
-        'active': Failure.query.filter_by(resolved=False).count(),
-        'resolved': Failure.query.filter_by(resolved=True).count(),
-        'critical': Failure.query.filter_by(severity='critical', resolved=False).count(),
+        'total': Failure.query.filter_by(project_code=current_project).count(),
+        'active': Failure.query.filter_by(project_code=current_project, resolved=False).count(),
+        'resolved': Failure.query.filter_by(project_code=current_project, resolved=True).count(),
+        'critical': Failure.query.filter_by(project_code=current_project, severity='critical', resolved=False).count(),
         'hbr_total': len(hbr_files)
     }
     
@@ -121,7 +119,11 @@ def add():
 @login_required
 def detail(id):
     """Arıza detayı"""
-    ariza = Failure.query.get_or_404(id)
+    current_project = session.get('current_project', 'belgrad')
+    ariza = Failure.query.filter_by(
+        id=id,
+        project_code=current_project
+    ).first_or_404()
     return render_template('failure/detail.html', ariza=ariza)
 
 
@@ -219,8 +221,12 @@ def _load_hbr_files(project_code):
 @login_required
 def resolve(id):
     """Arızayı çözüldü olarak işaretle"""
+    current_project = session.get('current_project', 'belgrad')
     
-    ariza = Failure.query.get_or_404(id)
+    ariza = Failure.query.filter_by(
+        id=id,
+        project_code=current_project
+    ).first_or_404()
     ariza.resolved = True
     ariza.resolution_date = datetime.utcnow()
     ariza.resolution_notes = request.form.get('resolution_notes')
@@ -230,7 +236,8 @@ def resolve(id):
     arac = Equipment.query.get(ariza.equipment_id)
     diger_arizalar = Failure.query.filter_by(
         equipment_id=ariza.equipment_id, 
-        resolved=False
+        resolved=False,
+        project_code=current_project
     ).filter(Failure.id != id).count()
     
     if diger_arizalar == 0 and arac:

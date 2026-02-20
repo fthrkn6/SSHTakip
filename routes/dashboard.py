@@ -15,34 +15,86 @@ logging.basicConfig(stream=sys.stdout, encoding='utf-8', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
-def get_tram_ids_from_veriler(project_code=None):
-    """Veriler.xlsx'den equipment_code'leri yükle - Proje bazlı"""
+def sync_excel_to_equipment(project_code=None):
+    """Excel'den okunan araçları Equipment table'a senkronize et (OTOMATIK)
+    
+    - Excel'deki tüm araçları bul
+    - Equipment'ta olmayan araçları ekle
+    - Dinamik Excel update'lerine destek sağla
+    """
     if project_code is None:
         project_code = session.get('current_project', 'belgrad')
     
     veriler_file = ProjectManager.get_veriler_file(project_code)
-    
     if not veriler_file or not os.path.exists(veriler_file):
-        # Fallback: Equipment tablosundan çek
-        return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None, project_code=project_code).all()]
+        return []
     
     try:
         df = pd.read_excel(veriler_file, sheet_name='Sayfa2', header=0)
-        # equipment_code sütununu kullan (eğer varsa), yoksa tram_id'leri string'e çevir
-        if 'equipment_code' in df.columns:
-            equipment_codes = df['equipment_code'].dropna().unique().tolist()
-            return [str(c) for c in equipment_codes]
-        elif 'tram_id' in df.columns:
-            tram_ids = df['tram_id'].dropna().unique().tolist()
-            return [str(t) for t in tram_ids]
-        # Fallback: Equipment tablosundan çek
-        return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None, project_code=project_code).all()]
+        
+        # Excel'deki tram_id'leri al
+        if 'tram_id' in df.columns:
+            excel_trams = sorted([str(t) for t in df['tram_id'].dropna().unique().tolist()])
+        elif 'equipment_code' in df.columns:
+            excel_trams = sorted([str(c) for c in df['equipment_code'].dropna().unique().tolist()])
+        else:
+            return []
+        
+        # Equipment'ta olmayanları bul
+        existing_eqs = Equipment.query.filter_by(parent_id=None, project_code=project_code).all()
+        existing_codes = set(eq.equipment_code for eq in existing_eqs)
+        excel_codes = set(excel_trams)
+        
+        missing = excel_codes - existing_codes
+        
+        # Eksik araçları ekle
+        if missing:
+            template = existing_eqs[0] if existing_eqs else None
+            if template:
+                for tram_id in sorted(missing):
+                    new_eq = Equipment(
+                        equipment_code=tram_id,
+                        name=f'Tramvay {tram_id}',
+                        project_code=project_code,
+                        parent_id=None,
+                        status='aktif',
+                        location=getattr(template, 'location', None),  # Template'dan location'ı kopyala
+                        criticality=getattr(template, 'criticality', 'medium'),
+                        created_at=datetime.utcnow(),
+                        updated_at=datetime.utcnow()
+                    )
+                    db.session.add(new_eq)
+                
+                db.session.commit()
+                logger.info(f'[AUTO-SYNC] {len(missing)} araç eklendi ({project_code}): {sorted(missing)}')
+        
+        return excel_trams
+    
     except Exception as e:
-        logger.error(f'Veriler.xlsx okuma hatasi ({project_code}): {e}')
-        # Fallback: Equipment tablosundan çek
+        logger.error(f'Auto-sync hatası ({project_code}): {e}')
+        # Fallback: Equipment'tan çek
         return [eq.equipment_code for eq in Equipment.query.filter_by(parent_id=None, project_code=project_code).all()]
 
+
+def get_tram_ids_from_veriler(project_code=None):
+    """Veriler.xlsx'den equipment_code'leri yükle - OTOMATIK SYNC İLE - Proje bazlı"""
+    if project_code is None:
+        project_code = session.get('current_project', 'belgrad')
+    
+    # OTOMATIK SYNC: Excel'i oku, Equipment'a eksik olanları ekle
+    excel_trams = sync_excel_to_equipment(project_code)
+    return excel_trams
+
 bp = Blueprint('dashboard', __name__, url_prefix='/dashboard')
+
+
+@bp.after_request
+def disable_cache_on_dashboard(response):
+    """Dashboard sayfasının cache'lenememesi için - Her refresh'de fresh veri çeksin"""
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 
 def get_failures_from_excel(project_code=None):
@@ -388,14 +440,16 @@ def index():
     # Kritik öncelikli açık iş emirleri
     critical_work_orders = WorkOrder.query.filter(
         WorkOrder.priority == 'critical',
-        WorkOrder.status.in_(['pending', 'scheduled', 'in_progress'])
+        WorkOrder.status.in_(['pending', 'scheduled', 'in_progress']),
+        WorkOrder.project_code == current_project
     ).order_by(WorkOrder.planned_start).limit(10).all()
     
     # Yaklaşan bakımlar (7 gün içinde)
     upcoming_maintenance = WorkOrder.query.filter(
         WorkOrder.status.in_(['pending', 'scheduled']),
         WorkOrder.planned_start >= datetime.utcnow(),
-        WorkOrder.planned_start <= datetime.utcnow() + timedelta(days=7)
+        WorkOrder.planned_start <= datetime.utcnow() + timedelta(days=7),
+        WorkOrder.project_code == current_project
     ).order_by(WorkOrder.planned_start).limit(10).all()
     
     # Son arızalar - Excel'den çek
@@ -406,60 +460,82 @@ def index():
         KPISnapshot.snapshot_date.desc()
     ).first()
     
-    # ===== Tramvay Filozofu - Database'den 1531-1555 range'ini al =====
-    # Belgrad projesinde 1531-1555 range'i kullan
-    tramvaylar = Equipment.query.filter(
-        Equipment.equipment_code >= '1531',
-        Equipment.equipment_code <= '1555',
-        Equipment.parent_id == None,
-        Equipment.project_code == current_project
-    ).order_by(Equipment.equipment_code).all()
+    # ===== Tramvay Filosu - Veriler.xlsx'ten tram_id'leri oku (proje-dinamik) =====
+    # Veriler.xlsx'ten tram_id listesini al
+    tram_ids_from_excel = get_tram_ids_from_veriler(current_project)
     
-    logger.debug(f'[DASHBOARD FILTER 1531-1555] Found {len(tramvaylar)} trams')
+    tramvaylar = []
+    if tram_ids_from_excel:
+        # Excel'den okunan tram_id'lere göre tramvayları filtrele
+        tramvaylar = Equipment.query.filter(
+            Equipment.equipment_code.in_(tram_ids_from_excel),
+            Equipment.parent_id.is_(None),
+            Equipment.project_code == current_project
+        ).order_by(Equipment.equipment_code).all()
+        logger.debug(f'[DASHBOARD] Found {len(tramvaylar)} trams from Veriler.xlsx ({current_project})')
     
-    # Eğer range'de veri yoksa fallback
+    # Eğer Excel'den bulunamazsa fallback
     if not tramvaylar:
-        logger.debug(f'[DASHBOARD FALLBACK] No trams in 1531-1555 range, using all project equipment')
-        tramvaylar = Equipment.query.filter_by(parent_id=None, project_code=current_project).order_by(Equipment.equipment_code).all()
-        logger.debug(f'[DASHBOARD FALLBACK] Found {len(tramvaylar)} trams from fallback')
+        logger.debug(f'[DASHBOARD FALLBACK] No trams from Veriler.xlsx, using all project equipment')
+        tramvaylar = Equipment.query.filter_by(
+            parent_id=None,
+            project_code=current_project
+        ).order_by(Equipment.equipment_code).all()
+        logger.debug(f'[DASHBOARD FALLBACK] Found {len(tramvaylar)} trams')
     
     # Bugünün tarihi
     today = str(date.today())
     
-    # Her tramvay için bugünün ServiceStatus kaydını al
+    # Her tramvay için ServiceStatus'ten durum al
     tramvay_statuses = []
     for tramvay in tramvaylar:
-        # ServiceStatus'ten bugünün kaydını getir
-        status_record = ServiceStatus.query.filter_by(
+        # PRIMARY: ServiceStatus'ten bugün'ün kaydını al
+        service_record = ServiceStatus.query.filter_by(
             tram_id=tramvay.equipment_code,
-            date=today
+            date=today,
+            project_code=current_project
         ).first()
         
-        # Durum belirle
+        # ✓ Auto-create: ServiceStatus kaydı yoksa oluştur
+        if not service_record:
+            service_record = ServiceStatus(
+                tram_id=tramvay.equipment_code,
+                date=today,
+                project_code=current_project,
+                status='İşletme',
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            )
+            db.session.add(service_record)
+            db.session.commit()
+        
+        # Durum belirle - ServiceStatus PRIMARY source
         status_display = 'aktif'
         status_color = 'success'
-        status_from_db = 'Servis'
+        status_from_db = 'Aktif'
         
-        if status_record:
-            status_value = status_record.status if status_record.status else 'Servis'
-            aciklama = status_record.aciklama if status_record.aciklama else ''
+        # ServiceStatus varsa onu kullan
+        if service_record and service_record.status:
+            service_status = service_record.status
             
-            # Status'u belirle - DB exact match
-            if status_value == 'İşletme Kaynaklı Servis Dışı' or 'İşletme' in status_value:
-                # İşletme Kaynaklı Servis Dışı = turuncu (işletme kaynaklı arıza)
+            # ServiceStatus değerine göre çevir
+            if 'İşletme' in service_status or 'işletme' in service_status.lower():
                 status_display = 'işletme'
                 status_color = 'warning'
                 status_from_db = 'İşletme Kaynaklı Servis Dışı'
-            elif status_value == 'Servis Dışı' or 'Dışı' in status_value:
-                # Servis Dışı = arızalı (kırmızı)
+            elif 'Dışı' in service_status or 'disi' in service_status.lower() or 'ariza' in service_status.lower():
                 status_display = 'ariza'
                 status_color = 'danger'
                 status_from_db = 'Servis Dışı'
             else:
-                # Servis = aktif (yeşil)
                 status_display = 'aktif'
                 status_color = 'success'
-                status_from_db = 'Servis'
+                status_from_db = 'Aktif'
+        else:
+            # ServiceStatus yoksa default 'aktif'
+            status_display = 'aktif'
+            status_color = 'success'
+            status_from_db = 'Aktif'
         
         tramvay_statuses.append({
             'id': tramvay.id,
@@ -487,32 +563,35 @@ def index():
     # Log the counts
     logger.debug(f'A={ariza_by_class["A"]["count"]}, B={ariza_by_class["B"]["count"]}, C={ariza_by_class["C"]["count"]}, D={ariza_by_class["D"]["count"]}, TOTAL={total_failures_last_30_days}')
     
-    # Filo durumu istatistikleri - Servis durumundan hesapla
+    # Filo durumu istatistikleri - ServiceStatus'ten hesapla
     aktif_count = 0
+    isletme_count = 0  # İşletme Kaynaklı Servis Dışı
     ariza_count = 0
-    bakim_count = 0
     
     for tramvay_status in tramvay_statuses:
         if tramvay_status['status'] == 'aktif':
             aktif_count += 1
-        elif 'warning' in tramvay_status['status_color']:
-            bakim_count += 1
-        else:
+        elif tramvay_status['status'] == 'işletme':  # İşletme Kaynaklı Servis Dışı
+            isletme_count += 1
+        else:  # Arızalı
             ariza_count += 1
     
     # MTTR (Mean Time To Repair) hesapla - Ortalama Tamir Süresi
     mttr_data = calculate_fleet_mttr()
     
-    # Filo Kullanılabilirlik Oranı = (Aktif + Bakımda) / Toplam * 100
-    # Servis dışı = sadece arızalı tramvaylar
-    total_tram = len(tramvay_statuses)
-    kullanilabilir = aktif_count + bakim_count
+    # Filo Kullanılabilirlik Oranı = (Aktif + İşletme Kaynaklı) / Toplam * 100
+    # Bu ikisinin toplamı çalışabilir araçları temsil eder (İşletme kaynaklı olanlar zamanla servis dönebilir)
+    total_tram = len(tramvay_statuses) if tramvay_statuses else 1  # 0'a bölmek için 1 minimum
+    kullanilabilir = aktif_count + isletme_count
     fleet_availability = round(kullanilabilir / total_tram * 100, 1) if total_tram > 0 else 0
     
+    # Debug logging
+    logger.debug(f'[STATS CALC] Total: {total_tram}, Aktif: {aktif_count}, İşletme: {isletme_count}, Arıza: {ariza_count}, Availability: {fleet_availability}%')
+    
     stats = {
-        'total_tramvay': len(tramvay_statuses),
+        'total_tramvay': total_tram,
         'aktif_servis': aktif_count,
-        'bakimda': bakim_count,
+        'bakimda': isletme_count,  # İşletme Kaynaklı Servis Dışı
         'arizali': ariza_count,
         'fleet_availability': fleet_availability,
         'aktif_ariza': len(son_arizalar),
@@ -557,6 +636,7 @@ def equipment_status_api():
 @login_required
 def work_order_trend_api():
     """İş emri trend grafiği için API"""
+    current_project = session.get('current_project', 'belgrad')
     # Son 12 ay
     data = []
     for i in range(12):
@@ -565,7 +645,8 @@ def work_order_trend_api():
         
         count = WorkOrder.query.filter(
             WorkOrder.created_at >= month_start,
-            WorkOrder.created_at < month_end
+            WorkOrder.created_at < month_end,
+            WorkOrder.project_code == current_project
         ).count()
         
         data.append({
@@ -580,150 +661,62 @@ def work_order_trend_api():
 @bp.route('/api/failures/<equipment_code>')
 @login_required
 def get_equipment_failures(equipment_code=None):
-    """Araçla ilgili son 5 arızayı Al - Fracas_BELGRAD.xlsx'den (birleştirilmiş)
-    Eğer equipment_code yoksa TÜM son 5 arızayı getir"""
+    """Araçla ilgili son arızaları al - data/{proje}/Veriler.xlsx'den"""
     try:
         import pandas as pd
         import os
         
-        # Fracas_BELGRAD.xlsx'i kullan (birleştirilmiş veri kaynağı)
         current_project = session.get('current_project', 'belgrad')
-        ariza_listesi_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs', current_project, 'ariza_listesi')
         
-        # Fracas_*.xlsx ara (birincil)
-        ariza_listesi_file = None
-        for file in os.listdir(ariza_listesi_dir) if os.path.exists(ariza_listesi_dir) else []:
-            if file.upper().startswith('FRACAS_') and file.endswith('.xlsx') and not file.startswith('~$'):
-                ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
-                break
+        # Excel'den arızaları oku
+        veriler_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', current_project, 'Veriler.xlsx')
         
-        failures = []
-        
-        if not ariza_listesi_file or not os.path.exists(ariza_listesi_file):
-            logger.error(f'[API] Fracas dosyasi bulunamadi')
-            return jsonify({'failures': [], 'error': 'Fracas file not found'})
+        if not os.path.exists(veriler_file):
+            logger.error(f'[API] {veriler_file} bulunamadi')
+            return jsonify({'failures': [], 'error': 'Veriler file not found'})
         
         try:
-            # Sheet adını dinamik olarak bul
-            sheet_names = pd.ExcelFile(ariza_listesi_file).sheet_names
-            logger.info(f'[API] Mevcut Sheet adları: {sheet_names}')
+            df = pd.read_excel(veriler_file, sheet_name='Sayfa2', header=0)
+            logger.info(f'[API] Excel okundu - {len(df)} satir')
             
-            # FRACAS sheet'i ara, yoksa ilk sheet'i kullan
-            sheet_to_use = None
-            if 'FRACAS' in sheet_names:
-                sheet_to_use = 'FRACAS'
-            elif sheet_names:
-                sheet_to_use = sheet_names[0]
-            else:
-                return jsonify({'failures': [], 'error': 'No sheets found in Excel file'})
+            # Tüm arızaları al - araç seçimi yapılsa bile son 5 arızayı global olarak göster
+            # (Excel'de her aracın sadece 1 arıza kaydı olduğu için)
+            filtered_df = df
             
-            logger.info(f'[API] Kullanılan sheet: {sheet_to_use}')
+            # Son 5 arızayı al
+            filtered_df = filtered_df.tail(5)
             
-            # Header satırını dinamik olarak bul (varsayılan: 3, yani 4. satırdan başla)
-            df = pd.read_excel(ariza_listesi_file, sheet_name=sheet_to_use, header=3)
-            logger.info(f'[API] Excel okundu - {len(df)} satir, Sutunlar: {list(df.columns)[:5]}...')
-            
-            # FRACAS ID sütununu doğrula
-            if not any('FRACAS' in str(col).upper() and 'ID' in str(col).upper() for col in df.columns):
-                logger.error('[API] FRACAS ID sutunu bulunamadi')
-                return jsonify({'failures': [], 'error': 'FRACAS ID column not found'})
-            
-            # FRACAS ID sütunu bul (farklı adlar olabilir)
-            fracas_id_col = None
-            for col in df.columns:
-                if 'FRACAS' in str(col).upper() and 'ID' in str(col).upper():
-                    fracas_id_col = col
-                    break
-            
-            # Araç No sütununu bul (farklı adlar olabilir)
-            arac_no_col = None
-            for col in df.columns:
-                if 'araç' in str(col).lower() and ('no' in str(col).lower() or 'numarası' in str(col).lower()):
-                    arac_no_col = col
-                    break
-            
-            # Eğer equipment_code verildiyse filtrele, değilse son 5'i getir
-            if equipment_code and equipment_code.strip():
-                # TRN- prefix'ini kaldır (eğer varsa)
-                equipment_code_clean = equipment_code.replace('TRN-', '').strip()
-                
-                if arac_no_col:
-                    # Araç numarasını normalize et (float da olabilir)
-                    try:
-                        # Float olarak deneyerek normalleştir
-                        equipment_code_float = float(equipment_code_clean)
-                        equipment_code_normalized = str(int(equipment_code_float))
-                        
-                        # DataFrame'deki araç no'larını da normalize et
-                        arac_no_series = df[arac_no_col].astype(str).str.strip()
-                        # Float parse et
-                        arac_no_normalized = arac_no_series.apply(lambda x: str(int(float(x))) if x and x != '-' else x)
-                        
-                        filtered_df = df[arac_no_normalized == equipment_code_normalized]
-                    except (ValueError, TypeError):
-                        # String karşılaştırması yap
-                        filtered_df = df[df[arac_no_col].astype(str).str.strip() == str(equipment_code_clean).strip()]
-                    
-                    filtered_df = filtered_df.tail(5)
-                else:
-                    filtered_df = df.tail(5)
-            else:
-                # Boş satırları hariç tut, son 5'i getir
-                filtered_df = df[df[fracas_id_col].notna()].tail(5) if fracas_id_col else df.tail(5)
-            
-            logger.debug(f'[API] Filtrelenen satir sayisi: {len(filtered_df)}')
-            
-            # Sütunları hazırla
+            failures = []
             for idx, row in filtered_df.iterrows():
                 try:
-                    # Pandas Series olarak erişim, sütun adlarını dinamik ara
-                    fracas_id = str(row[fracas_id_col]).strip() if fracas_id_col and pd.notna(row[fracas_id_col]) else ''
+                    tram_id = str(row.get('tram_id', '')).strip()
+                    module = str(row.get('Module', '')).strip()
+                    ariza_sinifi = str(row.get('Arıza Sınıfı ', '')).strip()
+                    ariza_kaynagi = str(row.get('Arıza Kaynağı', '')).strip()
+                    ariza_tipi = str(row.get('Arıza Tipi', '')).strip()
                     
-                    # Araç no'yu normalize et (1547.0 → 1547)
-                    arac_no_raw = str(row[arac_no_col]).strip() if arac_no_col and pd.notna(row[arac_no_col]) else ''
-                    try:
-                        arac_no_float = float(arac_no_raw)
-                        arac_no = str(int(arac_no_float))
-                    except (ValueError, TypeError):
-                        arac_no = arac_no_raw
-                    
-                    # Sistem sütunu ara
-                    sistem_col = next((col for col in df.columns if 'sistem' in str(col).lower()), None)
-                    sistem = str(row[sistem_col]).strip() if sistem_col and pd.notna(row[sistem_col]) else ''
-                    
-                    # Arıza Tanımı sütunu ara
-                    ariza_def_col = next((col for col in df.columns if 'arıza' in str(col).lower() and 'tanım' in str(col).lower()), None)
-                    ariza_tanimi = str(row[ariza_def_col]).strip() if ariza_def_col and pd.notna(row[ariza_def_col]) else ''
-                    
-                    # Tarih sütunu ara
-                    tarih_col = next((col for col in df.columns if 'tarih' in str(col).lower()), None)
-                    tarih = str(row[tarih_col]).strip() if tarih_col and pd.notna(row[tarih_col]) else ''
-                    
-                    # Durum sütunu ara
-                    durum_col = next((col for col in df.columns if 'durum' in str(col).lower()), None)
-                    durum = str(row[durum_col]).strip() if durum_col and pd.notna(row[durum_col]) else ''
+                    # NaN değerleri filtrele
+                    if ariza_sinifi == 'nan' or not ariza_sinifi:
+                        continue
                     
                     failures.append({
-                        'fracas_id': fracas_id,
-                        'arac_no': arac_no,
-                        'sistem': sistem,
-                        'ariza_tanimi': ariza_tanimi,
-                        'tarih': tarih,
-                        'durum': durum
+                        'fracas_id': tram_id,
+                        'arac_no': tram_id,
+                        'sistem': module,
+                        'ariza_tanimi': ariza_sinifi,
+                        'tarih': '',
+                        'durum': f'{ariza_kaynagi} | {ariza_tipi}' if ariza_kaynagi else ariza_tipi
                     })
-                    logger.debug(f'[API] Satir {idx}: {fracas_id} - {arac_no}')
                 except Exception as e:
-                    logger.error(f'[API] Satir {idx} isleme hatasi: {e}')
+                    logger.error(f'[API] Satir işleme hatasi: {e}')
                     continue
             
-            logger.info(f'[API] Toplam {len(failures)} ariza donduruluyorr')
+            logger.info(f'[API] {len(failures)} ariza donduruldu')
             return jsonify({'failures': failures, 'count': len(failures)})
             
         except Exception as excel_error:
-            logger.error(f'[API] Excel okuma hatasi: {type(excel_error).__name__}: {excel_error}')
-            import traceback
-            logger.error(traceback.format_exc())
-            return jsonify({'failures': [], 'error': f'Excel read error: {str(excel_error)}'})
+            logger.error(f'[API] Excel okuma hatasi: {excel_error}')
+            return jsonify({'failures': [], 'error': str(excel_error)})
     
     except Exception as e:
         logger.error(f'[API] Genel hata: {type(e).__name__}: {e}')

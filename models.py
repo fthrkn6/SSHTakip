@@ -345,6 +345,7 @@ class WorkOrder(db.Model):
     equipment_id = db.Column(db.Integer, db.ForeignKey('equipment.id'))
     failure_id = db.Column(db.Integer, db.ForeignKey('failures.id'), nullable=True)
     maintenance_plan_id = db.Column(db.Integer, db.ForeignKey('maintenance_plans.id'), nullable=True)
+    project_code = db.Column(db.String(50), nullable=False, default='belgrad')  # Proje izolasyonu
     
     title = db.Column(db.String(200))
     description = db.Column(db.Text)
@@ -450,6 +451,7 @@ class MaintenancePlan(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     plan_code = db.Column(db.String(50), unique=True, nullable=False)
     equipment_id = db.Column(db.Integer, db.ForeignKey('equipment.id'))
+    project_code = db.Column(db.String(50), nullable=False, default='belgrad')  # Proje izolasyonu
     name = db.Column(db.String(200))
     description = db.Column(db.Text)
     
@@ -1574,13 +1576,14 @@ class ServiceStatus(db.Model):
     sistem = db.Column(db.String(100), default='')
     alt_sistem = db.Column(db.String(100), default='')
     aciklama = db.Column(db.Text, default='')
+    project_code = db.Column(db.String(50), nullable=False, default='belgrad')  # Proje kodu
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
     
     user = db.relationship('User', backref='service_statuses')
     
-    __table_args__ = (db.UniqueConstraint('tram_id', 'date', name='unique_tram_date'),)
+    __table_args__ = (db.UniqueConstraint('tram_id', 'date', 'project_code', name='unique_tram_date_project'),)
     
     def __repr__(self):
         return f'<ServiceStatus {self.tram_id} - {self.date}: {self.status}>'

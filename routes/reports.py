@@ -25,14 +25,18 @@ def dashboard_rapor():
     try:
         project = session.get('current_project', 'belgrad')
         
-        # 1531-1555 tramvaylarını getir
-        tramvaylar = Equipment.query.filter(
-            Equipment.equipment_code >= '1531',
-            Equipment.equipment_code <= '1555'
-        ).all()
+        # Excel'den araçları yükle (dinamik, sabit limit yok)
+        from routes.maintenance import load_trams_from_file
+        tram_ids = load_trams_from_file(project)
         
-        if not tramvaylar:
-            tramvaylar = Equipment.query.all()
+        if tram_ids:
+            tramvaylar = Equipment.query.filter(
+                Equipment.equipment_code.in_(tram_ids)
+            ).all()
+        else:
+            tramvaylar = Equipment.query.filter_by(
+                project_code=project, parent_id=None
+            ).all()
         
         # Rapor verisini hazırla
         tram_data = []
@@ -94,14 +98,18 @@ def maintenance_rapor():
     try:
         project = session.get('current_project', 'belgrad')
         
-        # 1531-1555 tramvaylarını getir
-        tramvaylar = Equipment.query.filter(
-            Equipment.equipment_code >= '1531',
-            Equipment.equipment_code <= '1555'
-        ).all()
+        # Excel'den araçları yükle (dinamik, sabit limit yok)
+        from routes.maintenance import load_trams_from_file
+        tram_ids = load_trams_from_file(project)
         
-        if not tramvaylar:
-            tramvaylar = Equipment.query.all()
+        if tram_ids:
+            tramvaylar = Equipment.query.filter(
+                Equipment.equipment_code.in_(tram_ids)
+            ).all()
+        else:
+            tramvaylar = Equipment.query.filter_by(
+                project_code=project, parent_id=None
+            ).all()
         
         # Rapor verisini hazırla
         maintenance_data = []

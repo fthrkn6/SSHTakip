@@ -83,13 +83,19 @@ class ProjectManager:
     
     @staticmethod
     def get_veriler_file(project_code):
-        """Projenin Veriler.xlsx dosya yolunu döndür"""
-        project_path = ProjectManager.get_project_path(project_code)
+        """Projenin Veriler.xlsx dosya yolunu döndür - data/{project}/Veriler.xlsx'den çek"""
+        root_path = current_app.root_path
         
-        # Öncelik: logs/{project}/veriler/Veriler.xlsx
-        veriler_path = os.path.join(project_path, 'veriler', 'Veriler.xlsx')
+        # Öncelik: data/{project}/Veriler.xlsx (KULLANICI TERCIH)
+        veriler_path = os.path.join(root_path, 'data', project_code, 'Veriler.xlsx')
         if os.path.exists(veriler_path):
             return veriler_path
+        
+        # Fallback: logs/{project}/veriler/Veriler.xlsx (eski konum)
+        project_path = ProjectManager.get_project_path(project_code)
+        old_veriler = os.path.join(project_path, 'veriler', 'Veriler.xlsx')
+        if os.path.exists(old_veriler):
+            return old_veriler
         
         # Fallback: logs/{project}/data/Veriler.xlsx
         data_path = os.path.join(project_path, 'data', 'Veriler.xlsx')
