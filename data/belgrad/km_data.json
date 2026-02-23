@@ -50,5 +50,10 @@
     "current_km": 7000,
     "last_update": "2026-02-16 16:44:46",
     "updated_by": "admin"
+  },
+  "14": {
+    "current_km": 100,
+    "last_update": "2026-02-24 00:12:27",
+    "updated_by": "admin"
   }
 }
