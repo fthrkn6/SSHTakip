@@ -20,6 +20,9 @@ from utils_root_cause_analysis import RootCauseAnalyzer
 from utils.project_manager import ProjectManager
 from utils.backup_manager import BackupManager
 from utils.auth_decorators import require_admin, require_project_access, check_project_in_session
+from utils_km_logger import log_km_change
+from utils_km_manager import KMDataManager
+from utils_daily_service_logger import log_service_status
 import os
 import shutil
 import tempfile
@@ -2538,7 +2541,7 @@ def create_app():
             import os
             
             # Project folder'ını belirle
-            project_code = session.get('project_code', 'belgrad').lower()
+            project_code = session.get('current_project', 'belgrad').lower()
             project_folder = os.path.join('data', project_code)
             excel_path = os.path.join(project_folder, 'Veriler.xlsx')
             
@@ -2548,8 +2551,8 @@ def create_app():
             # Excel'den tramvay ID'lerini çek
             if os.path.exists(excel_path):
                 try:
-                    # Sayfa2 (index 1) oku
-                    df = pd.read_excel(excel_path, sheet_name=1, header=0, engine='openpyxl')
+                    # Sayfa2 (index 0) oku
+                    df = pd.read_excel(excel_path, sheet_name=0, header=0, engine='openpyxl')
                     
                     # tram_id sütununu bul
                     if 'tram_id' in df.columns:
@@ -2562,16 +2565,10 @@ def create_app():
             
             # Tram ID'ler için database'den equipment'ları çek
             if tram_ids:
-                # ID'ler integer olabilir, string olabilir - her ikiyle de ara
+                # Tram ID'ler string olarak geliriyor Excel'den
                 for tram_id in tram_ids:
-                    # String olarak ara
-                    equipment = Equipment.query.filter(
-                        db.or_(
-                            Equipment.id == tram_id,
-                            Equipment.id == int(tram_id) if tram_id.isdigit() else None,
-                            Equipment.equipment_code == str(tram_id)
-                        )
-                    ).first()
+                    # equipment_code'ine göre ara (1531, 1532 vs.)
+                    equipment = Equipment.query.filter_by(equipment_code=str(tram_id)).first()
                     
                     # Bulunamadıysa dummy object oluştur (veriler halen database'de ama equipment oluşturulmamış olabilir)
                     if equipment:
@@ -2591,7 +2588,7 @@ def create_app():
             
             # Veri bulunamadıysa fallback
             if not equipments:
-                equipments_db = Equipment.query.filter_by(equipment_type='Tramvay').all()
+                equipments_db = Equipment.query.filter_by(equipment_type='Tramway').all()
                 equipments = equipments_db if equipments_db else []
             
             # İstatistikleri hesapla
@@ -2622,6 +2619,9 @@ def create_app():
                 # Equipment tablosunda ara
                 equipment = Equipment.query.get(tram_id)
                 
+                # Eski KM'yi hatırla (log için)
+                old_km = equipment.current_km if equipment else 0
+                
                 # Bulunamadıysa oluştur
                 if not equipment:
                     equipment = Equipment(
@@ -2637,12 +2637,25 @@ def create_app():
                 
                 # Verileri güncelle
                 try:
-                    equipment.current_km = int(current_km) if current_km else 0
+                    new_km = int(current_km) if current_km else 0
+                    equipment.current_km = new_km
                     equipment.notes = notes
                     db.session.commit()
                     
+                    # **KM LOGLA - log klasörüne kaydet**
+                    project_code = session.get('current_project', 'belgrad')
+                    log_km_change(
+                        tram_id=tram_id,
+                        old_km=old_km,
+                        new_km=new_km,
+                        user=current_user.username if current_user else 'system',
+                        project_code=project_code,
+                        notes=notes
+                    )
+                    
                     # **AYNI VERİLERİ km_data.json'a da yaz (senkronizasyon için)**
-                    km_file = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'km_data.json')
+                    km_file = os.path.join(os.path.dirname(__file__), 'data', project_code, 'km_data.json')
+                    os.makedirs(os.path.dirname(km_file), exist_ok=True)
                     km_data = {}
                     
                     # Mevcut km_data.json'u oku
@@ -2655,7 +2668,7 @@ def create_app():
                     
                     # Traywayı güncelle
                     km_data[str(tram_id)] = {
-                        'current_km': int(current_km) if current_km else 0,
+                        'current_km': new_km,
                         'last_update': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                         'updated_by': current_user.username if current_user else 'admin'
                     }

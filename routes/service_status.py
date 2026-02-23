@@ -16,6 +16,7 @@ from utils_availability import (
     log_service_status_change
 )
 from utils_service_status import AvailabilityAnalyzer, ExcelReportGenerator as EnhancedExcelGenerator
+from utils_daily_service_logger import log_service_status as log_service_to_file
 import os
 import json
 import logging
@@ -125,10 +126,30 @@ def service_status_page():
                 status_badge = 'Aktif'
                 aciklama = ''
             
-            # Availability metrikleri getir
+            # Availability metrikleri getir (veya ServiceStatus'ten hesapla)
             latest_metric = AvailabilityMetrics.query.filter_by(
                 tram_id=equipment.equipment_code
             ).order_by(AvailabilityMetrics.metric_date.desc()).first()
+            
+            # Eğer metric yoksa ServiceStatus'ten hesapla
+            if latest_metric:
+                availability = latest_metric.availability_percentage
+                downtime = latest_metric.downtime_hours
+                operational = latest_metric.operational_hours
+            else:
+                # ServiceStatus'ten hesapla
+                if status_display == 'ariza':
+                    availability = 0
+                    operational = 0
+                    downtime = 24
+                elif status_display == 'isletme':
+                    availability = 50
+                    operational = 12
+                    downtime = 12
+                else:  # aktif
+                    availability = 100
+                    operational = 24
+                    downtime = 0
             
             tram_status_data.append({
                 'equipment_code': equipment.equipment_code,
@@ -140,9 +161,9 @@ def service_status_page():
                 'status_badge': status_badge,
                 'status_record': status_record,
                 'latest_metric': latest_metric,
-                'availability': latest_metric.availability_percentage if latest_metric else 0,
-                'downtime': latest_metric.downtime_hours if latest_metric else 0,
-                'operational': latest_metric.operational_hours if latest_metric else 0
+                'availability': availability,
+                'downtime': downtime,
+                'operational': operational
             })
         
         # Son servis durumu kayıtlarını getir (tüm araçlar - sadece aktif proje)
@@ -316,7 +337,21 @@ def log_service_status():
         if not tram_id or not new_status:
             return jsonify({'error': 'Tram ID ve durum gerekli'}), 400
         
-        # Log'u kaydet
+        # Proje kodunu al
+        project_code = session.get('current_project', 'belgrad')
+        
+        # **YENİ LOGGER: Günlük log klasörüne kaydet**
+        log_service_to_file(
+            tram_id=tram_id,
+            status=new_status,
+            sistem=sistem or '',
+            alt_sistem=alt_sistem or '',
+            aciklama=reason or '',
+            user=current_user.username if current_user else 'system',
+            project_code=project_code
+        )
+        
+        # Log'u kaydet (eski sistem)
         log_entry = log_service_status_change(
             tram_id=tram_id,
             new_status=new_status,

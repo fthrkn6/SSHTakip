@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required, current_user
 from models import db, MaintenancePlan, Equipment, WorkOrder
 from datetime import datetime
+from utils_km_manager import KMDataManager, get_tram_km
 import pandas as pd
 import os
 import logging
@@ -74,6 +75,9 @@ def plans():
     tram_equipment_data = []
     today = str(date.today())
     
+    # KM Manager'dan tüm KM'leri al (tek kaynaktan)
+    all_kms = KMDataManager.get_all_tram_kms(current_project)
+    
     for tramvay in equipment:
         # ServiceStatus'ten bugünün kaydını getir
         status_record = ServiceStatus.query.filter_by(
@@ -86,10 +90,13 @@ def plans():
         if status_record:
             status_display = status_record.status if status_record.status else 'Servis'
         
+        # KM Manager'dan al (Equipment.current_km yerine)
+        current_km = all_kms.get(tramvay.equipment_code, tramvay.current_km if hasattr(tramvay, 'current_km') else 0)
+        
         tram_equipment_data.append({
             'tram_id': tramvay.equipment_code,
             'name': tramvay.name,
-            'current_km': tramvay.current_km if hasattr(tramvay, 'current_km') else 0,
+            'current_km': current_km,
             'total_km': tramvay.total_km if hasattr(tramvay, 'total_km') else 0,
             'status': status_display
         })
