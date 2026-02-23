@@ -601,36 +601,6 @@
     </div>
 </div>
 
-<!-- Son Güncellemeler -->
-<div class="card shadow-sm">
-    <div class="card-header" data-bs-toggle="collapse" data-bs-target="#updateHistoryCollapse" style="cursor: pointer;">
-        <h5 class="mb-0 d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-clock-history me-2"></i>Son Güncellemeler</span>
-            <i class="bi bi-chevron-down" id="collapseIcon"></i>
-        </h5>
-    </div>
-    <div class="collapse" id="updateHistoryCollapse">
-        <div class="card-body p-0">
-            <table class="table table-hover mb-0" style="font-size: 0.8rem;">
-                <thead class="table-light">
-                    <tr>
-                        <th style="padding: 0.4rem;">Tarih</th>
-                        <th style="padding: 0.4rem;">Tramvay</th>
-                        <th style="padding: 0.4rem;">Durum</th>
-                        <th style="padding: 0.4rem;">Sistem</th>
-                        <th style="padding: 0.4rem;">Açıklama</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td colspan="5" class="text-center text-muted py-2">Henüz giriş yapılmadı</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
 <!-- Toplu Servise Al Modal -->
 <div class="modal fade" id="topluServiseAlModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -859,18 +829,6 @@
             alt_sistem_select.disabled = true;
         }
     });
-
-    const collapseIcon = document.getElementById('collapseIcon');
-    if (collapseIcon) {
-        document.getElementById('updateHistoryCollapse').addEventListener('show.bs.collapse', function () {
-            collapseIcon.classList.remove('bi-chevron-down');
-            collapseIcon.classList.add('bi-chevron-up');
-        });
-        document.getElementById('updateHistoryCollapse').addEventListener('hide.bs.collapse', function () {
-            collapseIcon.classList.remove('bi-chevron-up');
-            collapseIcon.classList.add('bi-chevron-down');
-        });
-    }
 
     // ============ STICKY EXPORT BUTTON ============
     const exportBtn = document.getElementById('stickyExportBtn');
