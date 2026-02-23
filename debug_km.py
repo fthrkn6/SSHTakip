@@ -34,7 +34,7 @@ with app.app_context():
     print(f"\nEmpty Project_Code Count: {len(empty_project)}")
     
     # Excel verilerini kontrol et
-    print("\n2. EXCEL VERİLERİ:")
+    print("\n2. EXCEL VERİLERİ (YENİ LOGIC):")
     print("-" * 60)
     
     for project in ['belgrad', 'kayseri']:
@@ -42,33 +42,40 @@ with app.app_context():
         if os.path.exists(excel_path):
             print(f"\n{project.upper()}:")
             try:
+                import pandas as pd
                 xls = pd.ExcelFile(excel_path)
                 print(f"  Sheet names: {xls.sheet_names}")
                 
-                df = pd.read_excel(excel_path, sheet_name=0, header=0, engine='openpyxl')
-                print(f"  Shape: {df.shape}")
-                print(f"  Columns: {list(df.columns)}")
+                # Hangi sheet'i okuyacağı belirle (yeni logic)
+                sheet_name = None
+                if 'Sayfa2' in xls.sheet_names:
+                    sheet_name = 'Sayfa2'
+                elif len(xls.sheet_names) > 0:
+                    sheet_name = xls.sheet_names[0]
                 
-                # tram_id sütununu bul
-                tram_id_col = None
-                for col in df.columns:
-                    if 'tram' in col.lower() or 'id' in col.lower():
-                        print(f"  Potential tram_id column: {col}")
-                        if col.lower() == 'tram_id':
-                            tram_id_col = col
-                            break
+                print(f"  Using sheet: {sheet_name}")
                 
-                if tram_id_col:
-                    unique_ids = df[tram_id_col].dropna().unique()[:5]
-                    print(f"  First 5 tram_ids: {list(unique_ids)}")
-                else:
-                    print(f"  No 'tram_id' column found!")
-                    print(f"  First row: {df.iloc[0].to_dict()}")
+                if sheet_name:
+                    df = pd.read_excel(excel_path, sheet_name=sheet_name, header=0, engine='openpyxl')
+                    print(f"  Columns: {list(df.columns)}")
+                    print(f"  Shape: {df.shape}")
+                    
+                    # First col'u al
+                    first_col = df.columns[0]
+                    print(f"  First column: {first_col}")
+                    
+                    tram_ids = []
+                    for idx, row in df.iterrows():
+                        tram_id = str(row[first_col]).strip() if pd.notna(row[first_col]) else None
+                        if tram_id and tram_id.lower() not in ['project', 'proje', 'nan', '']:
+                            tram_ids.append(tram_id)
+                    
+                    print(f"  Extracted tram_ids: {tram_ids[:5]}")
                     
             except Exception as e:
-                print(f"  Error reading: {e}")
+                print(f"  Error: {e}")
         else:
-            print(f"\n{project.upper()}: Excel file not found at {excel_path}")
+            print(f"\n{project.upper()}: Excel file not found")
 
 print("\n" + "="*60)
 print("DEBUG COMPLETE")

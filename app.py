@@ -2547,6 +2547,12 @@ def create_app():
             project_folder = os.path.join('data', project_code)
             excel_path = os.path.join(project_folder, 'Veriler.xlsx')
             
+            # DEBUG
+            print(f"\n[TRAMVAY_KM DEBUG]")
+            print(f"  project_code (from session): {project_code}")
+            print(f"  excel_path: {excel_path}")
+            print(f"  excel_path exists: {os.path.exists(excel_path)}")
+            
             tram_ids = []
             equipments = []
             
@@ -2583,6 +2589,8 @@ def create_app():
                                 # Boş ve "Project" gibi header değilse ekle
                                 if tram_id and tram_id.lower() not in ['project', 'proje', 'nan', '']:
                                     tram_ids.append(tram_id)
+                    
+                    print(f"  tram_ids from Excel: {tram_ids[:5]}... (total: {len(tram_ids)})")
                 except Exception as e:
                     print(f"Excel okuma hatası ({project_code}): {str(e)}")
             
@@ -2608,11 +2616,20 @@ def create_app():
                                 self.last_update = None
                         
                         equipments.append(TramObj(tram_id))
+                
+                print(f"  equipment records found: {len([e for e in equipments if hasattr(e, 'id') and isinstance(e.id, int)])}")
+                print(f"  dummy objects created: {len([e for e in equipments if hasattr(e, 'id') and not isinstance(e.id, int)])}")
             
             # Veri bulunamadıysa fallback
             if not equipments:
+                print(f"  [FALLBACK] No equipment records found from Excel tram_ids")
                 equipments_db = Equipment.query.filter_by(equipment_type='Tramway', project_code=project_code).all()
+                print(f"  [FALLBACK] Equipment found with filter_by(equipment_type='Tramway', project_code={project_code}): {len(equipments_db)}")
                 equipments = equipments_db if equipments_db else []
+            
+            print(f"  FINAL: Total equipments to display: {len(equipments)}")
+            print(f"  Equipment codes: {[e.equipment_code if hasattr(e, 'equipment_code') else e.id for e in equipments[:5]]}")
+            print(f"[END TRAMVAY_KM DEBUG]\n")
             
             # İstatistikleri hesapla
             stats = {
