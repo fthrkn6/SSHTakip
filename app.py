@@ -2512,12 +2512,14 @@ def create_app():
         @login_required
         def proje_degistir(project_code):
             """Change project"""
+            print(f"\n[PROJE_DEGISTIR] Changing from {session.get('current_project')} to {project_code}")
             project = next((p for p in PROJECTS if p['code'] == project_code), None)
             
             if project:
                 session['current_project'] = project_code
                 session['project_code'] = project_code.lower()
                 session['project_name'] = f"{project['flag']} {project['name']}"
+                print(f"[PROJE_DEGISTIR] Session set: current_project={session.get('current_project')}, project_code={session.get('project_code')}")
                 flash(f"Proje değiştirildi: {project['flag']} {project['name']}", 'success')
             else:
                 flash('Geçersiz proje!', 'error')
@@ -2547,11 +2549,17 @@ def create_app():
             project_folder = os.path.join('data', project_code)
             excel_path = os.path.join(project_folder, 'Veriler.xlsx')
             
-            # DEBUG
-            print(f"\n[TRAMVAY_KM DEBUG]")
-            print(f"  project_code (from session): {project_code}")
+            # DEBUG SESSION KONTROLLERİ - ÖNEMLİ!
+            print(f"\n" + "="*70)
+            print(f"[TRAMVAY_KM] REQUEST BAŞLADI")
+            print(f"  session['current_project']: {session.get('current_project')}")
+            print(f"  session['project_code']: {session.get('project_code')}")
+            print(f"  session['project_name']: {session.get('project_name')}")
+            print(f"  current_user.id: {current_user.id if current_user.is_authenticated else 'NOT LOGGED IN'}")
+            print(f"  project_code (LOWERCASED): {project_code}")
             print(f"  excel_path: {excel_path}")
             print(f"  excel_path exists: {os.path.exists(excel_path)}")
+            print("="*70 + "\n")
             
             tram_ids = []
             equipments = []
@@ -2624,12 +2632,19 @@ def create_app():
             if not equipments:
                 print(f"  [FALLBACK] No equipment records found from Excel tram_ids")
                 equipments_db = Equipment.query.filter_by(equipment_type='Tramway', project_code=project_code).all()
-                print(f"  [FALLBACK] Equipment found with filter_by(equipment_type='Tramway', project_code={project_code}): {len(equipments_db)}")
+                print(f"  [FALLBACK] Equipment found: {len(equipments_db)}")
                 equipments = equipments_db if equipments_db else []
             
-            print(f"  FINAL: Total equipments to display: {len(equipments)}")
+            db_found = len([e for e in equipments if hasattr(e, 'id') and isinstance(e.id, int)])
+            dummy_objs = len([e for e in equipments if hasattr(e, 'id') and isinstance(e.id, str)])
+            
+            print(f"  FINAL: Total equipments: {len(equipments)}")
+            print(f"    - From database: {db_found}")
+            print(f"    - Dummy objects: {dummy_objs}")
+            project_codes = set([e.project_code if hasattr(e, 'project_code') else 'N/A' for e in equipments])
+            print(f"    - Project codes in equipments: {project_codes}")
             print(f"  Equipment codes: {[e.equipment_code if hasattr(e, 'equipment_code') else e.id for e in equipments[:5]]}")
-            print(f"[END TRAMVAY_KM DEBUG]\n")
+            print("="*70 + "\n")
             
             # İstatistikleri hesapla
             stats = {
