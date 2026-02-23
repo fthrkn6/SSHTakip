@@ -132,9 +132,14 @@ def _create_hbr_from_form(ariza, request):
     try:
         from flask import session
         from utils.project_manager import ProjectManager
+        from utils_hbr_numbering import get_project_code_from_veriler
         
-        # Proje kodu al
-        project_code = session.get('current_project', 'belgrad')
+        # Proje ADI al (session'dan)
+        project_name = session.get('current_project', 'belgrad')
+        
+        # Veriler.xlsx'ten proje KODU al (BEL25, GDM7, etc)
+        project_code = get_project_code_from_veriler(project_name)
+        logger.info(f"[HBR] Proje: {project_name} → Kod: {project_code}")
         
         # Fotoğraf dosyasını bağlantı yapılan uploads klasöründe kaydet
         fotograf_path = None
@@ -142,7 +147,7 @@ def _create_hbr_from_form(ariza, request):
             file = request.files['fotograf']
             if file and file.filename:
                 # uploads klasörü oluştur
-                uploads_dir = os.path.join(current_app.root_path, 'uploads', project_code, 'hbr_fotos')
+                uploads_dir = os.path.join(current_app.root_path, 'uploads', project_name, 'hbr_fotos')
                 os.makedirs(uploads_dir, exist_ok=True)
                 
                 # Dosya adını safe hale getir
@@ -157,7 +162,7 @@ def _create_hbr_from_form(ariza, request):
             'ariza_tarihi': ariza.failure_date,
             'ariza_km': request.form.get('ariza_km', ''),
             'tedarikci': request.form.get('tedarikci', ''),
-            'musteri': request.form.get('musteri', project_code.upper()),
+            'musteri': request.form.get('musteri', project_code.upper()),  # Proje kodu kullan
             'tespit_yontemi': request.form.get('tespit_yontemi', ''),
             'musteri_bildirimi': request.form.get('musteri_bildirimi') == 'true',
             'ariza_sinifi': request.form.get('ariza_sinifi', ''),
@@ -169,16 +174,17 @@ def _create_hbr_from_form(ariza, request):
             'ncr_no': ''  # Sistem tarafından oluşturulacak
         }
         
-        # NCR sayıcısını al
-        counter = HBRManager.get_next_ncr_counter(project_code, current_app.root_path)
+        # NCR sayıcısını al (project_name ile)
+        project_code, counter = HBRManager.get_next_ncr_counter(project_name, current_app.root_path)
         
         # HBR dosyası oluştur
         hbr_file = HBRManager.create_hbr_file(
-            project_code,
+            project_name,           # Proje ADI (belgrad, iasi, etc)
             current_app.root_path,
             current_user,
             hbr_data,
-            counter
+            project_code=project_code,  # Veriler.xlsx'ten okunan KOD
+            counter=counter
         )
         
         return hbr_file is not None
@@ -188,17 +194,35 @@ def _create_hbr_from_form(ariza, request):
         return False
 
 
-def _load_hbr_files(project_code):
-    """HBR dosyalarının listesini yükle"""
-    hbr_dir = os.path.join(current_app.root_path, 'logs', project_code, 'HBR')
+def _load_hbr_files(project_name):
+    """
+    HBR dosyalarının listesini yükle
+    
+    Args:
+        project_name: Proje adı (belgrad, iasi, etc)
+    """
+    import re
+    from utils_hbr_numbering import get_project_code_from_veriler
+    
+    # Veriler.xlsx'ten proje kodu al
+    try:
+        project_code = get_project_code_from_veriler(project_name)
+    except:
+        project_code = project_name.upper()[:3] + "25"  # Fallback
+    
+    hbr_dir = os.path.join(current_app.root_path, 'logs', project_name, 'HBR')
     hbr_files = []
     
     if not os.path.exists(hbr_dir):
         return hbr_files
     
     try:
+        # Proje kodunu pattern'e dönüştür
+        pattern = re.compile(rf'^{re.escape(project_code)}-NCR-\d+', re.IGNORECASE)
+        
         for file in os.listdir(hbr_dir):
-            if file.endswith('.xlsx') and file.startswith('BOZ-NCR-'):
+            # Proje kodunun dosya adı formatını kontrol et
+            if file.endswith('.xlsx') and pattern.match(file):
                 file_path = os.path.join(hbr_dir, file)
                 file_stat = os.stat(file_path)
                 hbr_files.append({
@@ -210,9 +234,10 @@ def _load_hbr_files(project_code):
         
         # Tarihe göre sırala (en yeni önce)
         hbr_files.sort(key=lambda x: x['date'], reverse=True)
+        logger.info(f"[HBR] Yüklendi: {len(hbr_files)} dosya (Proje: {project_name} → {project_code})")
         
     except Exception as e:
-        print(f"HBR dosyaları yükleme hatası: {e}")
+        logger.error(f"HBR dosyaları yükleme hatası: {e}")
     
     return hbr_files
 

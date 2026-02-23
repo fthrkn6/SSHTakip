@@ -45,19 +45,32 @@ class HBRManager:
     
     @staticmethod
     def create_ncr_number(project_code, counter):
-        """NCR numarası oluştur: BOZ-NCR-001 formatında"""
-        return f"BOZ-NCR-{counter:03d}"
+        """
+        NCR numarası oluştur: {PROJECT_CODE}-NCR-{COUNTER:03d} formatında
+        Örnek: BEL25-NCR-001, GDM7-NCR-002, etc.
+        
+        Args:
+            project_code: Proje kodu (BEL25, GDM7, IASI16+18, etc)
+            counter: NCR sayıcısı
+            
+        Returns:
+            NCR numarası string'i
+        """
+        # Proje kodunu güvenli şekilde hazırla (büyük harf)
+        code = str(project_code).strip().upper()
+        return f"{code}-NCR-{counter:03d}"
     
     @staticmethod
-    def create_hbr_file(project_code, app_root, session_user, failure_data, counter=1):
+    def create_hbr_file(project_name, app_root, session_user, failure_data, project_code=None, counter=1):
         """
         HBR Excel dosyası oluştur
         
         Args:
-            project_code: Proje kodu (belgrad, iasi, vb)
+            project_name: Proje adı (belgrad, iasi, etc)
             app_root: Flask app root path
             session_user: Login yapan kullanıcı nesnesi
             failure_data: Arıza bildiri verisi (dict)
+            project_code: Proje kodu (opt) - None ise Veriler.xlsx'ten okunur
             counter: NCR sayıcısı
             
         Returns:
@@ -65,27 +78,37 @@ class HBRManager:
         """
         
         try:
-            # HBR klasörü oluştur
-            hbr_dir = os.path.join(app_root, 'logs', project_code, 'HBR')
+            # Proje kodunu oku (sağlanmamışsa)
+            if not project_code:
+                try:
+                    from utils_hbr_numbering import get_project_code_from_veriler
+                    project_code = get_project_code_from_veriler(project_name)
+                except:
+                    project_code = project_name.upper()[:3] + "25"  # Fallback
+            
+            # HBR klasörü oluştur (logs/{project_name}/HBR/)
+            hbr_dir = os.path.join(app_root, 'logs', project_name, 'HBR')
             os.makedirs(hbr_dir, exist_ok=True)
             
             # Template dosyasını bul
-            template_path = os.path.join(app_root, 'data', project_code, 'FR_010_R06_SSH HBR.xlsx')
+            template_path = os.path.join(app_root, 'data', project_name, 'FR_010_R06_SSH HBR.xlsx')
             if not os.path.exists(template_path):
-                # Alternatif: ilk session-ı başka projeden ara
+                # Alternatif: belgrad'dan al
                 template_path = os.path.join(app_root, 'data', 'belgrad', 'FR_010_R06_SSH HBR.xlsx')
             
             if not os.path.exists(template_path):
                 logger.error(f"HBR template bulunamadı: {template_path}")
                 return None
             
-            # NCR numarası oluştur
+            # NCR numarası oluştur (project_code kullan)
             ncr_number = HBRManager.create_ncr_number(project_code, counter)
             
-            # Dosya adı: BOZ-NCR-001_TARİH_KOD
+            # Dosya adı: {PROJECT_CODE}-NCR-001_TARİH_KOD
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             filename = f"{ncr_number}_{timestamp}.xlsx"
             output_path = os.path.join(hbr_dir, filename)
+            
+            logger.info(f"[HBR] Dosya oluşturuluyor: {filename} (Proje: {project_name} → {project_code})")
             
             # Template'i kopyala
             shutil.copy2(template_path, output_path)
@@ -190,27 +213,54 @@ class HBRManager:
             logger.warning(f"Fotoğraf ekleme hatası: {e}")
     
     @staticmethod
-    def get_next_ncr_counter(project_code, app_root):
-        """Bir sonraki NCR sayıcısını al"""
-        hbr_dir = os.path.join(app_root, 'logs', project_code, 'HBR')
+    def get_next_ncr_counter(project_name, app_root):
+        """
+        Bir sonraki NCR sayıcısını al
+        
+        HBR klasöründen mevcut dosyaları tara,
+        en yüksek numarayı bul ve bir sonrakini döndür.
+        Proje kodunu Veriler.xlsx'ten otomatik okuyor.
+        
+        Args:
+            project_name: Proje adı (belgrad, iasi, etc)
+            app_root: Flask app root path
+            
+        Returns:
+            Tuple: (project_code, next_counter)
+                project_code: Veriler.xlsx'ten okunan proje kodu (BEL25, GDM7, etc)
+                next_counter: Sonraki NCR sayıcısı (integer)
+        """
+        import re
+        
+        try:
+            # Proje kodunu Veriler.xlsx'ten oku
+            from utils_hbr_numbering import get_project_code_from_veriler
+            project_code = get_project_code_from_veriler(project_name)
+        except:
+            project_code = project_name.upper()[:3] + "25"  # Fallback
+        
+        hbr_dir = os.path.join(app_root, 'logs', project_name, 'HBR')
         
         if not os.path.exists(hbr_dir):
-            return 1
+            logger.info(f"[HBR] Yeni klasör: {project_name}/{project_code}")
+            return project_code, 1
         
-        # Var olan HBR dosyalarını say
-        hbr_files = [f for f in os.listdir(hbr_dir) if f.startswith('BOZ-NCR-')]
+        # Proje kodunu pattern'e dönüştür
+        pattern = re.compile(rf'^{re.escape(project_code)}-NCR-(\d+)', re.IGNORECASE)
         
-        if not hbr_files:
-            return 1
-        
-        # En yüksek numarayı bul
+        # Var olan HBR dosyalarını tara
         max_num = 0
-        for f in hbr_files:
-            try:
-                num_str = f.split('BOZ-NCR-')[1].split('_')[0]
-                num = int(num_str)
-                max_num = max(max_num, num)
-            except:
-                pass
+        try:
+            for f in os.listdir(hbr_dir):
+                match = pattern.match(f)
+                if match:
+                    num = int(match.group(1))
+                    max_num = max(max_num, num)
+                    logger.debug(f"[HBR] Bulunan: {f} → {num}")
+        except Exception as e:
+            logger.warning(f"HBR dosyaları tarama hatası: {e}")
         
-        return max_num + 1
+        next_counter = max_num + 1
+        logger.info(f"[HBR] Proje: {project_name} / {project_code}, Son: {max_num}, Sonraki: {next_counter}")
+        
+        return project_code, next_counter
