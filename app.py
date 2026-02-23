@@ -3427,7 +3427,7 @@ if __name__ == '__main__':
     # DEBUG MODE'U AÇMAK İÇİN: set FLASK_ENV=development
     debug_mode = os.environ.get('FLASK_ENV', 'production') == 'development'
     print(f"\n{'='*60}")
-    print(f"🚀 APP BAŞLAMAK ÜZERE")
+    print(f">> APP BASLANIYOR")
     print(f"{'='*60}")
     print(f"Port: {port}")
     print(f"Debug Mode: {debug_mode}")
