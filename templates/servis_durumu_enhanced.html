@@ -127,19 +127,24 @@
     .status-table-wrapper {
         background: white;
         border-radius: 10px;
-        overflow: hidden;
+        overflow: auto;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         margin-bottom: 30px;
+        max-height: 600px;
     }
 
     .status-table {
         width: 100%;
         border-collapse: collapse;
+        min-width: 1000px;
     }
 
     .status-table thead {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
+        position: sticky;
+        top: 0;
+        z-index: 10;
     }
 
     .status-table th {
@@ -149,20 +154,41 @@
         font-size: 13px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+        white-space: nowrap;
     }
 
     .status-table tbody tr {
         border-bottom: 1px solid #eee;
         transition: background-color 0.2s;
+        height: 50px;
     }
 
     .status-table tbody tr:hover {
-        background: #f9f9f9;
+        background: #f5f5f5;
     }
 
     .status-table td {
         padding: 12px 15px;
         font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    /* Responsive - Mobil cihazlar */
+    @media (max-width: 768px) {
+        .status-table-wrapper {
+            max-height: auto;
+            overflow-x: auto;
+        }
+        
+        .status-table {
+            font-size: 11px;
+        }
+        
+        .status-table th, .status-table td {
+            padding: 8px 10px;
+        }
     }
 
     /* Status Badge */
@@ -711,19 +737,28 @@
 
     // Masa yenile
     function refreshTable() {
+        console.log('[DEBUG] refreshTable() called');
         fetch('/servis/durumu/tablo')
-            .then(response => response.json())
+            .then(response => {
+                console.log('[DEBUG] Response status:', response.status);
+                return response.json();
+            })
             .then(data => {
+                console.log('[DEBUG] Response data:', data);
                 let html = '';
                 
                 // Yeni response format: {table_data: [...], stats: {...}}
                 let table_items = data.table_data || data;  // Fallback to old format if needed
                 let stats = data.stats || {};  // New stats object
                 
+                console.log('[DEBUG] Stats:', stats);
+                
                 // Eğer stats response'ta varsa, doğrudan kullan
                 let operational = stats.operational || 0;
                 let maintenance = stats.maintenance || 0;
                 let availability_percent = stats.availability || 0;
+                
+                console.log('[DEBUG] Counts - Operational:', operational, 'Maintenance:', maintenance);
 
                 table_items.forEach(item => {
                     // Normalize status values to match UI expectations
@@ -771,6 +806,7 @@
                 document.getElementById('statusTableBody').innerHTML = html || '<tr><td colspan="9" style="text-align: center; padding: 20px;">Veri bulunamadı</td></tr>';
 
                 // Update analytics - stats'tan doğrudan al
+                console.log('[DEBUG] Setting cards - total:', stats.total, 'operational:', operational);
                 document.getElementById('totalVehicles').textContent = stats.total || 0;
                 document.getElementById('operationalCount').textContent = operational;
                 document.getElementById('outofserviceCount').textContent = stats.outofservice || 0;
@@ -779,11 +815,14 @@
                 // Format availability with % sign
                 let availabilityText = availability_percent.toFixed(1) + '%';
                 document.getElementById('avgAvailability').textContent = availabilityText;
+                
+                console.log('[DEBUG] Cards updated successfully');
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('[DEBUG] Error in refreshTable:', error);
+                console.error('[DEBUG] Error message:', error.message);
                 document.getElementById('statusTableBody').innerHTML =
-                    '<tr><td colspan="9" style="text-align: center; padding: 20px; color: red;">Hata: Veri yüklenemedi</td></tr>';
+                    '<tr><td colspan="9" style="text-align: center; padding: 20px; color: red;">Hata: Veri yüklenemedi - ' + error.message + '</td></tr>';
             });
     }
 

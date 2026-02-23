@@ -290,9 +290,9 @@ def service_status_table():
                 'tram_id': equipment.equipment_code,
                 'name': equipment.name,
                 'status': status_display,
-                'sistem': service_record.system if service_record and hasattr(service_record, 'system') else '-',
-                'alt_sistem': service_record.subsystem if service_record and hasattr(service_record, 'subsystem') else '-',
-                'last_status_change': service_record.created_at.strftime('%d.%m.%Y %H:%M') if service_record and hasattr(service_record, 'created_at') else '-',
+                'sistem': service_record.sistem if service_record and service_record.sistem else '-',
+                'alt_sistem': service_record.alt_sistem if service_record and service_record.alt_sistem else '-',
+                'last_status_change': service_record.updated_at.strftime('%d.%m.%Y %H:%M') if service_record and service_record.updated_at else '-',
                 'availability': latest_metric.availability_percentage if latest_metric else 0,
                 'downtime': latest_metric.downtime_hours if latest_metric else 0
             })
