@@ -487,6 +487,35 @@
     </div>
 </div>
 
+<!-- Tablo - Araçların Güncel Durumu -->
+<div class="card shadow-sm mt-4">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="bi bi-table me-2"></i>Araçların Güncel Durumu</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Araç ID</th>
+                        <th>Araç Adı</th>
+                        <th>Durum</th>
+                        <th>Sistem</th>
+                        <th>Alt Sistem</th>
+                        <th>Son Güncellenme</th>
+                        <th>Availability %</th>
+                    </tr>
+                </thead>
+                <tbody id="statusTableBody">
+                    <tr>
+                        <td colspan="7" class="text-center py-5"><span class="spinner-border spinner-border-sm me-2"></span>Veriler yükleniyor...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 <!-- Form -->
 <div class="card mb-4">
     <div class="card-header">
@@ -1065,12 +1094,92 @@
         }
     });
 
-    // Sayfa yüklendiğinde tooltip'leri başlat
+    // ============ KARTLAR VE TABLO VERILERI YÜKLE ============
+    function loadStatusData() {
+        console.log('[STATUS] Verileri yüklüyoruz...');
+        fetch('/servis/durumu/tablo', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include'
+        })
+        .then(response => {
+            console.log('[DEBUG] Response status:', response.status);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            console.log('[DEBUG] API Response:', data);
+            
+            // Stats'dan kartları doldur
+            const stats = data.stats || {};
+            const tableData = data.table_data || [];
+            
+            document.getElementById('serviceCount').textContent = stats.operational || 0;
+            document.getElementById('operatingCount').textContent = stats.maintenance || 0;
+            document.getElementById('downCount').textContent = stats.outofservice || 0;
+            
+            const total = stats.total || 0;
+            const availability = total > 0 
+                ? ((total - (stats.outofservice || 0)) / total * 100).toFixed(1)
+                : 0;
+            document.getElementById('availabilityPercent').textContent = availability;
+            
+            console.log('[DEBUG] Kartlar güncellendi:', {
+                serviceCount: stats.operational,
+                operatingCount: stats.maintenance,
+                downCount: stats.outofservice,
+                availability: availability
+            });
+            
+            // Tabloyu doldur
+            const tbody = document.getElementById('statusTableBody');
+            if (tableData && tableData.length > 0) {
+                tbody.innerHTML = tableData.map(item => {
+                    const status = item.status || 'Bilgi Yok';
+                    let statusBadge = 'secondary';
+                    if (status.includes('Servis') && !status.includes('Dışı')) statusBadge = 'success';
+                    else if (status.includes('Dışı')) statusBadge = 'danger';
+                    else if (status.includes('İşletme')) statusBadge = 'warning';
+                    
+                    return `
+                        <tr>
+                            <td><strong>${item.equipment_code || '-'}</strong></td>
+                            <td>${item.name || '-'}</td>
+                            <td><span class="badge bg-${statusBadge}">${status}</span></td>
+                            <td>${item.sistem || '-'}</td>
+                            <td>${item.alt_sistem || '-'}</td>
+                            <td>${item.last_updated || '-'}</td>
+                            <td>${item.availability || '0'}%</td>
+                        </tr>
+                    `;
+                }).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">Veri bulunamadı</td></tr>';
+            }
+            
+            console.log('[SUCCESS] Veriler yüklendi!');
+        })
+        .catch(error => {
+            console.error('[ERROR] Veri yükleme hatası:', error);
+            document.getElementById('statusTableBody').innerHTML = 
+                `<tr><td colspan="7" class="text-center text-danger py-3">Veri yeklenemedi: ${error.message}</td></tr>`;
+        });
+    }
+
+    // Sayfa yüklendiğinde tooltip'leri başlat VE VERİLERİ YÜKLE
     document.addEventListener('DOMContentLoaded', function () {
         const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
         tooltipTriggerList.map(function (tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl);
         });
+        
+        // Verileri yükle
+        loadStatusData();
+        // Her 30 saniyede bir yenile
+        setInterval(loadStatusData, 30000);
     });
 </script>
 {% endblock %}
