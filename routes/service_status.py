@@ -204,7 +204,7 @@ def service_status_page():
             'availability': round(availability, 1)
         }
         
-        return render_template('servis_durumu_enhanced.html', 
+        return render_template('servis_durumu.html', 
                              equipment_list=tram_status_data,
                              tram_ids=[eq['equipment_code'] for eq in tram_status_data],
                              recent_logs=recent_statuses,
