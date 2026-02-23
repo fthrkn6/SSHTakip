@@ -775,7 +775,12 @@
     // Masa yenile
     function refreshTable() {
         console.log('[DEBUG] refreshTable() called');
-        fetch('/servis/durumu/tablo')
+        fetch('/servis/durumu/tablo', {
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json'
+            }
+        })
             .then(response => {
                 console.log('[DEBUG] Response status:', response.status);
                 return response.json();
