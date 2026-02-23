@@ -238,7 +238,7 @@
         color: #f44336;
     }
 
-    /* Analytics Cards */
+    /* Analytics Cards - Yeni Tasarım */
     .analytics-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -248,28 +248,67 @@
 
     .analytics-card {
         background: white;
-        padding: 20px;
+        padding: 25px;
         border-radius: 10px;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        border-left: 4px solid #667eea;
+        border-left: 5px solid #667eea;
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .analytics-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Kartlar için renk varyasyon */
+    .analytics-card.green {
+        border-left-color: #28a745;
+        background: linear-gradient(135deg, rgba(40, 167, 69, 0.05) 0%, rgba(255, 255, 255, 0) 100%);
+    }
+
+    .analytics-card.orange {
+        border-left-color: #ff9800;
+        background: linear-gradient(135deg, rgba(255, 152, 0, 0.05) 0%, rgba(255, 255, 255, 0) 100%);
+    }
+
+    .analytics-card.red {
+        border-left-color: #dc3545;
+        background: linear-gradient(135deg, rgba(220, 53, 69, 0.05) 0%, rgba(255, 255, 255, 0) 100%);
+    }
+
+    .analytics-card.blue {
+        border-left-color: #007bff;
+        background: linear-gradient(135deg, rgba(0, 123, 255, 0.05) 0%, rgba(255, 255, 255, 0) 100%);
     }
 
     .analytics-card h3 {
-        color: #667eea;
-        margin: 0 0 10px 0;
+        color: #333;
+        margin: 0 0 15px 0;
         font-size: 13px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+        font-weight: 600;
     }
+
+    .analytics-card.green h3 { color: #28a745; }
+    .analytics-card.orange h3 { color: #ff9800; }
+    .analytics-card.red h3 { color: #dc3545; }
+    .analytics-card.blue h3 { color: #007bff; }
 
     .analytics-card .value {
-        font-size: 32px;
+        font-size: 42px;
         font-weight: bold;
         color: #333;
+        line-height: 1;
     }
 
+    .analytics-card.green .value { color: #28a745; }
+    .analytics-card.orange .value { color: #ff9800; }
+    .analytics-card.red .value { color: #dc3545; }
+    .analytics-card.blue .value { color: #007bff; }
+
     .analytics-card .unit {
-        font-size: 12px;
+        font-size: 18px;
         color: #999;
         margin-left: 5px;
     }
@@ -277,7 +316,7 @@
     .analytics-card .description {
         font-size: 12px;
         color: #666;
-        margin-top: 10px;
+        margin-top: 12px;
     }
 
     /* Charts */
@@ -577,36 +616,34 @@
         </div>
     </div>
 
-    <!-- Analytics Cards -->
+    <!-- Analytics Cards - Yeni Tasarım -->
     <div class="analytics-grid">
-        <div class="analytics-card">
-            <h3>Toplam Araç</h3>
-            <div class="value" id="totalVehicles">0</div>
-            <div class="description">Sistemde kayıtlı araç sayısı</div>
+        <!-- Servis Kartı (Yeşil) -->
+        <div class="analytics-card green">
+            <h3>Servis</h3>
+            <div class="value" id="serviceCount">0</div>
+            <div class="description">Serviste olan araç sayısı</div>
         </div>
 
-        <div class="analytics-card">
-            <h3>Serviste</h3>
-            <div class="value" id="operationalCount">0</div>
-            <div class="description">Şu an çalışmakta olan araçlar</div>
-        </div>
-
-        <div class="analytics-card">
-            <h3>Servis Dışı</h3>
-            <div class="value" id="outofserviceCount">0</div>
-            <div class="description">Servis dışında olan araçlar</div>
-        </div>
-
-        <div class="analytics-card">
-            <h3>İşletme</h3>
-            <div class="value" id="maintenanceCount">0</div>
+        <!-- İşletme Kaynaklı Kartı (Turuncu) -->
+        <div class="analytics-card orange">
+            <h3>İşletme Kaynaklı</h3>
+            <div class="value" id="operatingCount">0</div>
             <div class="description">İşletme kaynaklı servis dışı</div>
         </div>
 
-        <div class="analytics-card">
-            <h3>Ort. Availability</h3>
-            <div class="value" id="avgAvailability">0<span class="unit">%</span></div>
-            <div class="description">Ortalama kullanılabilirlik oranı</div>
+        <!-- Servis Dışı Kartı (Kırmızı) -->
+        <div class="analytics-card red">
+            <h3>Servis Dışı</h3>
+            <div class="value" id="downCount">0</div>
+            <div class="description">Servis dışında olan araçlar</div>
+        </div>
+
+        <!-- Availability Kartı (Mavi) -->
+        <div class="analytics-card blue">
+            <h3>Availability</h3>
+            <div class="value" id="availabilityPercent">0<span class="unit">%</span></div>
+            <div class="description">Operasyon gücü (Toplam - Servis Dışı) / Toplam</div>
         </div>
     </div>
 
@@ -747,21 +784,27 @@
                 console.log('[DEBUG] Response data:', data);
                 let html = '';
                 
-                // Yeni response format: {table_data: [...], stats: {...}}
-                let table_items = data.table_data || data;  // Fallback to old format if needed
-                let stats = data.stats || {};  // New stats object
+                // Response format: {table_data: [...], stats: {...}}
+                let table_items = data.table_data || data;
+                let stats = data.stats || {};
                 
                 console.log('[DEBUG] Stats:', stats);
                 
-                // Eğer stats response'ta varsa, doğrudan kullan
-                let operational = stats.operational || 0;
-                let maintenance = stats.maintenance || 0;
-                let availability_percent = stats.availability || 0;
+                // Kartlar için veriler
+                let serviceCount = stats.operational || 0;           // Serviste (yeşil)
+                let operatingCount = stats.maintenance || 0;         // İşletme Kaynaklı (turuncu)
+                let downCount = stats.outofservice || 0;             // Servis Dışı (kırmızı)
+                let totalCount = stats.total || 0;                   // Toplam
                 
-                console.log('[DEBUG] Counts - Operational:', operational, 'Maintenance:', maintenance);
+                // Availability hesapla: (Toplam - Servis Dışı) / Toplam * 100
+                let availabilityPercent = totalCount > 0 
+                    ? ((totalCount - downCount) / totalCount * 100).toFixed(1) 
+                    : 0;
+                
+                console.log('[DEBUG] Counts - Service:', serviceCount, 'Operating:', operatingCount, 'Down:', downCount, 'Total:', totalCount, 'Availability:', availabilityPercent);
 
                 table_items.forEach(item => {
-                    // Normalize status values to match UI expectations
+                    // Normaliz status values
                     let status_display = item.status;
                     let statusClass = 'operational';
                     
@@ -805,18 +848,14 @@
 
                 document.getElementById('statusTableBody').innerHTML = html || '<tr><td colspan="9" style="text-align: center; padding: 20px;">Veri bulunamadı</td></tr>';
 
-                // Update analytics - stats'tan doğrudan al
-                console.log('[DEBUG] Setting cards - total:', stats.total, 'operational:', operational);
-                document.getElementById('totalVehicles').textContent = stats.total || 0;
-                document.getElementById('operationalCount').textContent = operational;
-                document.getElementById('outofserviceCount').textContent = stats.outofservice || 0;
-                document.getElementById('maintenanceCount').textContent = maintenance;
+                // Kartları güncelle - YENİ TASARIM
+                console.log('[DEBUG] Updating cards with new design');
+                document.getElementById('serviceCount').textContent = serviceCount;
+                document.getElementById('operatingCount').textContent = operatingCount;
+                document.getElementById('downCount').textContent = downCount;
+                document.getElementById('availabilityPercent').textContent = availabilityPercent + '%';
                 
-                // Format availability with % sign
-                let availabilityText = availability_percent.toFixed(1) + '%';
-                document.getElementById('avgAvailability').textContent = availabilityText;
-                
-                console.log('[DEBUG] Cards updated successfully');
+                console.log('[DEBUG] Cards updated successfully - Service:', serviceCount, 'Operating:', operatingCount, 'Down:', downCount, 'Availability:', availabilityPercent + '%');
             })
             .catch(error => {
                 console.error('[DEBUG] Error in refreshTable:', error);
