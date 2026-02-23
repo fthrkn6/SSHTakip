@@ -76,8 +76,9 @@ def add():
             resolved=False
         )
         
-        # Aracın durumunu arızalı yap
-        arac = Equipment.query.get(request.form.get('arac_id'))
+        # Aracın durumunu arızalı yap - project_code ile filtrele
+        current_project = session.get('current_project', 'belgrad')
+        arac = Equipment.query.filter_by(id=request.form.get('arac_id'), project_code=current_project).first()
         if arac:
             arac.status = 'ariza'
         
@@ -97,7 +98,9 @@ def add():
         flash('Arıza kaydı başarıyla oluşturuldu.', 'success')
         return redirect(url_for('failure.list'))
     
-    araclar = Equipment.query.filter_by(equipment_type='arac').all()
+    # Mevcut projede araçları göster
+    current_project = session.get('current_project', 'belgrad')
+    araclar = Equipment.query.filter_by(equipment_type='arac', project_code=current_project).all()
     
     ariza_turleri = [
         ('mekanik', 'Mekanik Arıza'),

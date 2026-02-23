@@ -98,8 +98,9 @@ def create():
         flash(f'İş emri {wo_number} oluşturuldu.', 'success')
         return redirect(url_for('workorder.detail', work_order_id=new_wo.id))
     
-    # Form için veriler
-    equipment = Equipment.query.filter_by(parent_id=None).all()
+    # Form için veriler - mevcut proje
+    current_project = session.get('current_project', 'belgrad')
+    equipment = Equipment.query.filter_by(parent_id=None, project_code=current_project).all()
     technicians = User.query.filter_by(role='technician', is_active=True).all()
     
     return render_template('workorder/create.html', 

@@ -121,9 +121,12 @@ def add():
         criticality = request.form.get('criticality', 'medium')
         parent_id = request.form.get('parent_id', type=int)
         
-        # Kod benzersizliği kontrolü
-        if Equipment.query.filter_by(equipment_code=equipment_code).first():
-            flash('Bu ekipman kodu zaten kullanılıyor.', 'error')
+        # Mevcut proje
+        current_project = session.get('current_project', 'belgrad')
+        
+        # Kod benzersizliği kontrolü - bu projede
+        if Equipment.query.filter_by(equipment_code=equipment_code, project_code=current_project).first():
+            flash('Bu ekipman kodu bu projede zaten kullanılıyor.', 'error')
             return redirect(url_for('equipment.add'))
         
         new_equipment = Equipment(
@@ -135,7 +138,8 @@ def add():
             serial_number=serial_number,
             location=location,
             criticality=criticality,
-            parent_id=parent_id if parent_id else None
+            parent_id=parent_id if parent_id else None,
+            project_code=current_project
         )
         
         db.session.add(new_equipment)
@@ -144,8 +148,9 @@ def add():
         flash(f'{name} ekipmanı başarıyla eklendi.', 'success')
         return redirect(url_for('equipment.detail', equipment_id=new_equipment.id))
     
-    # Ana ekipmanlar (parent seçimi için)
-    parent_equipment = Equipment.query.filter_by(parent_id=None).all()
+    # Ana ekipmanlar (parent seçimi için) - mevcut projeden
+    current_project = session.get('current_project', 'belgrad')
+    parent_equipment = Equipment.query.filter_by(parent_id=None, project_code=current_project).all()
     
     return render_template('equipment/add.html', parent_equipment=parent_equipment)
 

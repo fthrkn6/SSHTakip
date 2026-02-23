@@ -1467,7 +1467,8 @@ def create_app():
         @app.route('/ekipmanlar')
         @login_required
         def ekipmanlar():
-            equipment = Equipment.query.all()
+            current_project = session.get('current_project', 'belgrad')
+            equipment = Equipment.query.filter_by(project_code=current_project).all()
             return render_template('ekipmanlar.html', equipment=equipment)
 
         @app.route('/arizalar')
@@ -2419,8 +2420,9 @@ def create_app():
                 flash(f'✅ Doküman başarıyla eklendi: {document_code}', 'success')
                 return redirect(url_for('dokuman_listesi'))
             
-            # GET - Form göster
-            ekipmanlar = Equipment.query.all()
+            # GET - Form göster - mevcut projeden ekipmanlar
+            current_project = session.get('current_project', 'belgrad')
+            ekipmanlar = Equipment.query.filter_by(project_code=current_project).all()
             return render_template('dokuman_ekle.html', ekipmanlar=ekipmanlar)
 
         @app.route('/dokuman/<int:id>')
@@ -2551,24 +2553,45 @@ def create_app():
             # Excel'den tramvay ID'lerini çek
             if os.path.exists(excel_path):
                 try:
-                    # Sayfa2 (index 0) oku
-                    df = pd.read_excel(excel_path, sheet_name=0, header=0, engine='openpyxl')
+                    # Hangi sheet'i okuyacağı belirle
+                    xls = pd.ExcelFile(excel_path)
+                    sheet_name = None
                     
-                    # tram_id sütununu bul
-                    if 'tram_id' in df.columns:
-                        for idx, row in df.iterrows():
-                            tram_id = str(row['tram_id']).strip() if pd.notna(row['tram_id']) else None
-                            if tram_id:
-                                tram_ids.append(tram_id)
+                    # "Sayfa2" var mı diye kontrol et
+                    if 'Sayfa2' in xls.sheet_names:
+                        sheet_name = 'Sayfa2'
+                    elif len(xls.sheet_names) > 0:
+                        sheet_name = xls.sheet_names[0]  # İlk sheet'i kullan
+                    
+                    if sheet_name:
+                        df = pd.read_excel(excel_path, sheet_name=sheet_name, header=0, engine='openpyxl')
+                        
+                        # tram_id sütununu bul - farklı isimler olabilir
+                        tram_col = None
+                        for col in df.columns:
+                            if col.lower() == 'tram_id' or col.lower() == 'araç' or col.lower() in ['a', 'equipment_code']:
+                                tram_col = col
+                                break
+                        
+                        # Eğer başında boşluk filan varsa
+                        if not tram_col and len(df.columns) > 0:
+                            tram_col = df.columns[0]  # A sütununu al
+                        
+                        if tram_col:
+                            for idx, row in df.iterrows():
+                                tram_id = str(row[tram_col]).strip() if pd.notna(row[tram_col]) else None
+                                # Boş ve "Project" gibi header değilse ekle
+                                if tram_id and tram_id.lower() not in ['project', 'proje', 'nan', '']:
+                                    tram_ids.append(tram_id)
                 except Exception as e:
-                    print(f"Excel okuma hatası: {str(e)}")
+                    print(f"Excel okuma hatası ({project_code}): {str(e)}")
             
             # Tram ID'ler için database'den equipment'ları çek
             if tram_ids:
                 # Tram ID'ler string olarak geliriyor Excel'den
                 for tram_id in tram_ids:
                     # equipment_code'ine göre ara (1531, 1532 vs.)
-                    equipment = Equipment.query.filter_by(equipment_code=str(tram_id)).first()
+                    equipment = Equipment.query.filter_by(equipment_code=str(tram_id), project_code=project_code).first()
                     
                     # Bulunamadıysa dummy object oluştur (veriler halen database'de ama equipment oluşturulmamış olabilir)
                     if equipment:
@@ -2588,7 +2611,7 @@ def create_app():
             
             # Veri bulunamadıysa fallback
             if not equipments:
-                equipments_db = Equipment.query.filter_by(equipment_type='Tramway').all()
+                equipments_db = Equipment.query.filter_by(equipment_type='Tramway', project_code=project_code).all()
                 equipments = equipments_db if equipments_db else []
             
             # İstatistikleri hesapla
@@ -2615,9 +2638,10 @@ def create_app():
                 tram_id = request.form.get('tram_id')
                 current_km = request.form.get('current_km', 0)
                 notes = request.form.get('notes', '')
+                project_code = session.get('current_project', 'belgrad').lower()
                 
-                # Equipment tablosunda ara
-                equipment = Equipment.query.get(tram_id)
+                # Equipment tablosunda ara - equipment_code ile project_code filterine göre
+                equipment = Equipment.query.filter_by(equipment_code=str(tram_id), project_code=project_code).first()
                 
                 # Eski KM'yi hatırla (log için)
                 old_km = equipment.current_km if equipment else 0
@@ -2625,13 +2649,13 @@ def create_app():
                 # Bulunamadıysa oluştur
                 if not equipment:
                     equipment = Equipment(
-                        id=tram_id,
-                        equipment_code=tram_id,
+                        equipment_code=str(tram_id),
                         name=f'Tramvay {tram_id}',
                         equipment_type='Tramvay',
                         current_km=0,
                         monthly_km=0,
-                        notes=''
+                        notes='',
+                        project_code=project_code
                     )
                     db.session.add(equipment)
                 
@@ -2699,8 +2723,10 @@ def create_app():
                 errors = []
                 km_data = {}  # km_data.json'u toplu olarak tutacak
                 
+                project_code = session.get('current_project', 'belgrad').lower()
+                
                 # Mevcut km_data.json'u oku (bir kez yeterli)
-                km_file = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'km_data.json')
+                km_file = os.path.join(os.path.dirname(__file__), 'data', project_code, 'km_data.json')
                 if os.path.exists(km_file):
                     try:
                         with open(km_file, 'r', encoding='utf-8') as f:
@@ -2710,19 +2736,19 @@ def create_app():
                 
                 for tram_id, data in updates.items():
                     try:
-                        # Equipment tablosunda ara
-                        equipment = Equipment.query.get(tram_id)
+                        # Equipment tablosunda ara - equipment_code ile project_code'u filtrele
+                        equipment = Equipment.query.filter_by(equipment_code=str(tram_id), project_code=project_code).first()
                         
                         # Bulunamadıysa oluştur
                         if not equipment:
                             equipment = Equipment(
-                                id=tram_id,
-                                equipment_code=tram_id,
+                                equipment_code=str(tram_id),
                                 name=f'Tramvay {tram_id}',
                                 equipment_type='Tramvay',
                                 current_km=0,
                                 monthly_km=0,
-                                notes=''
+                                notes='',
+                                project_code=project_code
                             )
                             db.session.add(equipment)
                         
@@ -2835,7 +2861,8 @@ def create_app():
                     flash(f'Bir hata oluştu: {str(e)}', 'danger')
                     return redirect(request.url)
             
-            equipments = Equipment.query.all()
+            current_project = session.get('current_project', 'belgrad')
+            equipments = Equipment.query.filter_by(project_code=current_project).all()
             today_str = datetime.now().strftime('%Y-%m-%d')
             
             # Tramvaylar - Excel'den yükle (İstatistik hesaplaması için gerekli)
