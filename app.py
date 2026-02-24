@@ -2651,13 +2651,14 @@ def create_app():
                     notes=notes
                 )
                 
-                # Sync to Excel/JSON (will be called automatically on next page load)
-                # But for consistency, trigger it now
+                # Sync to Excel - write BEFORE syncing back!
                 try:
-                    sync_km_excel_to_equipment(project_code)
+                    # 1. Write updated KM to Excel
                     upsert_km(project_code, tram_code, new_km, notes, current_user.username if current_user else 'admin')
+                    # 2. Sync back (Excel -> DB) if needed for consistency
+                    sync_km_excel_to_equipment(project_code)
                 except Exception:
-                    pass  # Silently fail, main DB write succeeded
+                    pass  # Silently fail, main DB write already done
                 
                 flash(f'✅ {tram_code} KM bilgileri kaydedildi', 'success')
                 
@@ -2736,11 +2737,8 @@ def create_app():
                 
                 db.session.commit()
                 
-                # Trigger full sync
-                try:
-                    sync_km_excel_to_equipment(project_code)
-                except Exception:
-                    pass
+                # No need to sync back - upsert_km already wrote to Excel 
+                # (sync would read old Excel data and potentially overwrite DB)
                 
                 message = f'✅ {count} araç başarıyla kaydedildi'
                 if errors:

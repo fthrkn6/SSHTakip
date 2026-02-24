@@ -1,8 +1,63 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""
-Test KM güncelleme route'unu
-"""
+"""Detailed KM update test"""
+from app import app
+from models import User, Equipment, db
+
+print("\n" + "="*60)
+print("[TEST] DETAILED KM UPDATE")
+print("="*60)
+
+with app.test_client() as client:
+    with app.app_context():
+        # 1. Onceki deger
+        print("\n[1] Before Update:")
+        eq = Equipment.query.filter_by(equipment_code='1531').first()
+        if eq:
+            print(f"   Tram 1531 KM: {eq.current_km}")
+            before_km = eq.current_km
+        
+        # 2. Login
+        print("\n[2] Login:")
+        client.post('/login', data={
+            'username': 'admin',
+            'password': 'admin123'
+        }, follow_redirects=True)
+        print("   [OK] Logged in")
+        
+        # 3. Update et
+        print("\n[3] POST /tramvay-km/guncelle:")
+        resp = client.post('/tramvay-km/guncelle', data={
+            'tram_id': '1531',
+            'current_km': '777',
+            'notes': 'Detailed test'
+        })
+        print(f"   Status: {resp.status_code}")
+        print(f"   Redirect: {resp.headers.get('Location', 'N/A')}")
+        
+        # 4. Sonrasi deger (ayni session'da)
+        print("\n[4] After Update (same session):")
+        eq = Equipment.query.filter_by(equipment_code='1531').first()
+        if eq:
+            print(f"   Tram 1531 KM: {eq.current_km}")
+            after_km = eq.current_km
+            
+            if after_km != before_km:
+                print(f"   [SUCCESS] KM updated: {before_km} -> {after_km}")
+            else:
+                print(f"   [FAIL] KM not updated (still {eq.current_km})")
+        
+        # 5. Yeni session'da kontrol et (rollback mu?)
+        print("\n[5] New DB Session Check:")
+        # Close current session and query again
+        db.session.close()
+        db.session.expunge_all()
+        
+        eq2 = Equipment.query.filter_by(equipment_code='1531').first()
+        if eq2:
+            print(f"   Tram 1531 KM (fresh query): {eq2.current_km}")
+        
+        print("\n" + "="*60)
 import time
 from datetime import datetime
 import sqlite3
