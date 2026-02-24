@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+
+{% block title %}Rol ve Yetki Yönetimi - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Başlık -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1>
+                <i class="bi bi-lock"></i>
+                Rol ve Yetki Yönetimi
+            </h1>
+            <p class="text-muted">Kullanıcı rolleri ve sistem yetkilerini yönetin</p>
+        </div>
+    </div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Rol Özeti -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-left-primary">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div>
+                            <div class="text-xs font-weight-bold text-primary mb-1">
+                                Admin Kullanıcı
+                            </div>
+                            <h3 class="mb-0">{{ users|selectattr('is_admin')|list|length }}</h3>
+                        </div>
+                        <i class="bi bi-crown fs-3 ms-3 text-primary" style="opacity: 0.5;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-left-info">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div>
+                            <div class="text-xs font-weight-bold text-info mb-1">
+                                Saha Kullanıcı
+                            </div>
+                            <h3 class="mb-0">{{ users|selectattr('role', 'equalto', 'saha')|list|length }}</h3>
+                        </div>
+                        <i class="bi bi-tools fs-3 ms-3 text-info" style="opacity: 0.5;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-left-success">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div>
+                            <div class="text-xs font-weight-bold text-success mb-1">
+                                Toplam Kullanıcı
+                            </div>
+                            <h3 class="mb-0">{{ users|length }}</h3>
+                        </div>
+                        <i class="bi bi-people fs-3 ms-3 text-success" style="opacity: 0.5;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kullanıcı Listesi -->
+    <div class="card">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">
+                <i class="bi bi-list"></i>
+                Kullanıcı Rolleri
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if users %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Kullanıcı Adı</th>
+                                <th>Ad Soyad</th>
+                                <th>E-mail</th>
+                                <th>Mevcut Rol</th>
+                                <th>Durum</th>
+                                <th>Atanan Projeler</th>
+                                <th>İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ user.username }}</strong>
+                                    </td>
+                                    <td>
+                                        {{ user.full_name or '-' }}
+                                    </td>
+                                    <td>
+                                        <small>{{ user.email }}</small>
+                                    </td>
+                                    <td>
+                                        {% if user.is_admin %}
+                                            <span class="badge bg-danger">
+                                                <i class="bi bi-crown"></i> Admin
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-info">
+                                                <i class="bi bi-tools"></i> Saha
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if user.is_active %}
+                                            <span class="badge bg-success">Aktif</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">İnaktif</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if user.assigned_projects %}
+                                            {% for project in user.assigned_projects %}
+                                                {% if loop.index <= 3 %}
+                                                    <span class="badge bg-primary">{{ project|upper }}</span>
+                                                {% endif %}
+                                            {% endfor %}
+                                            {% if user.assigned_projects|length > 3 %}
+                                                <span class="badge bg-secondary">+{{ user.assigned_projects|length - 3 }}</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if user.id != current_user.id %}
+                                            <!-- Rol Değiştir Dropdown -->
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                                        type="button" 
+                                                        data-bs-toggle="dropdown"
+                                                        aria-expanded="false">
+                                                    <i class="bi bi-pencil"></i> Rol
+                                                </button>
+                                                <ul class="dropdown-menu">
+                                                    {% for role in all_roles %}
+                                                        <li>
+                                                            <form method="POST" 
+                                                                  action="{{ url_for('admin.update_user_role', user_id=user.id) }}"
+                                                                  style="display: inline;">
+                                                                <input type="hidden" name="role" value="{{ role }}">
+                                                                <button type="submit" class="dropdown-item"
+                                                                        {% if user.role == role %}disabled{% endif %}>
+                                                                    {% if role == 'admin' %}
+                                                                        <i class="bi bi-crown"></i> Admin
+                                                                    {% else %}
+                                                                        <i class="bi bi-tools"></i> Saha
+                                                                    {% endif %}
+                                                                </button>
+                                                            </form>
+                                                        </li>
+                                                    {% endfor %}
+                                                </ul>
+                                            </div>
+                                        {% else %}
+                                            <span class="badge bg-warning">Sensin</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    Henüz kullanıcı yok
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Rol Tanımları -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="bi bi-crown"></i>
+                        Admin Rolü
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Admin rolüne sahip kullanıcılar:</p>
+                    <ul class="list-unstyled">
+                        <li><i class="bi bi-check-circle text-success"></i> Tüm projelere erişim</li>
+                        <li><i class="bi bi-check-circle text-success"></i> Kullanıcı yönetim paneli</li>
+                        <li><i class="bi bi-check-circle text-success"></i> Proje yönetimi</li>
+                        <li><i class="bi bi-check-circle text-success"></i> Yedekleme ve geri yükleme</li>
+                        <li><i class="bi bi-check-circle text-success"></i> Denetim günlüğü görüntüleme</li>
+                        <li><i class="bi bi-check-circle text-success"></i> Sistem ayarları</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="bi bi-tools"></i>
+                        Saha Rolü
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Saha rolüne sahip kullanıcılar:</p>
+                    <ul class="list-unstyled">
+                        <li><i class="bi bi-check-circle text-success"></i> Atanan projelere erişim</li>
+                        <li><i class="bi bi-check-circle text-success"></i> Dashboard görüntüleme</li>
+                        <li><i class="bi bi-check-circle text-success"></i> Araç bilgileri güncelleme</li>
+                        <li><i class="bi bi-check-circle text-success"></i> Arıza yönetimi</li>
+                        <li><i class="bi bi-check-circle text-success"></i> Bakım planı takibi</li>
+                        <li><i class="bi bi-times-circle text-danger"></i> Admin paneline erişim yok</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .border-left-primary {
+        border-left: 4px solid var(--primary-color);
+    }
+    .border-left-info {
+        border-left: 4px solid var(--info-color);
+    }
+    .border-left-success {
+        border-left: 4px solid var(--success-color);
+    }
+
+    .dropdown-item:disabled {
+        color: #bbb;
+        cursor: not-allowed;
+        background-color: #f0f0f0;
+    }
+</style>
+{% endblock %}

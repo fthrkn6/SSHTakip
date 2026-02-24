@@ -187,7 +187,7 @@
                         </td>
                         <td class="text-end pe-4">
                             <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
-                                data-bs-target="#editModal" data-tram-id="{{ tram.id }}"
+                                data-bs-target="#editModal" data-tram-id="{{ tram.equipment_code or tram.id }}"
                                 data-tram-code="{{ tram.equipment_code or tram.id }}"
                                 data-current-km="{{ tram.current_km or 0 }}"
                                 data-monthly-km="{{ tram.monthly_km or 0 }}" data-notes="{{ tram.notes or '' }}">
@@ -294,7 +294,7 @@
                             </thead>
                             <tbody class="tbody-scroll">
                                 {% for tram in equipments %}
-                                <tr class="input-row border-bottom" data-tram-id="{{ tram.id }}"
+                                <tr class="input-row border-bottom" data-tram-id="{{ tram.equipment_code or tram.id }}"
                                     style="transition: background-color 0.2s ease;">
                                     <td class="ps-3 py-2">
                                         <div class="d-flex align-items-center">
@@ -317,13 +317,13 @@
                                     <td class="text-center py-2">
                                         <input type="number"
                                             class="form-control form-control-sm km-input text-center fw-bold"
-                                            data-tram-id="{{ tram.id }}" placeholder="0" min="0"
+                                            data-tram-id="{{ tram.equipment_code or tram.id }}" placeholder="0" min="0"
                                             style="font-size: 1.1rem; border: 2px solid #d0d0d0; padding: 0.6rem 0.4rem;"
                                             autocomplete="off">
                                     </td>
                                     <td class="py-2">
                                         <input type="text" class="form-control form-control-sm notes-input"
-                                            data-tram-id="{{ tram.id }}" placeholder="Not ekle..."
+                                            data-tram-id="{{ tram.equipment_code or tram.id }}" placeholder="Not ekle..."
                                             value="{{ tram.notes or '' }}" maxlength="100"
                                             style="font-size: 0.95rem; border: 1px solid #e0e0e0; padding: 0.5rem 0.4rem;"
                                             autocomplete="off">

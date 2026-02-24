@@ -96,7 +96,7 @@ def index():
     """KPI Dashboard - EN 15341 uyumlu - Fracas_BELGRAD.xlsx verilerini kullanarak"""
     if current_user.role not in ['admin', 'muhendis', 'manager']:
         flash('Bu sayfaya erişim yetkiniz yok.', 'error')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('dashboard.index'))
     
     # Fracas_BELGRAD.xlsx verilerini kullan (birleştirilmiş)
     df = get_fracas_data()

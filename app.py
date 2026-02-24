@@ -23,6 +23,14 @@ from utils.auth_decorators import require_admin, require_project_access, check_p
 from utils_km_logger import log_km_change
 from utils_km_manager import KMDataManager
 from utils_daily_service_logger import log_service_status
+from utils_project_excel_store import (
+    read_all_km,
+    upsert_km,
+    sync_km_excel_to_equipment,
+    bootstrap_km_excel_from_equipment,
+    upsert_service_status,
+    sync_service_excel_to_db,
+)
 import os
 import shutil
 import tempfile
@@ -125,7 +133,13 @@ def create_app():
 
         @login_manager.user_loader
         def load_user(user_id):
-            return db.session.get(User, int(user_id))
+            try:
+                return db.session.get(User, int(user_id))
+            except (TypeError, ValueError):
+                return None
+            except Exception as e:
+                logger.error(f"user_loader error for user_id={user_id}: {e}")
+                return None
 
         # Register blueprints
         app.register_blueprint(fracas_bp)
@@ -217,10 +231,17 @@ def create_app():
                 return redirect(url_for('dashboard.index'))
             return redirect(url_for('login'))
 
+        @app.route('/favicon.ico')
+        def favicon():
+            favicon_path = os.path.join(app.root_path, 'static', 'favicon.ico')
+            if os.path.exists(favicon_path):
+                return app.send_static_file('favicon.ico')
+            return ('', 204)
+
         @app.route('/login', methods=['GET', 'POST'])
         def login():
             if current_user.is_authenticated:
-                return redirect(url_for('dashboard'))
+                return redirect(url_for('dashboard.index'))
             
             if request.method == 'POST':
                 try:
@@ -1494,9 +1515,23 @@ def create_app():
         def bakim_planlari():
             import json
             
-            # Bakım verilerini yükle
-            maintenance_file = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'maintenance.json')
+            # Proje bazlı başlat
+            project_code = session.get('current_project', 'belgrad').lower()
+            
+            # Excel -> DB çift yönlü senkronizasyon
+            try:
+                bootstrap_km_excel_from_equipment(project_code)
+                sync_km_excel_to_equipment(project_code)
+            except Exception as e:
+                logger.warning(f"bakim_planlari sync warning ({project_code}): {e}")
+            
+            # Bakım verilerini yükle (proje bazlı)
+            maintenance_file = os.path.join(os.path.dirname(__file__), 'data', project_code, 'maintenance.json')
             maintenance_data = {}
+            
+            # Fallback: belgrad directory'sinde yoksa, standart yolu dene
+            if not os.path.exists(maintenance_file):
+                maintenance_file = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'maintenance.json')
             
             if os.path.exists(maintenance_file):
                 with open(maintenance_file, 'r', encoding='utf-8') as f:
@@ -1579,38 +1614,40 @@ def create_app():
         @app.route('/api/bakim-verileri')
         @login_required
         def bakim_verileri():
-            """Tüm araçların bakım durumunu tablo formatında döndür (Equipment.current_km'den dinamik olarak)"""
+            """Tüm araçların bakım durumunu tablo formatında döndür (proje bazlı Excel KM + Equipment fallback)"""
             import json
             from datetime import datetime
             
-            # Bakım verilerini yükle
-            maintenance_file = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'maintenance.json')
+            current_project = session.get('current_project', 'belgrad').lower()
+            
+            # Excel -> DB çift yönlü: dışarıdan Excel'e girilen KM'leri önce DB'ye yansıt
+            try:
+                bootstrap_km_excel_from_equipment(current_project)
+                sync_km_excel_to_equipment(current_project)
+            except Exception as e:
+                logger.warning(f"KM Excel sync warning ({current_project}): {e}")
+            
+            # Bakım verilerini yükle (proje bazlı)
+            maintenance_file = os.path.join(os.path.dirname(__file__), 'data', current_project, 'maintenance.json')
             maintenance_data = {}
             
             if os.path.exists(maintenance_file):
                 with open(maintenance_file, 'r', encoding='utf-8') as f:
                     maintenance_data = json.load(f)
+            else:
+                fallback_file = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'maintenance.json')
+                if os.path.exists(fallback_file):
+                    with open(fallback_file, 'r', encoding='utf-8') as f:
+                        maintenance_data = json.load(f)
             
             # Bakım KM'lerini sırayla al
             maintenance_levels = sorted([k for k in maintenance_data.keys()], 
                                        key=lambda x: int(x.replace('K', '')) * 1000)
             
-            # KM verilerini al - FALLBACK şu anda Equipment tablosundan priorite alıyor
-            km_file = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'km_data.json')
-            tram_km_fallback = {}
-            
-            if os.path.exists(km_file):
-                with open(km_file, 'r', encoding='utf-8') as f:
-                    try:
-                        km_data = json.load(f)
-                        # KM verileri doğrudan tram ID'leri içeriyor
-                        tram_km_fallback = {k: v for k, v in km_data.items() if k and isinstance(v, dict) and 'current_km' in v}
-                    except:
-                        pass
+            # KM verilerini proje bazlı Excel'den al (tek kaynak)
+            km_excel_map = read_all_km(current_project)
             
             # Excel'den araç listesini al ve Equipment'dan filtrele
-            current_project = session.get('current_project', 'belgrad')
-            
             # Excel'den araçları çek
             from routes.maintenance import load_trams_from_file
             excel_trams = load_trams_from_file(current_project)
@@ -1636,10 +1673,10 @@ def create_app():
             
             for eq in equipment_list:
                 tram_id = str(eq.equipment_code)  # equipment_code kullan (1531, 1532...)
-                # PRIORITY: km_data.json'dan KM'yi al (Tramvay KM page verilerigit)
+                # PRIORITY: Proje bazlı KM Excel'den al
                 current_km = 0
-                if tram_id in tram_km_fallback:
-                    current_km = tram_km_fallback[tram_id].get('current_km', 0)
+                if tram_id in km_excel_map:
+                    current_km = km_excel_map[tram_id].get('current_km', 0)
                 
                 # Fallback: Eğer km_data.json'da yoksa, Equipment table'dan al 
                 if not current_km:
@@ -2540,113 +2577,19 @@ def create_app():
         @app.route('/tramvay-km')
         @login_required
         def tramvay_km():
-            """Tram kilometer tracking - Veriler.xlsx Sayfa2'den tram_id'leri çek, database'den values"""
-            import pandas as pd
-            import os
+            """Tram kilometer tracking - Single source of truth: Equipment DB"""
             
-            # Project folder'ını belirle
             project_code = session.get('current_project', 'belgrad').lower()
-            project_folder = os.path.join('data', project_code)
-            excel_path = os.path.join(project_folder, 'Veriler.xlsx')
             
-            # DEBUG SESSION KONTROLLERİ - ÖNEMLİ!
-            print(f"\n" + "="*70)
-            print(f"[TRAMVAY_KM] REQUEST BAŞLADI")
-            print(f"  session['current_project']: {session.get('current_project')}")
-            print(f"  session['project_code']: {session.get('project_code')}")
-            print(f"  session['project_name']: {session.get('project_name')}")
-            print(f"  current_user.id: {current_user.id if current_user.is_authenticated else 'NOT LOGGED IN'}")
-            print(f"  project_code (LOWERCASED): {project_code}")
-            print(f"  excel_path: {excel_path}")
-            print(f"  excel_path exists: {os.path.exists(excel_path)}")
-            print("="*70 + "\n")
+            # Use centralized helper function - handles all KM logic
+            try:
+                from utils_project_excel_store import get_tramvay_list_with_km
+                equipments = get_tramvay_list_with_km(project_code)
+            except Exception as e:
+                logger.error(f"tramvay_km error: {e}")
+                equipments = Equipment.query.filter_by(project_code=project_code).all()
             
-            tram_ids = []
-            equipments = []
-            
-            # Excel'den tramvay ID'lerini çek
-            if os.path.exists(excel_path):
-                try:
-                    # Hangi sheet'i okuyacağı belirle
-                    xls = pd.ExcelFile(excel_path)
-                    sheet_name = None
-                    
-                    # "Sayfa2" var mı diye kontrol et
-                    if 'Sayfa2' in xls.sheet_names:
-                        sheet_name = 'Sayfa2'
-                    elif len(xls.sheet_names) > 0:
-                        sheet_name = xls.sheet_names[0]  # İlk sheet'i kullan
-                    
-                    if sheet_name:
-                        df = pd.read_excel(excel_path, sheet_name=sheet_name, header=0, engine='openpyxl')
-                        
-                        # tram_id sütununu bul - farklı isimler olabilir
-                        tram_col = None
-                        for col in df.columns:
-                            if col.lower() == 'tram_id' or col.lower() == 'araç' or col.lower() in ['a', 'equipment_code']:
-                                tram_col = col
-                                break
-                        
-                        # Eğer başında boşluk filan varsa
-                        if not tram_col and len(df.columns) > 0:
-                            tram_col = df.columns[0]  # A sütununu al
-                        
-                        if tram_col:
-                            for idx, row in df.iterrows():
-                                tram_id = str(row[tram_col]).strip() if pd.notna(row[tram_col]) else None
-                                # Boş ve "Project" gibi header değilse ekle
-                                if tram_id and tram_id.lower() not in ['project', 'proje', 'nan', '']:
-                                    tram_ids.append(tram_id)
-                    
-                    print(f"  tram_ids from Excel: {tram_ids[:5]}... (total: {len(tram_ids)})")
-                except Exception as e:
-                    print(f"Excel okuma hatası ({project_code}): {str(e)}")
-            
-            # Tram ID'ler için database'den equipment'ları çek
-            if tram_ids:
-                # Tram ID'ler string olarak geliriyor Excel'den
-                for tram_id in tram_ids:
-                    # equipment_code'ine göre ara (1531, 1532 vs.)
-                    equipment = Equipment.query.filter_by(equipment_code=str(tram_id), project_code=project_code).first()
-                    
-                    # Bulunamadıysa dummy object oluştur (veriler halen database'de ama equipment oluşturulmamış olabilir)
-                    if equipment:
-                        equipments.append(equipment)
-                    else:
-                        # Dummy object - bu tramvay henüz kayıt edilmemiş
-                        class TramObj:
-                            def __init__(self, code):
-                                self.id = code
-                                self.equipment_code = code
-                                self.current_km = 0
-                                self.monthly_km = 0
-                                self.notes = ''
-                                self.last_update = None
-                        
-                        equipments.append(TramObj(tram_id))
-                
-                print(f"  equipment records found: {len([e for e in equipments if hasattr(e, 'id') and isinstance(e.id, int)])}")
-                print(f"  dummy objects created: {len([e for e in equipments if hasattr(e, 'id') and not isinstance(e.id, int)])}")
-            
-            # Veri bulunamadıysa fallback
-            if not equipments:
-                print(f"  [FALLBACK] No equipment records found from Excel tram_ids")
-                equipments_db = Equipment.query.filter_by(equipment_type='Tramway', project_code=project_code).all()
-                print(f"  [FALLBACK] Equipment found: {len(equipments_db)}")
-                equipments = equipments_db if equipments_db else []
-            
-            db_found = len([e for e in equipments if hasattr(e, 'id') and isinstance(e.id, int)])
-            dummy_objs = len([e for e in equipments if hasattr(e, 'id') and isinstance(e.id, str)])
-            
-            print(f"  FINAL: Total equipments: {len(equipments)}")
-            print(f"    - From database: {db_found}")
-            print(f"    - Dummy objects: {dummy_objs}")
-            project_codes = set([e.project_code if hasattr(e, 'project_code') else 'N/A' for e in equipments])
-            print(f"    - Project codes in equipments: {project_codes}")
-            print(f"  Equipment codes: {[e.equipment_code if hasattr(e, 'equipment_code') else e.id for e in equipments[:5]]}")
-            print("="*70 + "\n")
-            
-            # İstatistikleri hesapla
+            # Calculate stats
             stats = {
                 'toplam_tramvay': len(equipments),
                 'toplam_km': sum(getattr(e, 'current_km', 0) or 0 for e in equipments),
@@ -2662,27 +2605,28 @@ def create_app():
         @app.route('/tramvay-km/guncelle', methods=['POST'])
         @login_required
         def tramvay_km_guncelle():
-            """Update tram km - hem Equipment table'a hem km_data.json'a yaz"""
-            import json
-            from datetime import datetime
-            
+            """Update tram km - Single source: Equipment table
+            Sync (bootstrap/sync) handles all propagation to Excel/JSON
+            """
             try:
                 tram_id = request.form.get('tram_id')
                 current_km = request.form.get('current_km', 0)
                 notes = request.form.get('notes', '')
                 project_code = session.get('current_project', 'belgrad').lower()
                 
-                # Equipment tablosunda ara - equipment_code ile project_code filterine göre
+                # Find equipment - try equipment_code first, then id
                 equipment = Equipment.query.filter_by(equipment_code=str(tram_id), project_code=project_code).first()
+                if not equipment and str(tram_id).isdigit():
+                    equipment = Equipment.query.filter_by(id=int(tram_id), project_code=project_code).first()
                 
-                # Eski KM'yi hatırla (log için)
+                tram_code = str(equipment.equipment_code) if equipment else str(tram_id)
                 old_km = equipment.current_km if equipment else 0
                 
-                # Bulunamadıysa oluştur
+                # Create if not exists
                 if not equipment:
                     equipment = Equipment(
-                        equipment_code=str(tram_id),
-                        name=f'Tramvay {tram_id}',
+                        equipment_code=tram_code,
+                        name=f'Tramvay {tram_code}',
                         equipment_type='Tramvay',
                         current_km=0,
                         monthly_km=0,
@@ -2691,91 +2635,70 @@ def create_app():
                     )
                     db.session.add(equipment)
                 
-                # Verileri güncelle
+                # Update KM in database (single source of truth)
+                new_km = int(current_km) if current_km else 0
+                equipment.current_km = new_km
+                equipment.notes = notes
+                db.session.commit()
+                
+                # Log the change
+                log_km_change(
+                    tram_id=tram_code,
+                    old_km=old_km,
+                    new_km=new_km,
+                    user=current_user.username if current_user else 'system',
+                    project_code=project_code,
+                    notes=notes
+                )
+                
+                # Sync to Excel/JSON (will be called automatically on next page load)
+                # But for consistency, trigger it now
                 try:
-                    new_km = int(current_km) if current_km else 0
-                    equipment.current_km = new_km
-                    equipment.notes = notes
-                    db.session.commit()
-                    
-                    # **KM LOGLA - log klasörüne kaydet**
-                    project_code = session.get('current_project', 'belgrad')
-                    log_km_change(
-                        tram_id=tram_id,
-                        old_km=old_km,
-                        new_km=new_km,
-                        user=current_user.username if current_user else 'system',
-                        project_code=project_code,
-                        notes=notes
-                    )
-                    
-                    # **AYNI VERİLERİ km_data.json'a da yaz (senkronizasyon için)**
-                    km_file = os.path.join(os.path.dirname(__file__), 'data', project_code, 'km_data.json')
-                    os.makedirs(os.path.dirname(km_file), exist_ok=True)
-                    km_data = {}
-                    
-                    # Mevcut km_data.json'u oku
-                    if os.path.exists(km_file):
-                        try:
-                            with open(km_file, 'r', encoding='utf-8') as f:
-                                km_data = json.load(f)
-                        except:
-                            km_data = {}
-                    
-                    # Traywayı güncelle
-                    km_data[str(tram_id)] = {
-                        'current_km': new_km,
-                        'last_update': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        'updated_by': current_user.username if current_user else 'admin'
-                    }
-                    
-                    # km_data.json'a yaz
-                    with open(km_file, 'w', encoding='utf-8') as f:
-                        json.dump(km_data, f, ensure_ascii=False, indent=2)
-                    
-                    flash(f'✅ {equipment.equipment_code or tram_id} KM bilgileri kaydedildi', 'success')
-                except Exception as e:
-                    db.session.rollback()
-                    flash(f'❌ Kaydedilme hatası: {str(e)}', 'danger')
+                    sync_km_excel_to_equipment(project_code)
+                    upsert_km(project_code, tram_code, new_km, notes, current_user.username if current_user else 'admin')
+                except Exception:
+                    pass  # Silently fail, main DB write succeeded
+                
+                flash(f'✅ {tram_code} KM bilgileri kaydedildi', 'success')
+                
             except Exception as e:
-                flash(f'❌ Hata: {str(e)}', 'danger')
+                db.session.rollback()
+                flash(f'❌ Kaydedilme hatası: {str(e)}', 'danger')
             
             return redirect(url_for('tramvay_km'))
 
         @app.route('/tramvay-km/toplu-guncelle', methods=['POST'])
         @login_required
         def tramvay_km_toplu_guncelle():
-            """Bulk update tram km - hem Equipment table'a hem km_data.json'a yaz"""
-            import json
-            from datetime import datetime
-            
+            """Bulk KM update - clean single path via Equipment table"""
             try:
-                updates = request.get_json()
+                updates = request.get_json() or {}
                 count = 0
                 errors = []
-                km_data = {}  # km_data.json'u toplu olarak tutacak
-                
                 project_code = session.get('current_project', 'belgrad').lower()
-                
-                # Mevcut km_data.json'u oku (bir kez yeterli)
-                km_file = os.path.join(os.path.dirname(__file__), 'data', project_code, 'km_data.json')
-                if os.path.exists(km_file):
-                    try:
-                        with open(km_file, 'r', encoding='utf-8') as f:
-                            km_data = json.load(f)
-                    except:
-                        km_data = {}
                 
                 for tram_id, data in updates.items():
                     try:
-                        # Equipment tablosunda ara - equipment_code ile project_code'u filtrele
-                        equipment = Equipment.query.filter_by(equipment_code=str(tram_id), project_code=project_code).first()
+                        tram_code = str(tram_id)
                         
-                        # Bulunamadıysa oluştur
+                        # Find or create equipment
+                        equipment = Equipment.query.filter_by(
+                            equipment_code=tram_code, 
+                            project_code=project_code
+                        ).first()
+                        
+                        if not equipment and tram_code.isdigit():
+                            equipment = Equipment.query.filter_by(
+                                id=int(tram_code), 
+                                project_code=project_code
+                            ).first()
+                            if equipment:
+                                tram_code = str(equipment.equipment_code)
+                        
                         if not equipment:
                             equipment = Equipment(
-                                equipment_code=str(tram_id),
-                                name=f'Tramvay {tram_id}',
+                                equipment_code=tram_code,
+                                name=f'Tramvay {tram_code}',
                                 equipment_type='Tramvay',
                                 current_km=0,
                                 monthly_km=0,
@@ -2784,47 +2707,50 @@ def create_app():
                             )
                             db.session.add(equipment)
                         
-                        # Mevcut KM güncelle
+                        # Update KM if provided
                         if 'current_km' in data and data['current_km']:
                             try:
                                 new_km = int(float(data['current_km']))
                                 equipment.current_km = new_km
                                 
-                                # **km_data.json'a da yaz (senkronizasyon için)**
-                                km_data[str(tram_id)] = {
-                                    'current_km': new_km,
-                                    'last_update': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                                    'updated_by': current_user.username if current_user else 'admin'
-                                }
-                            except:
-                                errors.append(f"{tram_id}: Geçersiz KM değeri")
+                                # Sync to Excel/JSON
+                                upsert_km(
+                                    project_code=project_code,
+                                    tram_id=tram_code,
+                                    current_km=new_km,
+                                    notes=str(data.get('notes', '') or ''),
+                                    updated_by=current_user.username if current_user else 'admin'
+                                )
+                            except Exception as km_err:
+                                errors.append(f"{tram_id}: Geçersiz KM değeri ({km_err})")
                                 continue
                         
-                        # Notlar güncelle
+                        # Update notes if provided
                         if 'notes' in data:
                             equipment.notes = str(data['notes']).strip()
                         
                         count += 1
+                        
                     except Exception as e:
                         errors.append(f"Tramvay {tram_id}: {str(e)}")
                 
                 db.session.commit()
                 
-                # **Tüm güncellemeleri km_data.json'a bir kez yaz**
-                if count > 0:
-                    try:
-                        with open(km_file, 'w', encoding='utf-8') as f:
-                            json.dump(km_data, f, ensure_ascii=False, indent=2)
-                    except Exception as e:
-                        errors.append(f"km_data.json yazma hatası: {str(e)}")
+                # Trigger full sync
+                try:
+                    sync_km_excel_to_equipment(project_code)
+                except Exception:
+                    pass
                 
                 message = f'✅ {count} araç başarıyla kaydedildi'
                 if errors:
                     message += f' ({len(errors)} hata)'
                 
                 return jsonify({'success': True, 'message': message}), 200
+                
             except Exception as e:
                 db.session.rollback()
+                logger.error(f"Toplu guncelle error: {e}")
                 return jsonify({'success': False, 'message': f'❌ Hata: {str(e)}'}), 500
 
         @app.route('/servis-durumu', methods=['GET', 'POST'])
@@ -2834,6 +2760,8 @@ def create_app():
             from datetime import timedelta, datetime
             from openpyxl import load_workbook
             import os
+
+            current_project = session.get('current_project', 'belgrad').lower()
             
             # POST isteği - Yeni durum kayıt et
             if request.method == 'POST':
@@ -2850,7 +2778,8 @@ def create_app():
                         # Mevcut kaydı kontrol et
                         existing = ServiceStatus.query.filter_by(
                             tram_id=tramvay_id,
-                            date=tarih
+                            date=tarih,
+                            project_code=current_project
                         ).first()
                         
                         alt_sistem = request.form.get('alt_sistem', '')
@@ -2867,11 +2796,24 @@ def create_app():
                                 status=durum,
                                 sistem=sistem,
                                 alt_sistem=alt_sistem,
-                                aciklama=aciklama
+                                aciklama=aciklama,
+                                project_code=current_project
                             )
                             db.session.add(new_status)
                         
                         db.session.commit()
+
+                        # DB -> Excel sync (proje bazlı)
+                        upsert_service_status(
+                            project_code=current_project,
+                            status_date=tarih,
+                            tram_id=str(tramvay_id),
+                            status=durum,
+                            sistem=sistem,
+                            alt_sistem=alt_sistem,
+                            aciklama=aciklama,
+                            updated_by=current_user.username if current_user else 'system'
+                        )
                         
                         # Log the status change
                         ServiceStatusLogger.log_status_change(
@@ -2893,7 +2835,12 @@ def create_app():
                     flash(f'Bir hata oluştu: {str(e)}', 'danger')
                     return redirect(request.url)
             
-            current_project = session.get('current_project', 'belgrad')
+            # Excel -> DB sync (dışarıdan Excel güncellenmişse uygulamaya yansıt)
+            try:
+                sync_service_excel_to_db(current_project)
+            except Exception as e:
+                logger.warning(f"Service Excel sync warning ({current_project}): {e}")
+
             equipments = Equipment.query.filter_by(project_code=current_project).all()
             today_str = datetime.now().strftime('%Y-%m-%d')
             
@@ -3076,7 +3023,7 @@ def create_app():
             
             try:
                 from models import ServiceStatus
-                today_records = ServiceStatus.query.filter_by(date=today_str).all()
+                today_records = ServiceStatus.query.filter_by(date=today_str, project_code=current_project).all()
                 
                 servis_count = 0
                 servis_disi_count = 0
@@ -3138,7 +3085,8 @@ def create_app():
                         for date in last_7_days:
                             status_record = ServiceStatus.query.filter_by(
                                 tram_id=tram_id,
-                                date=date
+                                date=date,
+                                project_code=current_project
                             ).first()
                             if status_record:
                                 status_matrix[tram_id][date] = (
@@ -3155,7 +3103,7 @@ def create_app():
             yesterday_data = {}
             try:
                 from models import ServiceStatus
-                yesterday_records = ServiceStatus.query.filter_by(date=yesterday_str).all()
+                yesterday_records = ServiceStatus.query.filter_by(date=yesterday_str, project_code=current_project).all()
                 for record in yesterday_records:
                     yesterday_data[record.tram_id] = {
                         'status': record.status if hasattr(record, 'status') else '',
@@ -3215,7 +3163,8 @@ def create_app():
                     # Mevcut kaydı kontrol et
                     existing = ServiceStatus.query.filter_by(
                         tram_id=str(tram_id),
-                        date=tarih  # Belirtilen tarihi kullan
+                        date=tarih,
+                        project_code=session.get('current_project', 'belgrad').lower()
                     ).first()
                     
                     if existing:
@@ -3228,7 +3177,8 @@ def create_app():
                             status='Servis',
                             sistem='',
                             alt_sistem='',
-                            aciklama='Toplu servise alındı'
+                            aciklama='Toplu servise alındı',
+                            project_code=session.get('current_project', 'belgrad').lower()
                         )
                         db.session.add(new_status)
                 
@@ -3236,6 +3186,17 @@ def create_app():
                 
                 # Log bulk service operation
                 for tram_id in tram_ids:
+                    upsert_service_status(
+                        project_code=session.get('current_project', 'belgrad').lower(),
+                        status_date=tarih,
+                        tram_id=str(tram_id),
+                        status='Servis',
+                        sistem='',
+                        alt_sistem='',
+                        aciklama='Toplu servise alındı',
+                        updated_by=current_user.username if current_user else 'system'
+                    )
+
                     ServiceStatusLogger.log_status_change(
                         tram_id=tram_id,
                         date=tarih,
@@ -3472,8 +3433,12 @@ def init_sample_data(app):
         print('Sample data initialized successfully!')
 
 
+# ==================== MODULE LEVEL APP INITIALIZATION ====================
+# Module olarak import edilirse app variable'ı vardır
+app = create_app()
+
 if __name__ == '__main__':
-    app = create_app()
+    # app = create_app() - already created at module level
     if app:
         with app.app_context():
             db.create_all()  # Ensure all tables exist
