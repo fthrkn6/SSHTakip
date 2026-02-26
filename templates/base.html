@@ -747,6 +747,11 @@
                 <i class="bi bi-shield-check"></i>
                 <span>Denetim Günlüğü</span>
             </a>
+
+            <a href="{{ url_for('yetkilendirme') }}" class="sidebar-link {{ 'active' if request.endpoint == 'yetkilendirme' }}">
+                <i class="bi bi-lock-fill"></i>
+                <span>Yetki Yönetimi</span>
+            </a>
             {% endif %}
         </nav>
     </aside>
