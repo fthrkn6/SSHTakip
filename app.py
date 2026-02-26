@@ -882,8 +882,7 @@ def create_app():
                                 hbr_files = [f for f in os.listdir(hbr_dir) if f.startswith('BEL25-NCR-')]
                                 ncr_counter = len(hbr_files) + 1
                                 ncr_number = f"BEL25-NCR-{ncr_counter:03d}"
-                                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-                                hbr_filename = f"{ncr_number}_{timestamp}.xlsx"
+                                hbr_filename = f"{ncr_number}.xlsx"
                                 hbr_filepath = os.path.join(hbr_dir, hbr_filename)
                                 
                                 # Template'i temp dosyaya kopyala
