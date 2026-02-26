@@ -661,7 +661,7 @@ def work_order_trend_api():
 @bp.route('/api/failures/<equipment_code>')
 @login_required
 def get_equipment_failures(equipment_code=None):
-    """Araçla ilgili son arızaları al - data/{proje}/Veriler.xlsx'den"""
+    """Araçla ilgili son arızaları al - Excel'den (data/{proje}/Veriler.xlsx)"""
     try:
         import pandas as pd
         import os
@@ -677,27 +677,92 @@ def get_equipment_failures(equipment_code=None):
         
         try:
             df = pd.read_excel(veriler_file, sheet_name='Sayfa2', header=0)
-            logger.info(f'[API] Excel okundu - {len(df)} satir')
+            logger.info(f'[API] Excel okundu - {len(df)} satir, sutunlar: {list(df.columns)}')
             
-            # Tüm arızaları al - araç seçimi yapılsa bile son 5 arızayı global olarak göster
-            # (Excel'de her aracın sadece 1 arıza kaydı olduğu için)
-            filtered_df = df
+            # Arıza sütununu bul
+            ariza_col = None
+            for col in df.columns:
+                if 'arız' in col.lower() or 'class' in col.lower():
+                    ariza_col = col
+                    break
             
-            # Son 5 arızayı al
+            # Önce arıza dolu satırları filtrele
+            if ariza_col:
+                filtered_df = df[df[ariza_col].notna()]
+                filtered_df = filtered_df[filtered_df[ariza_col] != '']
+                filtered_df = filtered_df[filtered_df[ariza_col] != 'nan']
+                logger.info(f'[API] Arıza dolu satırlar: {len(filtered_df)}')
+            else:
+                filtered_df = df
+            
+            # Equipment code verilirse filtrele
+            if equipment_code:
+                equipment_code = equipment_code.strip().replace('TRN-', '')
+                logger.info(f'[API] Filtre: {equipment_code}')
+                
+                # tram_id kolonunu bul ve normal et (1547.0 -> 1547)
+                tram_id_col = None
+                for col in df.columns:
+                    if 'tram' in col.lower() and 'id' in col.lower():
+                        tram_id_col = col
+                        break
+                
+                if tram_id_col:
+                    # String'e çevir ve normalize et
+                    filtered_df[tram_id_col] = filtered_df[tram_id_col].astype(str).str.strip()
+                    filtered_df[tram_id_col] = filtered_df[tram_id_col].apply(
+                        lambda x: str(int(float(x))) if x.replace('.', '').isdigit() else x
+                    )
+                    filtered_df = filtered_df[filtered_df[tram_id_col] == equipment_code]
+                    logger.info(f'[API] {equipment_code} için {len(filtered_df)} arıza bulundu')
+            
+            # Son 5 arızayı al (arıza dolu satırlardan)
             filtered_df = filtered_df.tail(5)
             
             failures = []
             for idx, row in filtered_df.iterrows():
                 try:
+                    # Sütunları bul - flexible column names
                     tram_id = str(row.get('tram_id', '')).strip()
-                    module = str(row.get('Module', '')).strip()
-                    ariza_sinifi = str(row.get('Arıza Sınıfı ', '')).strip()
-                    ariza_kaynagi = str(row.get('Arıza Kaynağı', '')).strip()
-                    ariza_tipi = str(row.get('Arıza Tipi', '')).strip()
+                    if not tram_id:
+                        # Alternatif isimler
+                        for col in ['Tramvay ID', 'Araç No', 'Araç Kodu', 'Vehicle ID']:
+                            if col in row.index:
+                                tram_id = str(row.get(col, '')).strip()
+                                break
+                    
+                    # tram_id'yi normalize et (1547.0 -> 1547)
+                    if tram_id and tram_id != 'nan':
+                        try:
+                            tram_id = str(int(float(tram_id)))
+                        except:
+                            pass
+                    
+                    # Module/Sistem
+                    module = None
+                    for col in ['Module', 'Sistem', 'System', 'sistem']:
+                        if col in row.index:
+                            module = str(row.get(col, '')).strip()
+                            if module != 'nan' and module:
+                                break
+                    if not module:
+                        module = 'Bilinmiyor'
+                    
+                    # Arıza Sınıfı
+                    ariza_sinifi = None
+                    for col in ['Arıza Sınıfı ', 'Arıza Sınıfı', 'Failure Class', 'ariza_sinifi']:
+                        if col in row.index:
+                            ariza_sinifi = str(row.get(col, '')).strip()
+                            if ariza_sinifi != 'nan' and ariza_sinifi:
+                                break
                     
                     # NaN değerleri filtrele
-                    if ariza_sinifi == 'nan' or not ariza_sinifi:
+                    if not ariza_sinifi or ariza_sinifi == 'nan':
                         continue
+                    
+                    # Arıza Kaynağı ve Tipi (isteğe bağlı)
+                    ariza_kaynagi = str(row.get('Arıza Kaynağı', '')).strip() if 'Arıza Kaynağı' in row.index else ''
+                    ariza_tipi = str(row.get('Arıza Tipi', '')).strip() if 'Arıza Tipi' in row.index else ''
                     
                     failures.append({
                         'fracas_id': tram_id,
@@ -708,14 +773,14 @@ def get_equipment_failures(equipment_code=None):
                         'durum': f'{ariza_kaynagi} | {ariza_tipi}' if ariza_kaynagi else ariza_tipi
                     })
                 except Exception as e:
-                    logger.error(f'[API] Satir işleme hatasi: {e}')
+                    logger.warning(f'[API] Satır işleme uyarısı: {e}')
                     continue
             
-            logger.info(f'[API] {len(failures)} ariza donduruldu')
+            logger.info(f'[API] {len(failures)} arıza donduruldu')
             return jsonify({'failures': failures, 'count': len(failures)})
             
         except Exception as excel_error:
-            logger.error(f'[API] Excel okuma hatasi: {excel_error}')
+            logger.error(f'[API] Excel okuma hatası: {excel_error}')
             return jsonify({'failures': [], 'error': str(excel_error)})
     
     except Exception as e:
