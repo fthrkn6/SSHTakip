@@ -1312,21 +1312,24 @@ def create_app():
                             # NaN değerlerini 'Yok' ile değiştir, sayıları int'e çevir
                             processed_row = []
                             for i, val in enumerate(row_data):
-                                # Personel Sayısı (index 29) ve Parça Adedi (index 19) NaN ise 0 yap
-                                if (i == 19 or i == 29) and (pd.isna(val) or (isinstance(val, float) and np.isnan(val))):
+                                # Parça Adedi (31) NaN ise 0 yap
+                                if i == 31 and (pd.isna(val) or (isinstance(val, float) and np.isnan(val))):
                                     processed_row.append(0)
-                                # Parça Kodu (16) ve Parça Adı (17) NaN ise 'Yok' yap
-                                elif (i == 16 or i == 17) and (pd.isna(val) or (isinstance(val, float) and np.isnan(val))):
+                                # Parça Kodu (28) ve Parça Adı (30) NaN ise 'Yok' yap
+                                elif (i == 28 or i == 30) and (pd.isna(val) or (isinstance(val, float) and np.isnan(val))):
                                     processed_row.append('Yok')
+                                # MTTR değerleri (26, 27) NaN ise 0 yap
+                                elif (i == 26 or i == 27) and (pd.isna(val) or (isinstance(val, float) and np.isnan(val))):
+                                    processed_row.append(0)
                                 # Float değerini int'e çevir (1.0 → 1) - NaN değilse
                                 elif isinstance(val, float) and not (pd.isna(val) or np.isnan(val)) and val == int(val):
                                     processed_row.append(int(val))
                                 else:
                                     processed_row.append(val)
                             
-                            # Eğer Parça Kodu (16) ve Parça Adı (17) her ikisi de 'Yok' ise, Adedi (19) 0 yap
-                            if processed_row[16] == 'Yok' and processed_row[17] == 'Yok':
-                                processed_row[19] = 0
+                            # Eğer Parça Kodu (28) ve Parça Adı (30) her ikisi de 'Yok' ise, Adedi (31) 0 yap
+                            if processed_row[28] == 'Yok' and processed_row[30] == 'Yok':
+                                processed_row[31] = 0
                             
                             rows.append(processed_row)
                     
