@@ -2523,25 +2523,32 @@ def create_app():
             if request.method == 'POST':
                 # POST isteği: İzinleri güncelle
                 role = request.form.get('role')
-                selected_permissions = request.form.getlist('permissions')
+                selected_perm_ids = request.form.getlist('permissions')
                 
                 if not role:
                     flash('Rol gerekli.', 'danger')
                     return redirect(url_for('yetkilendirme'))
                 
-                # Mevcut izinleri sil
-                RolePermission.query.filter_by(role=role).delete()
+                # Permission ID'lerini page_name'e çevir
+                selected_page_names = []
+                for perm_id in selected_perm_ids:
+                    perm = Permission.query.get(perm_id)
+                    if perm:
+                        selected_page_names.append(perm.page_name)
+                
+                # Mevcut izinleri sil (role + page_name)
+                cursor = db.session.connection().connection.cursor()
+                cursor.execute("DELETE FROM role_permission WHERE role = ?", (role,))
+                db.session.connection().connection.commit()
                 
                 # Yeni izinleri ekle
-                for perm_id in selected_permissions:
-                    try:
-                        perm_id = int(perm_id)
-                        role_perm = RolePermission(role=role, permission_id=perm_id)
-                        db.session.add(role_perm)
-                    except:
-                        pass
+                for page_name in selected_page_names:
+                    cursor.execute(
+                        "INSERT INTO role_permission (role, page_name, can_view, can_edit, can_delete) VALUES (?, ?, ?, ?, ?)",
+                        (role, page_name, 1, 1, 0)
+                    )
                 
-                db.session.commit()
+                db.session.connection().connection.commit()
                 flash(f'"{role}" rolü izinleri güncellendi.', 'success')
                 return redirect(url_for('yetkilendirme'))
             
@@ -2549,11 +2556,16 @@ def create_app():
             users = User.query.all()
             permissions = Permission.query.all()
             
-            # Her rol için izinleri yükle
+            # Her rol için izinleri yükle - role_permission tablosundan page_name'i al
             role_permissions = {}
             for role in ['admin', 'manager', 'saha']:
-                perms = db.session.query(RolePermission).filter_by(role=role).all()
-                role_permissions[role] = [rp.permission_id for rp in perms]
+                # Database schema'sında page_name var
+                cursor = db.session.connection().connection.cursor()
+                cursor.execute(
+                    "SELECT DISTINCT page_name FROM role_permission WHERE role = ?",
+                    (role,)
+                )
+                role_permissions[role] = [row[0] for row in cursor.fetchall()]
             
             # Rol sayılarını hesapla
             role_counts = {
