@@ -548,6 +548,7 @@
 
     // Sayfa yüklendiğinde en son 5 arızayı getir
     function loadFailures() {
+        console.log('[DEBUG] loadFailures() çağrıldı');
         fetch(`/dashboard/api/failures`, {
             headers: {
                 'Accept': 'application/json',
@@ -555,12 +556,14 @@
             }
         })
             .then(response => {
+                console.log('[DEBUG] Response status:', response.status);
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
                 return response.json();
             })
             .then(data => {
+                console.log('[DEBUG] API data:', data);
                 const arizaContainer = document.getElementById('ariza-container');
 
                 if (data.failures && data.failures.length > 0) {
@@ -597,8 +600,8 @@
                 }
             })
             .catch(error => {
-                console.error('API Hata:', error);
-                document.getElementById('ariza-container').innerHTML = `<div class="text-danger"><small>Hata: ${error.message}</small></div>`;
+                console.error('[DEBUG] API Hata:', error);
+                document.getElementById('ariza-container').innerHTML = `<div class="text-danger"><small>[ERROR] API Hata: ${error.message}</small></div>`;
             });
     }
 
