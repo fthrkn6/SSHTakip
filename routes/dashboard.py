@@ -549,8 +549,69 @@ def index():
             'status_color': status_color
         })
     
-    # Toplam arızaları getir - SADECE Excel'den çek, Database'den değil
-    son_arizalar_list, _ = get_failures_from_excel()
+    # Toplam arızaları getir - FRACAS dosyasından gerçek veriler
+    try:
+        import pandas as pd
+        current_project = session.get('current_project', 'belgrad')
+        ariza_listesi_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs', current_project, 'ariza_listesi')
+        
+        ariza_listesi_file = None
+        use_sheet = None
+        
+        if os.path.exists(ariza_listesi_dir):
+            for file in os.listdir(ariza_listesi_dir):
+                if file.upper().startswith('FRACAS_') and file.endswith('.xlsx') and not file.startswith('~$'):
+                    ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
+                    use_sheet = 'FRACAS'
+                    break
+        
+        son_arizalar_list = []
+        if ariza_listesi_file and os.path.exists(ariza_listesi_file):
+            try:
+                df = pd.read_excel(ariza_listesi_file, sheet_name=use_sheet, header=3)
+                
+                # Sütunları bul
+                tram_col = None
+                ariza_col = None
+                sistem_col = None
+                
+                for col in df.columns:
+                    if 'araç' in col.lower() and 'numarası' in col.lower() and not tram_col:
+                        tram_col = col
+                    if 'arıza tanımı' in col.lower() and not ariza_col:
+                        ariza_col = col
+                    if col.lower().strip() == 'sistem' and not sistem_col:
+                        sistem_col = col
+                
+                if tram_col and ariza_col:
+                    # Arıza dolu satırları filtrele
+                    df_filtered = df[df[ariza_col].notna()]
+                    df_filtered = df_filtered[df_filtered[ariza_col].astype(str) != '']
+                    df_filtered = df_filtered[df_filtered[ariza_col].astype(str) != 'nan']
+                    
+                    # Son 5'ini al
+                    for idx, row in df_filtered.tail(5).iterrows():
+                        tram_id = str(row.get(tram_col, 'N/A')).strip()
+                        try:
+                            tram_id = str(int(float(tram_id)))
+                        except:
+                            pass
+                        
+                        sistem = str(row.get(sistem_col, 'N/A')).strip() if sistem_col else 'N/A'
+                        ariza = str(row.get(ariza_col, 'N/A')).strip()
+                        
+                        son_arizalar_list.append({
+                            'fracas_id': tram_id,
+                            'arac_no': tram_id,
+                            'sistem': sistem,
+                            'ariza_tanimi': ariza,
+                            'tarih': '',
+                        })
+            except Exception as e:
+                logger.warning(f'[Dashboard] FRACAS okuma hatası: {e}')
+    except Exception as e:
+        logger.warning(f'[Dashboard] Arıza yükleme hatası: {e}')
+    
     son_arizalar = son_arizalar_list
     
     # Arıza sınıflarına göre sayı hesapla
