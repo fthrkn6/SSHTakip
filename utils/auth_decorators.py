@@ -114,3 +114,40 @@ def check_project_in_session():
                 session['project_code'] = available_projects[0]
             else:
                 session['project_code'] = 'belgrad'  # Default fallback
+
+def roles_required(allowed_roles=None):
+    """
+    Belirtilen rollere sahip kullanıcıların erişmesine izin ver.
+    
+    Kullanım:
+        @bp.route('/admin/yetkilendirme')
+        @login_required
+        @roles_required(['admin'])
+        def manage_permissions():
+            ...
+    
+    Parameters:
+        allowed_roles: İzin verilen roller listesi. None ise admin gerekli.
+                      Boş liste ise herkes erişebilir.
+    """
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.is_authenticated:
+                flash('Lütfen giriş yapın.', 'warning')
+                return redirect(url_for('auth.login'))
+            
+            # allowed_roles None ise admin iste
+            if allowed_roles is None:
+                if not current_user.is_admin():
+                    flash('Bu sayfaya erişim yetkiniz yok. Admin gerekli.', 'danger')
+                    return redirect(url_for('dashboard.index'))
+            # allowed_roles list ise kontrol et
+            elif isinstance(allowed_roles, list) and len(allowed_roles) > 0:
+                if current_user.role not in allowed_roles:
+                    flash('Bu sayfaya erişim yetkiniz yok.', 'danger')
+                    return redirect(url_for('dashboard.index'))
+            
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator

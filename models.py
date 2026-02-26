@@ -121,6 +121,29 @@ class User(UserMixin, db.Model):
         if self.current_weekly_hours >= self.max_weekly_hours:
             return ('warning', 'Doluluk')
         return ('success', 'Müsait')
+    
+    def can_access(self, page_name):
+        """Sayfa erişim izni var mı kontrol et"""
+        # Admin her şeye erişebilir
+        if self.is_admin():
+            return True
+        
+        # Sayfa izni var mı kontrol et
+        try:
+            from models import RolePermission  # Döngüsel import'u önle
+            permission = Permission.query.filter_by(page_name=page_name).first()
+            
+            if not permission:
+                return False  # İzin tanımlanmamışsa erişim yapma
+            
+            role_perm = RolePermission.query.filter_by(
+                role=self.role, 
+                permission_id=permission.id
+            ).first()
+            
+            return role_perm is not None
+        except:
+            return False
 
 
 class Equipment(db.Model):
@@ -1714,3 +1737,34 @@ class AvailabilityMetrics(db.Model):
     
     def __repr__(self):
         return f'<AvailabilityMetrics {self.tram_id} - {self.metric_date}: {self.availability_percentage}%>'
+
+
+class Permission(db.Model):
+    """Sistem sayfası ve işlemleri izinleri tanımı"""
+    __tablename__ = 'permission'
+    id = db.Column(db.Integer, primary_key=True)
+    page_name = db.Column(db.String(100), unique=True, nullable=False)  # 'dashboard', 'ariza_listesi', etc
+    display_name = db.Column(db.String(200), nullable=False)  # 'Gösterge Paneli', 'Arıza Listesi', etc
+    url = db.Column(db.String(255))  # Flask route URL
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    role_permissions = db.relationship('RolePermission', backref='permission', lazy=True, cascade='all, delete-orphan')
+    
+    def __repr__(self):
+        return f'<Permission {self.page_name} - {self.display_name}>'
+
+
+class RolePermission(db.Model):
+    """Rol ve İzin ilişkilendirmesi"""
+    __tablename__ = 'role_permission'
+    id = db.Column(db.Integer, primary_key=True)
+    role = db.Column(db.String(20), nullable=False)  # 'admin', 'manager', 'saha'
+    permission_id = db.Column(db.Integer, db.ForeignKey('permission.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Her rol + permission bir kere olsun
+    __table_args__ = (db.UniqueConstraint('role', 'permission_id', name='uq_role_permission'),)
+    
+    def __repr__(self):
+        return f'<RolePermission {self.role} - {self.permission_id}>'

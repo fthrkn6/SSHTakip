@@ -2513,6 +2513,63 @@ def create_app():
                 return redirect(url_for('kullanicilar'))
             return render_template('kullanici-ekle.html')
 
+        @app.route('/admin/yetkilendirme', methods=['GET', 'POST'])
+        @login_required
+        @require_admin
+        def yetkilendirme():
+            """Sayfa izinlerini yönet - Role-based authorization"""
+            from models import Permission, RolePermission
+            
+            if request.method == 'POST':
+                # POST isteği: İzinleri güncelle
+                role = request.form.get('role')
+                selected_permissions = request.form.getlist('permissions')
+                
+                if not role:
+                    flash('Rol gerekli.', 'danger')
+                    return redirect(url_for('yetkilendirme'))
+                
+                # Mevcut izinleri sil
+                RolePermission.query.filter_by(role=role).delete()
+                
+                # Yeni izinleri ekle
+                for perm_id in selected_permissions:
+                    try:
+                        perm_id = int(perm_id)
+                        role_perm = RolePermission(role=role, permission_id=perm_id)
+                        db.session.add(role_perm)
+                    except:
+                        pass
+                
+                db.session.commit()
+                flash(f'"{role}" rolü izinleri güncellendi.', 'success')
+                return redirect(url_for('yetkilendirme'))
+            
+            # GET isteği: Form göster
+            users = User.query.all()
+            permissions = Permission.query.all()
+            
+            # Her rol için izinleri yükle
+            role_permissions = {}
+            for role in ['admin', 'manager', 'saha']:
+                perms = db.session.query(RolePermission).filter_by(role=role).all()
+                role_permissions[role] = [rp.permission_id for rp in perms]
+            
+            # Rol sayılarını hesapla
+            role_counts = {
+                'admin': User.query.filter_by(role='admin').count(),
+                'manager': User.query.filter_by(role='manager').count(),
+                'saha': User.query.filter_by(role='saha').count(),
+            }
+            
+            return render_template(
+                'admin/permissions.html',
+                users=users,
+                permissions=permissions,
+                role_permissions=role_permissions,
+                role_counts=role_counts
+            )
+
         @app.route('/proje-sec')
         def proje_sec():
             """Select project"""
