@@ -989,15 +989,15 @@ def create_app():
                                 write_cell(ws, 'G7', arac_km)
                                 write_cell(ws, 'I7', tedarikci)
                                 
-                                # E8: Müşteri bilgisi (veriler.xlsx'den B4'ten çek)
+                                # E8: Müşteri bilgisi (veriler.xlsx'den B3'ten çek)
                                 musteri_code = ''
                                 veriler_path = os.path.join(os.path.dirname(__file__), 'data', project, 'veriler.xlsx')
                                 if os.path.exists(veriler_path):
                                     try:
                                         veriler_wb = load_workbook(veriler_path)
                                         veriler_ws = veriler_wb.active
-                                        musteri_code = veriler_ws['B4'].value or ''
-                                        print(f"         → Müşteri (B4): {musteri_code}")
+                                        musteri_code = veriler_ws['B3'].value or ''
+                                        print(f"         → Müşteri (B3): {musteri_code}")
                                     except Exception as e:
                                         print(f"      ⚠️  Müşteri okunamadı: {e}")
                                 write_cell(ws, 'E8', musteri_code, append=True)
