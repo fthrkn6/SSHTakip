@@ -1518,12 +1518,16 @@ def create_app():
             # Proje bazlı başlat
             project_code = session.get('current_project', 'belgrad').lower()
             
-            # Excel -> DB çift yönlü senkronizasyon
+            # NOTE: Equipment tablosu tek kaynak - Excel sync devre dışı
+            # KM verileri sadece /tramvay-km sayfasından girilmelidir
+            
+            # Equipment verilerini yükle (KM bilgileri)
             try:
-                bootstrap_km_excel_from_equipment(project_code)
-                sync_km_excel_to_equipment(project_code)
+                from utils_project_excel_store import get_tramvay_list_with_km
+                equipments = get_tramvay_list_with_km(project_code)
             except Exception as e:
-                logger.warning(f"bakim_planlari sync warning ({project_code}): {e}")
+                logger.error(f"bakim_planlari equipment error: {e}")
+                equipments = Equipment.query.filter_by(project_code=project_code).all()
             
             # Bakım verilerini yükle (proje bazlı)
             maintenance_file = os.path.join(os.path.dirname(__file__), 'data', project_code, 'maintenance.json')
@@ -1537,7 +1541,10 @@ def create_app():
                 with open(maintenance_file, 'r', encoding='utf-8') as f:
                     maintenance_data = json.load(f)
             
-            return render_template('bakim_planlari.html', maintenance_data=maintenance_data)
+            return render_template('bakim_planlari.html', 
+                                 maintenance_data=maintenance_data,
+                                 equipments=equipments,
+                                 project_name=session.get('project_name', 'Belgrad'))
         
         @app.route('/api/bakim-plani-tablosu')
         @login_required
@@ -1614,18 +1621,14 @@ def create_app():
         @app.route('/api/bakim-verileri')
         @login_required
         def bakim_verileri():
-            """Tüm araçların bakım durumunu tablo formatında döndür (proje bazlı Excel KM + Equipment fallback)"""
+            """Tüm araçların bakım durumunu tablo formatında döndür (Equipment tablosundan direkt okuma)"""
             import json
             from datetime import datetime
             
             current_project = session.get('current_project', 'belgrad').lower()
             
-            # Excel -> DB çift yönlü: dışarıdan Excel'e girilen KM'leri önce DB'ye yansıt
-            try:
-                bootstrap_km_excel_from_equipment(current_project)
-                sync_km_excel_to_equipment(current_project)
-            except Exception as e:
-                logger.warning(f"KM Excel sync warning ({current_project}): {e}")
+            # SINGLE SOURCE OF TRUTH: Equipment tablosu
+            # Excel senkronizasyonu devre dışı - sadece Equipment'dan okuyoruz
             
             # Bakım verilerini yükle (proje bazlı)
             maintenance_file = os.path.join(os.path.dirname(__file__), 'data', current_project, 'maintenance.json')
@@ -1644,43 +1647,21 @@ def create_app():
             maintenance_levels = sorted([k for k in maintenance_data.keys()], 
                                        key=lambda x: int(x.replace('K', '')) * 1000)
             
-            # KM verilerini proje bazlı Excel'den al (tek kaynak)
-            km_excel_map = read_all_km(current_project)
-            
-            # Excel'den araç listesini al ve Equipment'dan filtrele
-            # Excel'den araçları çek
-            from routes.maintenance import load_trams_from_file
-            excel_trams = load_trams_from_file(current_project)
-            
-            # Equipment'dan çek (Excel'deki araçlar)
-            equipment_list = []
-            if excel_trams:
-                equipment_list = Equipment.query.filter(
-                    Equipment.equipment_code.in_(excel_trams),
-                    Equipment.parent_id == None,
-                    Equipment.project_code == current_project
-                ).order_by(Equipment.equipment_code).all()
-            
-            # Fallback: Excel'de veri yoksa, tüm equipment'ları al
-            if not equipment_list:
-                equipment_list = Equipment.query.filter(
-                    Equipment.parent_id == None,
-                    Equipment.project_code == current_project
-                ).order_by(Equipment.equipment_code).all()
+            # Equipment'dan tüm araçları al (tek kaynak)
+            # Excel'den filtrele yapma - Excel'i Equipment'dan populate ediyor,
+            # o yüzden direkt Equipment'dan araçları al
+            equipment_list = Equipment.query.filter(
+                Equipment.parent_id == None,
+                Equipment.project_code == current_project
+            ).order_by(Equipment.equipment_code).all()
             
             # Sonuç listesi
             result = []
             
             for eq in equipment_list:
                 tram_id = str(eq.equipment_code)  # equipment_code kullan (1531, 1532...)
-                # PRIORITY: Proje bazlı KM Excel'den al
-                current_km = 0
-                if tram_id in km_excel_map:
-                    current_km = km_excel_map[tram_id].get('current_km', 0)
-                
-                # Fallback: Eğer km_data.json'da yoksa, Equipment table'dan al 
-                if not current_km:
-                    current_km = getattr(eq, 'current_km', 0) or 0
+                # SINGLE SOURCE: Equipment tablosundan KM al (hiçbir yerde değişiklik olmayacak)
+                current_km = getattr(eq, 'current_km', 0) or 0
                 
                 # Tüm bakım seviyelerini hesapla ve en yakınını bul
                 all_maintenances = {}
@@ -2608,11 +2589,13 @@ def create_app():
             """Update tram km - Single source: Equipment table
             Sync (bootstrap/sync) handles all propagation to Excel/JSON
             """
+            print(f"[📡 FORM-POST] /tramvay-km/guncelle received POST request")
             try:
                 tram_id = request.form.get('tram_id')
                 current_km = request.form.get('current_km', 0)
                 notes = request.form.get('notes', '')
                 project_code = session.get('current_project', 'belgrad').lower()
+                print(f"[📡 DATA] tram_id={tram_id}, current_km={current_km}, notes={notes[:20] if notes else 'None'}")
                 
                 # Find equipment - try equipment_code first, then id
                 equipment = Equipment.query.filter_by(equipment_code=str(tram_id), project_code=project_code).first()
@@ -2651,14 +2634,8 @@ def create_app():
                     notes=notes
                 )
                 
-                # Sync to Excel - write BEFORE syncing back!
-                try:
-                    # 1. Write updated KM to Excel
-                    upsert_km(project_code, tram_code, new_km, notes, current_user.username if current_user else 'admin')
-                    # 2. Sync back (Excel -> DB) if needed for consistency
-                    sync_km_excel_to_equipment(project_code)
-                except Exception:
-                    pass  # Silently fail, main DB write already done
+                # NOTE: Excel senkronizasyonu kaldırıldı - Equipment tablosu tek kaynak
+                # Excel'in Database'i override etmesini önlemek için burada sync yapılmıyor
                 
                 flash(f'✅ {tram_code} KM bilgileri kaydedildi', 'success')
                 
@@ -3409,26 +3386,8 @@ def create_app():
 
 
 def init_sample_data(app):
-    """Initialize sample data"""
-    with app.app_context():
-        db.create_all()
-        
-        if User.query.filter_by(username='admin').first():
-            return
-        
-        admin = User(
-            username='admin',
-            email='admin@bozankaya-tramway.com',
-            full_name='System Administrator',
-            role='admin',
-            department='IT',
-            employee_id='EMP001',
-            hourly_rate=50
-        )
-        admin.set_password('admin123')
-        db.session.add(admin)
-        db.session.commit()
-        print('Sample data initialized successfully!')
+    """Initialize sample data - DISABLED (test data removed)"""
+    pass
 
 
 # ==================== MODULE LEVEL APP INITIALIZATION ====================

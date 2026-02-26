@@ -256,12 +256,8 @@ def get_tramvay_list_with_km(project_code: str):
     import pandas as pd
     from models import Equipment, db
     
-    # First sync Excel -> DB to ensure we have latest KM
-    try:
-        bootstrap_km_excel_from_equipment(project_code)
-        sync_km_excel_to_equipment(project_code)
-    except Exception:
-        pass  # Silently fail, proceed with what we have
+    # NOTE: Equipment tablosu tek kaynak - Excel sync devre dışı
+    # KM verileri sadece /tramvay-km sayfasından girilmelidir
     
     # Get tram IDs from Excel
     tram_ids = []

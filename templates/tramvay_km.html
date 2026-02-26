@@ -129,7 +129,7 @@
             <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>Tramvay KM Verileri</h5>
             <div class="input-group" style="width: 250px;">
                 <span class="input-group-text"><i class="bi bi-search"></i></span>
-                <input type="text" class="form-control" id="searchInput" placeholder="Tramvay ara...">
+                <input type="text" class="form-control" id="searchInput" name="search" placeholder="Tramvay ara...">
             </div>
         </div>
     </div>
@@ -222,23 +222,23 @@
                     <input type="hidden" name="tram_id" id="edit_tram_id">
 
                     <div class="mb-3">
-                        <label class="form-label">Tramvay</label>
-                        <input type="text" class="form-control" id="edit_tram_name" readonly>
+                        <label for="edit_tram_name" class="form-label">Tramvay</label>
+                        <input type="text" class="form-control" id="edit_tram_name" name="tram_name" readonly>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Mevcut KM <span class="text-danger">*</span></label>
+                        <label for="edit_current_km" class="form-label">Mevcut KM <span class="text-danger">*</span></label>
                         <input type="number" name="current_km" id="edit_current_km" class="form-control" min="0"
                             required>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Aylık Ortalama KM</label>
+                        <label for="edit_monthly_km" class="form-label">Aylık Ortalama KM</label>
                         <input type="number" name="monthly_km" id="edit_monthly_km" class="form-control" min="0">
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Notlar</label>
+                        <label for="edit_notes" class="form-label">Notlar</label>
                         <textarea name="notes" id="edit_notes" class="form-control" rows="2"></textarea>
                     </div>
                 </div>
@@ -317,16 +317,22 @@
                                     <td class="text-center py-2">
                                         <input type="number"
                                             class="form-control form-control-sm km-input text-center fw-bold"
+                                            name="km_{{ tram.equipment_code or tram.id }}"
+                                            id="km_{{ tram.equipment_code or tram.id }}"
                                             data-tram-id="{{ tram.equipment_code or tram.id }}" placeholder="0" min="0"
                                             style="font-size: 1.1rem; border: 2px solid #d0d0d0; padding: 0.6rem 0.4rem;"
-                                            autocomplete="off">
+                                            autocomplete="off"
+                                            aria-label="Tramvay {{ tram.equipment_code or tram.id }} KM">
                                     </td>
                                     <td class="py-2">
                                         <input type="text" class="form-control form-control-sm notes-input"
+                                            name="notes_{{ tram.equipment_code or tram.id }}"
+                                            id="notes_{{ tram.equipment_code or tram.id }}"
                                             data-tram-id="{{ tram.equipment_code or tram.id }}" placeholder="Not ekle..."
                                             value="{{ tram.notes or '' }}" maxlength="100"
                                             style="font-size: 0.95rem; border: 1px solid #e0e0e0; padding: 0.5rem 0.4rem;"
-                                            autocomplete="off">
+                                            autocomplete="off"
+                                            aria-label="Tramvay {{ tram.equipment_code or tram.id }} notları">
                                     </td>
                                 </tr>
                                 {% endfor %}

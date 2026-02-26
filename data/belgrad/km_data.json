@@ -52,18 +52,23 @@
     "updated_by": "admin"
   },
   "3": {
-    "current_km": 100,
-    "last_update": "2026-02-24 12:05:38",
+    "current_km": 500,
+    "last_update": "2026-02-24 17:58:24",
     "updated_by": "admin"
   },
   "1": {
-    "current_km": 2500,
-    "last_update": "2026-02-24 15:25:58",
+    "current_km": 111,
+    "last_update": "2026-02-24 18:05:27",
     "updated_by": "admin"
   },
   "2": {
     "current_km": 5000,
     "last_update": "2026-02-24 13:52:15",
+    "updated_by": "admin"
+  },
+  "25": {
+    "current_km": 2220,
+    "last_update": "2026-02-24 17:54:07",
     "updated_by": "admin"
   }
 }

@@ -457,7 +457,7 @@
         <div class="col-12">
             <!-- Sağ altta sabit rapor indir butonu -->
             <div style="position: fixed; bottom: 30px; right: 30px; z-index: 100;">
-                <button class="btn btn-primary btn-lg shadow" onclick="exportToExcel()" title="Bakım raporunu indir">
+                <button class="btn btn-primary btn-lg shadow" data-action="exportToExcel" title="Bakım raporunu indir">
                     <i class="bi bi-download me-2"></i>Rapor İndir
                 </button>
             </div>
@@ -546,17 +546,17 @@
             <!-- Filtreler -->
             <div class="row mb-4">
                 <div class="col-12">
-                    <div class="btn-group w-100" role="group">
-                        <button type="button" class="btn btn-outline-secondary active" onclick="filterTable('all')">
+                    <div class="btn-group w-100" role="group" id="filterBtnGroup">
+                        <button type="button" class="btn btn-outline-secondary active" data-filter="all">
                             <i class="bi bi-funnel me-2"></i>Tümü
                         </button>
-                        <button type="button" class="btn btn-outline-danger" onclick="filterTable('urgent')">
+                        <button type="button" class="btn btn-outline-danger" data-filter="urgent">
                             <i class="bi bi-exclamation-octagon me-2"></i>Acil
                         </button>
-                        <button type="button" class="btn btn-outline-warning" onclick="filterTable('warning')">
+                        <button type="button" class="btn btn-outline-warning" data-filter="warning">
                             <i class="bi bi-exclamation-triangle me-2"></i>Uyarı
                         </button>
-                        <button type="button" class="btn btn-outline-success" onclick="filterTable('normal')">
+                        <button type="button" class="btn btn-outline-success" data-filter="normal">
                             <i class="bi bi-check2 me-2"></i>Normal
                         </button>
                     </div>
@@ -602,12 +602,14 @@
         <div class="tab-pane fade" id="bakim-tablosu" role="tabpanel" aria-labelledby="bakim-tablosu-tab">
             <div class="row mb-3">
                 <div class="col-12">
+                    <label for="kmSearch" class="form-label mb-2">KM'ye Göre Ara</label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-search"></i></span>
-                        <input type="number" class="form-control" id="kmSearch"
-                            placeholder="KM'ye göre ara (örn: 36000)" min="0" max="300000">
-                        <button class="btn btn-outline-primary" onclick="searchScheduleByKm()">Ara</button>
-                        <button class="btn btn-outline-secondary" onclick="clearScheduleSearch()">Temizle</button>
+                        <input type="number" class="form-control" id="kmSearch" name="kmSearch"
+                            placeholder="KM'ye göre ara (örn: 36000)" min="0" max="300000"
+                            aria-label="KM değerine göre bakım takvimi ara">
+                        <button class="btn btn-outline-primary" data-action="searchScheduleByKm">Ara</button>
+                        <button class="btn btn-outline-secondary" data-action="clearScheduleSearch">Temizle</button>
                     </div>
                 </div>
             </div>
@@ -654,8 +656,8 @@
             </div>
             <div class="modal-body">
                 <form id="bakim_upload_form" enctype="multipart/form-data">
-                    <input type="hidden" id="bakim_upload_tram_id">
-                    <input type="hidden" id="bakim_upload_level">
+                    <input type="hidden" id="bakim_upload_tram_id" name="bakim_upload_tram_id">
+                    <input type="hidden" id="bakim_upload_level" name="bakim_upload_level">
                     
                     <div class="mb-3">
                         <label class="form-label">Araç: <strong id="bakim_upload_tram_display"></strong></label>
@@ -673,7 +675,7 @@
                     
                     <div class="mb-3">
                         <label class="form-label d-flex align-items-center">
-                            <input type="checkbox" id="bakim_sign_checkbox" class="form-check-input me-2">
+                            <input type="checkbox" id="bakim_sign_checkbox" name="bakim_sign_checkbox" class="form-check-input me-2">
                             Kartı İmzala
                         </label>
                     </div>
@@ -685,21 +687,21 @@
                                 style="border: 1px solid #ddd; border-radius: 8px; cursor: crosshair;"></canvas>
                         </div>
                         <div class="d-grid gap-2 d-sm-flex">
-                            <button type="button" class="btn btn-outline-secondary" onclick="clearBakimSignature()">
+                            <button type="button" class="btn btn-outline-secondary" data-action="clearBakimSignature">
                                 <i class="bi bi-arrow-counterclockwise me-1"></i>Temizle
                             </button>
-                            <button type="button" class="btn btn-outline-primary" onclick="downloadBakimSignature()">
+                            <button type="button" class="btn btn-outline-primary" data-action="downloadBakimSignature">
                                 <i class="bi bi-download me-1"></i>İmzayı İndir
                             </button>
                         </div>
                     </div>
                     
-                    <input type="hidden" id="bakim_signature_data">
+                    <input type="hidden" id="bakim_signature_data" name="bakim_signature_data">
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                <button type="button" class="btn btn-primary" onclick="submitBakimUpload()">
+                <button type="button" class="btn btn-primary" data-action="submitBakimUpload">
                     <i class="bi bi-cloud-upload me-2"></i>Yükle
                 </button>
             </div>
@@ -743,7 +745,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
-                <button type="button" class="btn btn-primary" onclick="saveMaintenanceState()">Değişiklikleri
+                <button type="button" class="btn btn-primary" data-action="saveMaintenanceState">Değişiklikleri
                     Kaydet</button>
             </div>
         </div>
@@ -777,6 +779,83 @@
                 setTimeout(() => loadTransposeMaintenance(), 200);
             });
         }
+
+        // Global event delegation for data-action buttons (CSP compliance)
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('[data-action]');
+            if (!btn) return;
+
+            const action = btn.getAttribute('data-action');
+            console.log(`[EVENT] Action triggered: ${action}`);
+
+            switch(action) {
+                case 'exportToExcel':
+                    if (typeof exportToExcel === 'function') exportToExcel();
+                    break;
+                case 'searchScheduleByKm':
+                    if (typeof searchScheduleByKm === 'function') searchScheduleByKm();
+                    break;
+                case 'clearScheduleSearch':
+                    if (typeof clearScheduleSearch === 'function') clearScheduleSearch();
+                    break;
+                case 'clearBakimSignature':
+                    if (typeof clearBakimSignature === 'function') clearBakimSignature();
+                    break;
+                case 'downloadBakimSignature':
+                    if (typeof downloadBakimSignature === 'function') downloadBakimSignature();
+                    break;
+                case 'submitBakimUpload':
+                    if (typeof submitBakimUpload === 'function') submitBakimUpload();
+                    break;
+                case 'saveMaintenanceState':
+                    if (typeof saveMaintenanceState === 'function') saveMaintenanceState();
+                    break;
+                case 'openMaintenanceModal': {
+                    const tramId = btn.getAttribute('data-tram-id');
+                    if (typeof openMaintenanceModal === 'function') openMaintenanceModal(tramId);
+                    break;
+                }
+                case 'openBakimUploadModal': {
+                    const tramId = btn.getAttribute('data-tram-id');
+                    const level = btn.getAttribute('data-level');
+                    if (typeof openBakimUploadModal === 'function') openBakimUploadModal(tramId, level);
+                    break;
+                }
+                case 'showBakimModal': {
+                    const km = btn.getAttribute('data-km');
+                    const tramId = btn.getAttribute('data-tram-id');
+                    if (typeof showBakimModal === 'function') showBakimModal(km, tramId);
+                    break;
+                }
+                case 'downloadBakimPDF': {
+                    const km = btn.getAttribute('data-km');
+                    if (typeof downloadBakimPDF === 'function') downloadBakimPDF(km);
+                    break;
+                }
+                case 'downloadFile': {
+                    const project = btn.getAttribute('data-project');
+                    const km = btn.getAttribute('data-km');
+                    const filename = btn.getAttribute('data-filename');
+                    if (typeof downloadFile === 'function') downloadFile(project, km, filename);
+                    break;
+                }
+            }
+        });
+
+        // Filter button delegation
+        document.addEventListener('click', function(e) {
+            const filterBtn = e.target.closest('[data-filter]');
+            if (!filterBtn) return;
+
+            const filter = filterBtn.getAttribute('data-filter');
+            filterTable(filter);
+
+            // Update active button state
+            document.querySelectorAll('[data-filter]').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            filterBtn.classList.add('active');
+        });
     });
 
     function loadState() {
@@ -872,7 +951,7 @@
                 </span>
             </td>
             <td class="text-center">
-                <button class="btn btn-sm btn-primary" onclick="openMaintenanceModal('${tram_id}')" style="cursor: pointer; padding: 5px 10px; font-size: 0.9em;">
+                <button class="btn btn-sm btn-primary open-maintenance-btn" data-tram-id="${tram_id}" style="cursor: pointer; padding: 5px 10px; font-size: 0.9em;">
                     <i class="bi bi-pencil-square me-1"></i>Detaylar
                 </button>
             </td>
@@ -1032,7 +1111,7 @@
                     </div>
                 </div>
                 <button class="btn btn-sm ${isCompleted ? 'btn-success' : 'btn-outline-success'}" 
-                        onclick="openBakimUploadModal('${tramId}', '${level}')">
+                        data-action="openBakimUploadModal" data-tram-id="${tramId}" data-level="${level}">
                     ${isCompleted ? '✓ Tamamlandı' : 'Tamamla'}
                 </button>
             </div>
@@ -1472,8 +1551,8 @@
                     }
                     
                     html += `
-                        <td class="text-center" style="background: ${bgColor}; color: ${textColor}; cursor: pointer; padding: 6px; border: 1px solid #ccc; min-width: 90px; font-weight: bold;"
-                            onclick="showBakimModal(${km}, '${tram.tram_id}')"
+                        <td class="text-center bakim-cell" style="background: ${bgColor}; color: ${textColor}; cursor: pointer; padding: 6px; border: 1px solid #ccc; min-width: 90px; font-weight: bold;"
+                            data-action="showBakimModal" data-km="${km}" data-tram-id="${tram.tram_id}"
                             title="${bakimlar}">
                             <small class="d-block fw-bold">${bakimlar}</small>
                         </td>
@@ -1512,7 +1591,7 @@
                             <div class="tab-content">
                                 <div class="tab-pane fade show active" id="pdf-content">
                                     <div class="text-center mb-3">
-                                        <button class="btn btn-primary" onclick="downloadBakimPDF(${km})">
+                                        <button class="btn btn-primary" data-action="downloadBakimPDF" data-km="${km}">
                                             <i class="bi bi-download me-2"></i>PDF İndir
                                         </button>
                                     </div>
@@ -1530,8 +1609,8 @@
                                 <div class="tab-pane fade" id="upload-content">
                                     <form id="uploadForm" class="border-top pt-3">
                                         <div class="mb-3">
-                                            <label class="form-label">Dosya Seç (PDF, Excel, vb.)</label>
-                                            <input type="file" class="form-control" id="fileInput" accept=".pdf,.xlsx,.xls,.doc,.docx,.jpg,.jpeg,.png" required>
+                                            <label for="fileInput" class="form-label">Dosya Seç (PDF, Excel, vb.)</label>
+                                            <input type="file" class="form-control" id="fileInput" name="fileInput" accept=".pdf,.xlsx,.xls,.doc,.docx,.jpg,.jpeg,.png" required>
                                         </div>
                                         <button type="submit" class="btn btn-success">
                                             <i class="bi bi-upload me-2"></i>Yükle
@@ -1605,7 +1684,7 @@
                                 <h6 class="mb-1">${file.display_name}</h6>
                                 <small class="text-muted">${date} - ${size}</small>
                             </div>
-                            <button class="btn btn-sm btn-outline-primary" onclick="downloadFile('${currentProject}', ${km}, '${file.filename}')">
+                            <button class="btn btn-sm btn-outline-primary" data-action="downloadFile" data-project="${currentProject}" data-km="${km}" data-filename="${file.filename}">
                                 <i class="bi bi-download"></i> İndir
                             </button>
                         </div>
@@ -1721,7 +1800,7 @@
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
-                            <button type="button" class="btn btn-primary" onclick="openBakimUploadModal('${tramId}', '${level}')">
+                            <button type="button" class="btn btn-primary" data-action="openBakimUploadModal" data-tram-id="${tramId}" data-level="${level}">
                                 <i class="bi bi-cloud-upload me-2"></i>Bakım Kartı Yükle
                             </button>
                         </div>
