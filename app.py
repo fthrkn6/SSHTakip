@@ -1142,8 +1142,8 @@ def create_app():
                     print(f"   Dosyalar: {files_found}")
                     
                     for filename in files_found:
-                        # BOZ-NCR- ile başlayan tüm .xlsx dosyalarını al (komple filtre)
-                        if filename.endswith('.xlsx') and filename.startswith('BOZ-NCR-'):
+                        # BEL25-NCR- ile başlayan tüm .xlsx dosyalarını al (komple filtre)
+                        if filename.endswith('.xlsx') and filename.startswith('BEL25-NCR-'):
                             filepath = os.path.join(hbr_dir, filename)
                             
                             try:
@@ -1203,8 +1203,8 @@ def create_app():
             import os
             from werkzeug.utils import secure_filename
             
-            # Güvenlik: sadece BOZ-NCR- formatındaki dosyaları sil
-            if not (filename.startswith('BOZ-NCR-') and filename.endswith('.xlsx')):
+            # Güvenlik: sadece BEL25-NCR- formatındaki dosyaları sil
+            if not (filename.startswith('BEL25-NCR-') and filename.endswith('.xlsx')):
                 return {'error': 'Geçersiz dosya adı'}, 400
             
             project = session.get('current_project', 'belgrad')
@@ -1230,8 +1230,8 @@ def create_app():
             from werkzeug.utils import secure_filename
             import os
             
-            # Güvenlik: sadece BOZ-NCR- formatındaki dosyaları izin ver
-            if not (filename.startswith('BOZ-NCR-') and filename.endswith('.xlsx')):
+            # Güvenlik: sadece BEL25-NCR- formatındaki dosyaları izin ver
+            if not (filename.startswith('BEL25-NCR-') and filename.endswith('.xlsx')):
                 flash('❌ Geçersiz dosya adı', 'danger')
                 return redirect(url_for('hbr_listesi'))
             
