@@ -710,6 +710,9 @@
                 <span>Teknik Dokümanlar</span>
             </a>
 
+            <!-- DEBUG: Role check -->
+            <!-- current_user.role = "{{ current_user.role }}" -->
+            
             {% if current_user.role == 'admin' %}
             <div class="sidebar-menu-title">Yönetim</div>
 
@@ -748,7 +751,7 @@
                 <span>Denetim Günlüğü</span>
             </a>
 
-            <a href="{{ url_for('yetkilendirme') }}" class="sidebar-link {{ 'active' if request.endpoint == 'yetkilendirme' }}">
+            <a href="{{ url_for('admin.yetkilendirme') }}" class="sidebar-link {{ 'active' if request.endpoint == 'admin.yetkilendirme' }}">
                 <i class="bi bi-lock-fill"></i>
                 <span>Yetki Yönetimi</span>
             </a>
@@ -758,6 +761,7 @@
 
     <!-- Main Content -->
     <main class="main-content">
+        <!-- DEBUG: current_user = {{ current_user }}, is_authenticated = {{ current_user.is_authenticated }}, role = "{{ current_user.role }}" -->
         <!-- Top Navbar -->
         <header class="top-navbar">
             <div class="navbar-search">
