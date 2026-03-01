@@ -21,38 +21,9 @@ def admin_required(f):
 @login_required
 @admin_required
 def permissions():
-    from app import PAGES, PROJECTS
-    
-    roles = Role.query.all()
-    users = User.query.all()
-    
-    # Sayfa izinleri (app.py'deki PAGES listesinden)
-    page_perms = [
-        {'id': p['id'], 'name': p['code'], 'description': p['name'], 'category': 'page', 'section': p['section']}
-        for p in PAGES
-    ]
-    
-    # Proje izinleri (app.py'deki PROJECTS listesinden)
-    project_perms = [
-        {'id': 100 + i, 'name': p['code'], 'description': p['name'], 'category': 'project'}
-        for i, p in enumerate(PROJECTS)
-    ]
-    
-    all_permissions = page_perms + project_perms
-    
-    # Her role'un izinlerini dict olarak hazırla
-    role_permissions_map = {}
-    for role in roles:
-        perms = role.get_permissions()
-        role_permissions_map[role.id] = perms
-    
-    return render_template('admin/permissions.html', 
-                         roles=roles,
-                         users=users,
-                         all_permissions=all_permissions,
-                         page_perms=page_perms,
-                         project_perms=project_perms,
-                         role_permissions_map=role_permissions_map)
+    """ESKİ ROUTE - Yeni /admin/yetkilendirme'e redirect et"""
+    from flask import redirect, url_for
+    return redirect(url_for('admin.yetkilendirme'))
 
 @bp_roles.route('/permissions/toggle', methods=['POST'])
 @login_required
