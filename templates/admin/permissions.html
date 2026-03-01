@@ -14,6 +14,9 @@
             <p class="text-muted">Rol izinlerini yönetin - Hangi rol hangi sayfaları ve projeleri görebilir</p>
         </div>
         <div class="col-auto">
+            <button type="button" class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#addRoleModal">
+                <i class="bi bi-plus-circle"></i> Yeni Rol Ekle
+            </button>
             <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">
                 <i class="bi bi-arrow-left"></i> Geri
             </a>
@@ -30,6 +33,9 @@
             <div class="alert alert-warning">
                 <i class="bi bi-exclamation-triangle"></i>
                 Sistemde henüz rol tanımlanmadı!
+                <button type="button" class="btn btn-sm btn-warning ms-2" data-bs-toggle="modal" data-bs-target="#addRoleModal">
+                    İlk Rol Ekle
+                </button>
             </div>
             {% elif not page_perms %}
             <div class="alert alert-warning">
@@ -37,18 +43,25 @@
                 İzinler bulunamadı!
             </div>
             {% else %}
-            <div style="overflow-x: auto;">
+            <div style="overflow-x: auto; margin-bottom: 20px;">
                 <table class="table table-bordered table-hover table-sm">
                     <thead class="table-light">
                         <tr>
-                            <th style="width: 120px;"><strong>Roller</strong></th>
+                            <th style="width: 150px;"><strong>Rol Adı</strong></th>
+                            <th style="width: 80px;" class="text-center"><strong>İşlem</strong></th>
+                            <th colspan="{{ page_perms|length }}" class="bg-light text-center"><strong>📄 SAYFA İZİNLERİ</strong></th>
+                            <th colspan="{{ project_perms|length }}" class="bg-warning text-center"><strong>🏗️ PROJE İZİNLERİ</strong></th>
+                        </tr>
+                        <tr>
+                            <th></th>
+                            <th></th>
                             {% for perm in page_perms %}
-                            <th class="text-center" style="min-width: 100px;">
+                            <th class="text-center" style="min-width: 70px; font-size: 0.75rem;">
                                 <small>{{ perm.description }}</small>
                             </th>
                             {% endfor %}
                             {% for perm in project_perms %}
-                            <th class="text-center" style="min-width: 100px;">
+                            <th class="text-center" style="min-width: 70px; font-size: 0.75rem;">
                                 <small><strong>{{ perm.description }}</strong></small>
                             </th>
                             {% endfor %}
@@ -57,7 +70,21 @@
                     <tbody>
                         {% for role in roles %}
                         <tr>
-                            <td><strong>{{ role.name }}</strong></td>
+                            <td>
+                                <strong>{{ role.name }}</strong>
+                                {% if role.description %}
+                                <br><small class="text-muted">{{ role.description }}</small>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if role.users|length == 0 %}
+                                <button class="btn btn-sm btn-danger delete-role-btn" data-role-id="{{ role.id }}" data-role-name="{{ role.name }}" title="Bu rolü sil">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                {% else %}
+                                <span class="badge bg-warning" title="Kullanıcı atanmış olduğu için silemezsiniz">{{ role.users|length }}</span>
+                                {% endif %}
+                            </td>
                             
                             <!-- Sayfa izinleri -->
                             {% for perm in page_perms %}
@@ -77,7 +104,7 @@
                             
                             <!-- Proje izinleri -->
                             {% for perm in project_perms %}
-                            <td class="text-center" style="background-color: #f0f0f0;">
+                            <td class="text-center" style="background-color: #fffaf0;">
                                 {% set perm_key = 'perm_' + perm.id|string %}
                                 {% set has_perm = perm_key in role_permissions_map.get(role.id, {}) %}
                                 <input 
@@ -133,8 +160,65 @@
     </div>
 </div>
 
+
+<!-- Modal: Yeni Rol Ekle -->
+<div class="modal fade" id="addRoleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('role_mgmt.add_role') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Yeni Rol Ekle</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="roleName" class="form-label">Rol Adı <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="roleName" name="name" required placeholder="Örn: Teknisyen, Elektrik Mühendisi">
+                    </div>
+                    <div class="mb-3">
+                        <label for="roleDescription" class="form-label">Açıklama</label>
+                        <textarea class="form-control" id="roleDescription" name="description" rows="2" placeholder="Rol açıklaması"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-success">Rol Ekle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Rol Silme Onayı -->
+<div class="modal fade" id="deleteRoleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="deleteRoleForm" method="POST" action="{{ url_for('role_mgmt.delete_role') }}">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Rol Sil</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>
+                        <strong id="deleteRoleNameDisplay"></strong> rolünü silmek istediğinizden emin misiniz?
+                    </p>
+                    <p class="text-muted small">
+                        <i class="bi bi-info-circle"></i> Bu işlem geri alınamaz. Rol, ona atanmış kullanıcı yoksa silinebilir.
+                    </p>
+                    <input type="hidden" id="deleteRoleId" name="id">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-danger">Rolü Sil</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // İzin toggle (checkbox değişimleri)
     document.querySelectorAll('.permission-toggle').forEach(toggle => {
         toggle.addEventListener('change', function() {
             fetch('{{ url_for("role_mgmt.toggle_permission") }}', {
@@ -157,6 +241,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.checked = !this.checked;
             });
         });
+    });
+    
+    // Rol silme butonları
+    document.querySelectorAll('.delete-role-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const roleId = this.dataset.roleId;
+            const roleName = this.dataset.roleName;
+            
+            document.getElementById('deleteRoleId').value = roleId;
+            document.getElementById('deleteRoleNameDisplay').textContent = roleName;
+            
+            new bootstrap.Modal(document.getElementById('deleteRoleModal')).show();
+        });
+    });
+    
+    // Form submit
+    document.getElementById('deleteRoleForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        this.submit();
     });
 });
 </script>
