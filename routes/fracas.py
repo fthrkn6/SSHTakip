@@ -634,7 +634,7 @@ def api_vehicle_detail(vehicle_id):
     """API: Araç detay analizi"""
     df = load_ariza_listesi_data()
     if df is None:
-        df = lnify({'error': 'Veri bulunamadı'}), 404
+        return jsonify({'error': 'Veri bulunamadı'}), 404
     
     # Araç sütununu bul
     vehicle_col = get_column(df, ['araç', 'araç no', 'tram', 'vehicle'])
