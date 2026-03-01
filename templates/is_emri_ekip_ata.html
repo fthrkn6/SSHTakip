@@ -68,7 +68,7 @@
                         </div>
                         <div>
                             <h5 class="mb-0">{{ best_match.user.name }}</h5>
-                            <small class="text-muted">{{ best_match.user.role }}</small>
+                            <small class="text-muted">{{ best_match.user.role_obj.name if best_match.user.role_obj else '' }}</small>
                         </div>
                     </div>
                     

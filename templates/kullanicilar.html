@@ -43,11 +43,11 @@
                         </td>
                         <td>{{ user.email }}</td>
                         <td>
-                            {% if user.role == 'admin' %}
+                            {% if user.role_obj and user.role_obj.name == 'admin' %}
                                 <span class="badge bg-danger">Yönetici</span>
-                            {% elif user.role == 'muhendis' %}
+                            {% elif user.role_obj and user.role_obj.name == 'muhendis' %}
                                 <span class="badge bg-primary">Mühendis</span>
-                            {% elif user.role == 'teknisyen' %}
+                            {% elif user.role_obj and user.role_obj.name == 'teknisyen' %}
                                 <span class="badge bg-info">Teknisyen</span>
                             {% else %}
                                 <span class="badge bg-secondary">{{ user.get_role_display() }}</span>

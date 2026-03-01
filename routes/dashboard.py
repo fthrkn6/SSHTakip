@@ -215,12 +215,21 @@ def get_ariza_counts_by_class():
     # Fallback: Eğer ProjectManager'dan bulunamazsa manuel ara
     if not ariza_listesi_file or not os.path.exists(ariza_listesi_file):
         if os.path.exists(ariza_dir):
-            # Fracas dosyasını spesifik olarak ara
-            for file in ['Fracas_BELGRAD.xlsx', 'Fracas_BELGRAD.xlsx', 'BEL25_FRACAS.xlsx']:
-                test_file = os.path.join(ariza_dir, file)
+            # Project-specific FRACAS dosyasını ara (örn: Fracas_BELGRAD.xlsx)
+            project_file_map = {
+                'belgrad': 'Fracas_BELGRAD.xlsx',
+                'gebze': 'Fracas_GEBZE.xlsx',
+                'iasi': 'Fracas_IASI.xlsx',
+                'kayseri': 'Fracas_KAYSERİ.xlsx',
+                'kocaeli': 'Fracas_KOCAELI.xlsx',
+                'timisoara': 'Fracas_TIMISOARA.xlsx'
+            }
+            
+            specific_fracas = project_file_map.get(current_project)
+            if specific_fracas:
+                test_file = os.path.join(ariza_dir, specific_fracas)
                 if os.path.exists(test_file):
                     ariza_listesi_file = test_file
-                    break
             
             # Hala bulunamazsa, içinde 'FRACAS' veya 'Fracas' olan dosya ara
             if not ariza_listesi_file:
@@ -559,11 +568,30 @@ def index():
         use_sheet = None
         
         if os.path.exists(ariza_listesi_dir):
-            for file in os.listdir(ariza_listesi_dir):
-                if file.upper().startswith('FRACAS_') and file.endswith('.xlsx') and not file.startswith('~$'):
-                    ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
+            # Project-specific FRACAS dosyasını ara (örn: Fracas_BELGRAD.xlsx)
+            project_file_map = {
+                'belgrad': 'Fracas_BELGRAD.xlsx',
+                'gebze': 'Fracas_GEBZE.xlsx',
+                'iasi': 'Fracas_IASI.xlsx',
+                'kayseri': 'Fracas_KAYSERİ.xlsx',
+                'kocaeli': 'Fracas_KOCAELI.xlsx',
+                'timisoara': 'Fracas_TIMISOARA.xlsx'
+            }
+            
+            specific_fracas = project_file_map.get(current_project)
+            if specific_fracas:
+                specific_path = os.path.join(ariza_listesi_dir, specific_fracas)
+                if os.path.exists(specific_path):
+                    ariza_listesi_file = specific_path
                     use_sheet = 'FRACAS'
-                    break
+            
+            # Fallback: varsa başka Fracas_*.xlsx
+            if not ariza_listesi_file:
+                for file in os.listdir(ariza_listesi_dir):
+                    if file.upper().startswith('FRACAS_') and file.endswith('.xlsx') and not file.startswith('~$'):
+                        ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
+                        use_sheet = 'FRACAS'
+                        break
         
         son_arizalar_list = []
         if ariza_listesi_file and os.path.exists(ariza_listesi_file):
@@ -729,21 +757,40 @@ def get_equipment_failures(equipment_code=None):
         
         current_project = session.get('current_project', 'belgrad')
         
-        # Birincil konum: logs/{project}/ariza_listesi/Fracas_*.xlsx
+        # Birincil konum: logs/{project}/ariza_listesi/Fracas_{project_code}.xlsx
         ariza_listesi_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs', current_project, 'ariza_listesi')
         
         ariza_listesi_file = None
         use_sheet = None
         header_row = 0
         
+        # Project to file name mapping (handles Turkish characters)
+        project_file_map = {
+            'belgrad': 'Fracas_BELGRAD.xlsx',
+            'gebze': 'Fracas_GEBZE.xlsx',
+            'iasi': 'Fracas_IASI.xlsx',
+            'kayseri': 'Fracas_KAYSERİ.xlsx',
+            'kocaeli': 'Fracas_KOCAELI.xlsx',
+            'timisoara': 'Fracas_TIMISOARA.xlsx'
+        }
+        
         if os.path.exists(ariza_listesi_dir):
-            # FRACAS template dosyasını ara (Fracas_BELGRAD.xlsx, Fracas_ISTANBUL.xlsx, vb.)
-            for file in os.listdir(ariza_listesi_dir):
-                if file.upper().startswith('FRACAS_') and file.endswith('.xlsx') and not file.startswith('~$'):
-                    ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
+            # FRACAS template dosyasını ara - project-specific dosya (örn: Fracas_BELGRAD.xlsx)
+            if current_project in project_file_map:
+                specific_fracas = os.path.join(ariza_listesi_dir, project_file_map[current_project])
+                if os.path.exists(specific_fracas):
+                    ariza_listesi_file = specific_fracas
                     use_sheet = 'FRACAS'
                     header_row = 3  # FRACAS headers row 4 (index 3)
-                    break
+            
+            # Fallback: varsa başka Fracas_*.xlsx
+            if not ariza_listesi_file:
+                for file in os.listdir(ariza_listesi_dir):
+                    if file.upper().startswith('FRACAS_') and file.endswith('.xlsx') and not file.startswith('~$'):
+                        ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
+                        use_sheet = 'FRACAS'
+                        header_row = 3
+                        break
         
         # Fallback: Ariza_Listesi dosyası
         if not ariza_listesi_file and os.path.exists(ariza_listesi_dir):

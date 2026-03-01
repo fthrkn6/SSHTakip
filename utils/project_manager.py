@@ -111,11 +111,28 @@ class ProjectManager:
     
     @staticmethod
     def get_fracas_file(project_code):
-        """Projenin Fracas_*.xlsx dosya yolunu döndür"""
+        """Projenin Fracas_{project_code}.xlsx dosya yolunu döndür"""
         project_path = ProjectManager.get_project_path(project_code)
         ariza_dir = os.path.join(project_path, 'ariza_listesi')
         
         if os.path.exists(ariza_dir):
+            # Project-specific FRACAS dosyasını ara (örn: Fracas_BELGRAD.xlsx)
+            project_file_map = {
+                'belgrad': 'Fracas_BELGRAD.xlsx',
+                'gebze': 'Fracas_GEBZE.xlsx',
+                'iasi': 'Fracas_IASI.xlsx',
+                'kayseri': 'Fracas_KAYSERİ.xlsx',
+                'kocaeli': 'Fracas_KOCAELI.xlsx',
+                'timisoara': 'Fracas_TIMISOARA.xlsx'
+            }
+            
+            specific_fracas = project_file_map.get(project_code)
+            if specific_fracas:
+                specific_file = os.path.join(ariza_dir, specific_fracas)
+                if os.path.exists(specific_file):
+                    return specific_file
+            
+            # Fallback: varsa başka Fracas_*.xlsx
             for file in os.listdir(ariza_dir):
                 if file.upper().startswith('FRACAS_') and file.endswith('.xlsx') and not file.startswith('~$'):
                     return os.path.join(ariza_dir, file)

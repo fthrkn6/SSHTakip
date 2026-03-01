@@ -117,6 +117,19 @@
         <div class="col-md-3 mb-3">
             <div class="card h-100">
                 <div class="card-body text-center">
+                    <i class="fas fa-lock fa-3x text-danger mb-3"></i>
+                    <h5 class="card-title">Yetkilendirme</h5>
+                    <p class="card-text text-muted">Rol izinlerini yönet</p>
+                    <a href="{{ url_for('admin.yetkilendirme') }}" class="btn btn-danger btn-sm">
+                        Git <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card h-100">
+                <div class="card-body text-center">
                     <i class="fas fa-database fa-3x text-warning mb-3"></i>
                     <h5 class="card-title">Yedekleme</h5>
                     <p class="card-text text-muted">Yedekleme geçmişi ve geri yükleme</p>

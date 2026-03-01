@@ -26,6 +26,34 @@ class Config:
     UPLOAD_FOLDER = 'uploads'
     ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'doc', 'docx', 'xls', 'xlsx'}
     
+    # Sistem Rolleri - Dinamik, yeni roller eklenebilir
+    AVAILABLE_ROLES = {
+        'admin': {
+            'name': 'Admin',
+            'icon': 'fa-crown',
+            'color': 'danger',
+            'description': 'Tüm sisteme erişim'
+        },
+        'manager': {
+            'name': 'Yönetici',
+            'icon': 'fa-user-tie',
+            'color': 'warning',
+            'description': 'Proje yönetimi ve raporlama'
+        },
+        'saha': {
+            'name': 'Saha',
+            'icon': 'fa-wrench',
+            'color': 'info',
+            'description': 'Belirli projeler'
+        },
+        'izlenme': {
+            'name': 'İzlenme',
+            'icon': 'fa-eye',
+            'color': 'secondary',
+            'description': 'Sadece görüntüleme'
+        }
+    }
+    
     # Öngörücü bakım parametreleri
     PREDICTION_MODEL_PATH = 'models/predictive_maintenance.pkl'
     PREDICTION_THRESHOLD = 0.7
