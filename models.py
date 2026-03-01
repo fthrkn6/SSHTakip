@@ -10,7 +10,39 @@ from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 import json
 
+
 db = SQLAlchemy()
+
+class Permission(db.Model):
+    """Sistem izinleri - sayfa ve proje erişim kontrolleri"""
+    __tablename__ = 'permissions'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)  # 'dashboard', 'users', 'projects', vb
+    description = db.Column(db.String(255))
+    category = db.Column(db.String(50))  # 'page', 'project', 'action'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Role(db.Model):
+    """Sistem rolleri - dinamik rol yönetimi"""
+    __tablename__ = 'roles'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    description = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    users = db.relationship('User', backref='role_obj', lazy=True)
+    # İzinler JSON string'te sakla (basit format): page_dashboard,page_users,project_belgrad
+    permissions = db.Column(db.Text, default='{}')  # JSON format
+    
+    def get_permissions(self):
+        """Rol izinlerini dict olarak döndür"""
+        try:
+            return json.loads(self.permissions) if self.permissions else {}
+        except:
+            return {}
+    
+    def set_permissions(self, perms_dict):
+        """İzinleri ayarla"""
+        self.permissions = json.dumps(perms_dict)
 
 
 class User(UserMixin, db.Model):
@@ -22,7 +54,8 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255))
     full_name = db.Column(db.String(100))
-    role = db.Column(db.String(20), default='saha')  # 'admin' veya 'saha'
+    role = db.Column(db.String(20), default='saha')  # Eski sistemle uyum için
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=True)
     assigned_projects = db.Column(db.Text)  # JSON: ["belgrad", "ankara"] (admin için "*")
     department = db.Column(db.String(50))
     phone = db.Column(db.String(20))
@@ -51,11 +84,23 @@ class User(UserMixin, db.Model):
     
     def is_admin(self):
         """Admin mi kontrol et"""
-        return self.role == 'admin'
+        # Yeni sistem: role_obj ile
+        if self.role_obj and self.role_obj.name == 'admin':
+            return True
+        # Eski sistem uyumluluğu: role ile
+        if self.role == 'admin':
+            return True
+        return False
     
     def is_saha(self):
         """Saha kullanıcısı mı kontrol et"""
-        return self.role == 'saha'
+        # Yeni sistem: role_obj ile
+        if self.role_obj and self.role_obj.name == 'saha':
+            return True
+        # Eski sistem uyumluluğu: role ile
+        if self.role == 'saha':
+            return True
+        return False
     
     def can_access_project(self, project_code):
         """Projeye erişim izni var mı kontrol et"""
@@ -72,7 +117,7 @@ class User(UserMixin, db.Model):
     
     def get_assigned_projects(self):
         """İzin edilen projeleri listele"""
-        if self.role == 'admin':
+        if self.is_admin():
             return '*'  # Tüm projeler
         
         if self.assigned_projects:
@@ -1768,3 +1813,20 @@ class RolePermission(db.Model):
     
     def __repr__(self):
         return f'<RolePermission {self.role} - {self.permission_id}>'
+
+
+class RoleProject(db.Model):
+    """Rol ve Proje ilişkilendirmesi - hangi rol hangi projeleri görebilir"""
+    __tablename__ = 'role_project'
+    id = db.Column(db.Integer, primary_key=True)
+    role = db.Column(db.String(20), nullable=False)  # 'admin', 'manager', 'saha'
+    project_code = db.Column(db.String(100), nullable=False)  # 'belgrad', 'ankara', etc
+    can_view = db.Column(db.Boolean, default=True)  # Görme izni
+    can_edit = db.Column(db.Boolean, default=False)  # Düzenleme izni
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Her rol + proje kombinasyonu bir kere olsun
+    __table_args__ = (db.UniqueConstraint('role', 'project_code', name='uq_role_project'),)
+    
+    def __repr__(self):
+        return f'<RoleProject {self.role} - {self.project_code}>'

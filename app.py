@@ -15,6 +15,7 @@ from routes.service_status import bp as service_status_bp
 from routes.dashboard import bp as dashboard_bp
 from routes.reports import reports_bp
 from routes.admin import bp as admin_bp
+from routes.role_management import bp_roles
 from utils_service_status_logger import ServiceStatusLogger
 from utils_root_cause_analysis import RootCauseAnalyzer
 from utils.project_manager import ProjectManager
@@ -59,6 +60,41 @@ PROJECTS = [
     {'code': 'kayseri', 'name': 'Kayseri', 'country': 'Türkiye', 'flag': '🇹🇷'},
     {'code': 'kocaeli', 'name': 'Kocaeli', 'country': 'Türkiye', 'flag': '🇹🇷'},
     {'code': 'gebze', 'name': 'Gebze', 'country': 'Türkiye', 'flag': '🇹🇷'},
+]
+
+# Sistem üzerindeki tüm sayfalar - Yetkilendirme için
+PAGES = [
+    # Ana Menü
+    {'id': 1, 'code': 'dashboard', 'name': 'Dashboard', 'section': 'Ana Menü'},
+    
+    # İş Yönetimi
+    {'id': 2, 'code': 'ariza_bildir', 'name': 'Yeni Arıza Bildir', 'section': 'İş Yönetimi'},
+    {'id': 3, 'code': 'ariza_listesi', 'name': 'Arıza Listesi', 'section': 'İş Yönetimi'},
+    {'id': 4, 'code': 'hbr_listesi', 'name': 'HBR Listesi', 'section': 'İş Yönetimi'},
+    {'id': 5, 'code': 'bakim_planlari', 'name': 'Bakım Planları', 'section': 'İş Yönetimi'},
+    {'id': 6, 'code': 'tramvay_km', 'name': 'Tramvay KM', 'section': 'İş Yönetimi'},
+    {'id': 7, 'code': 'servis_durumu', 'name': 'Servis Durumu', 'section': 'İş Yönetimi'},
+    
+    # Envanter
+    {'id': 8, 'code': 'yedek_parca', 'name': 'Yedek Parça', 'section': 'Envanter'},
+    
+    # Raporlar & Analiz
+    {'id': 9, 'code': 'fracas', 'name': 'FRACAS Analiz', 'section': 'Raporlar & Analiz'},
+    {'id': 10, 'code': 'kpi', 'name': 'KPI Dashboard', 'section': 'Raporlar & Analiz'},
+    {'id': 11, 'code': 'scenarios', 'name': 'Senaryo Analizi', 'section': 'Raporlar & Analiz'},
+    {'id': 12, 'code': 'raporlar', 'name': 'Son Raporlar', 'section': 'Raporlar & Analiz'},
+    {'id': 13, 'code': 'syslog', 'name': 'Sistem Logları', 'section': 'Raporlar & Analiz'},
+    
+    # Dokümantasyon
+    {'id': 14, 'code': 'dokumantasyon', 'name': 'Teknik Dokümanlar', 'section': 'Dokümantasyon'},
+    
+    # Yönetim
+    {'id': 15, 'code': 'admin_dashboard', 'name': 'Admin Paneli', 'section': 'Yönetim'},
+    {'id': 16, 'code': 'kullanici_yonetimi', 'name': 'Kullanıcı Yönetimi', 'section': 'Yönetim'},
+    {'id': 17, 'code': 'proje_yonetimi', 'name': 'Proje Yönetimi', 'section': 'Yönetim'},
+    {'id': 18, 'code': 'yedekleme', 'name': 'Yedekleme', 'section': 'Yönetim'},
+    {'id': 19, 'code': 'denetim', 'name': 'Denetim Günlüğü', 'section': 'Yönetim'},
+    {'id': 20, 'code': 'yetkilendirme', 'name': 'Yetki Yönetimi', 'section': 'Yönetim'},
 ]
 
 
@@ -123,6 +159,12 @@ def create_app():
 
         # Initialize database
         db.init_app(app)
+        # Flask-Migrate entegrasyonu (optional)
+        try:
+            from flask_migrate import Migrate
+            migrate = Migrate(app, db)
+        except ImportError:
+            pass
 
         # Initialize LoginManager
         login_manager = LoginManager()
@@ -148,6 +190,7 @@ def create_app():
         app.register_blueprint(dashboard_bp)
         app.register_blueprint(reports_bp)
         app.register_blueprint(admin_bp)  # Admin paneli
+        app.register_blueprint(bp_roles)  # Rol yönetimi
         
         # Project session handler
         @app.before_request

@@ -5,7 +5,7 @@ Yalnız admin rolüne sahip kullanıcılar erişebilir
 
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, session, current_app
 from flask_login import login_required, current_user
-from models import db, User
+from models import db, User, Role
 from utils.project_manager import ProjectManager
 from utils.backup_manager import BackupManager
 from datetime import datetime
@@ -71,7 +71,8 @@ def dashboard():
 def users():
     """Kullanıcı Yönetimi"""
     users_list = User.query.all()
-    return render_template('admin/users.html', users=users_list)
+    all_roles = Role.query.all()  # Dropdown için tüm roller
+    return render_template('admin/users.html', users=users_list, all_roles=all_roles)
 
 
 @bp.route('/users/add', methods=['GET', 'POST'])
@@ -169,6 +170,63 @@ def delete_user(user_id):
     
     flash(f'Kullanıcı "{user.full_name}" başarıyla silindi!', 'success')
     return redirect(url_for('admin.users'))
+
+
+@bp.route('/users/<int:user_id>/change-role', methods=['POST'])
+@login_required
+@admin_required
+def change_user_role(user_id):
+    """Kullanıcı Rolünü Değiştir (AJAX)"""
+    try:
+        if user_id == current_user.id:
+            return jsonify({'success': False, 'message': 'Kendi rolünüzü değiştiremezsiniz!'}), 400
+        
+        user = User.query.get_or_404(user_id)
+        
+        # JSON data'yı al
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({'success': False, 'message': 'Geçersiz istek!'}), 400
+        
+        # Yeni role_id (integer)
+        try:
+            new_role_id = int(data.get('role', 0))
+        except (ValueError, TypeError):
+            return jsonify({'success': False, 'message': 'Geçersiz rol!'}), 400
+        
+        # Rolü veritabanından al
+        new_role = Role.query.get(new_role_id)
+        if not new_role:
+            return jsonify({'success': False, 'message': 'Rol bulunamadı!'}), 400
+        
+        # Admin sayısını kontrol et (en az 1 admin kalmalı)
+        if user.is_admin() and new_role.name != 'admin':
+            admin_users = User.query.filter(User.role_id == Role.query.filter_by(name='admin').first().id).count() if Role.query.filter_by(name='admin').first() else 0
+            if admin_users <= 1:
+                return jsonify({'success': False, 'message': "Sistem'de en az 1 admin kalmalıdır!"}), 400
+        
+        # Rolü değiştir
+        old_role_name = user.role_obj.name if user.role_obj else user.role
+        user.role_id = new_role_id
+        
+        # Admin ise tüm projelere, değilse hiç proje yok
+        if new_role.name == 'admin':
+            user.set_assigned_projects(['*'])
+        else:
+            user.set_assigned_projects([])
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Kullanıcı rolü "{old_role_name}" → "{new_role.name}" değiştirildi',
+            'new_role': new_role.name
+        }), 200
+        
+    except Exception as e:
+        logger.error(f'[CHANGE_ROLE] Exception: {str(e)}', exc_info=True)
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Hata: {str(e)}'}), 500
 
 
 @bp.route('/projects')
@@ -299,67 +357,36 @@ def api_stats():
 @login_required
 @admin_required
 def yetkilendirme():
-    """Sayfa izinlerini yönet - Role-based authorization"""
-    from models import Permission, RolePermission
+    """Rol ve Yetki Yönetimi Paneli - Rol-İzin Matrisi"""
+    from app import PAGES, PROJECTS
     
-    if request.method == 'POST':
-        # POST isteği: İzinleri güncelle
-        role = request.form.get('role')
-        selected_perm_ids = request.form.getlist('permissions')
-        
-        if not role:
-            flash('Rol gerekli.', 'danger')
-            return redirect(url_for('admin.yetkilendirme'))
-        
-        # Permission ID'lerini page_name'e çevir
-        selected_page_names = []
-        for perm_id in selected_perm_ids:
-            perm = Permission.query.get(perm_id)
-            if perm:
-                selected_page_names.append(perm.page_name)
-        
-        # Mevcut izinleri sil (role + page_name)
-        cursor = db.session.connection().connection.cursor()
-        cursor.execute("DELETE FROM role_permission WHERE role = ?", (role,))
-        db.session.connection().connection.commit()
-        
-        # Yeni izinleri ekle
-        for page_name in selected_page_names:
-            cursor.execute(
-                "INSERT INTO role_permission (role, page_name, can_view, can_edit, can_delete) VALUES (?, ?, ?, ?, ?)",
-                (role, page_name, 1, 1, 0)
-            )
-        
-        db.session.connection().connection.commit()
-        flash(f'"{role}" rolü izinleri güncellendi.', 'success')
-        return redirect(url_for('admin.yetkilendirme'))
-    
-    # GET isteği: Form göster
+    roles = Role.query.all()
     users = User.query.all()
-    permissions = Permission.query.all()
     
-    # Her rol için izinleri yükle - role_permission tablosundan page_name'i al
-    role_permissions = {}
-    for role in ['admin', 'manager', 'saha']:
-        # Database schema'sında page_name var
-        cursor = db.session.connection().connection.cursor()
-        cursor.execute(
-            "SELECT DISTINCT page_name FROM role_permission WHERE role = ?",
-            (role,)
-        )
-        role_permissions[role] = [row[0] for row in cursor.fetchall()]
+    # Sayfa izinleri (app.py'deki PAGES listesinden)
+    page_perms = [
+        {'id': p['id'], 'name': p['code'], 'description': p['name'], 'category': 'page', 'section': p['section']}
+        for p in PAGES
+    ]
     
-    # Rol sayılarını hesapla
-    role_counts = {
-        'admin': User.query.filter_by(role='admin').count(),
-        'manager': User.query.filter_by(role='manager').count(),
-        'saha': User.query.filter_by(role='saha').count(),
-    }
+    # Proje izinleri (app.py'deki PROJECTS listesinden)
+    project_perms = [
+        {'id': 100 + i, 'name': p['code'], 'description': p['name'], 'category': 'project'}
+        for i, p in enumerate(PROJECTS)
+    ]
     
-    return render_template(
-        'admin/permissions.html',
-        users=users,
-        permissions=permissions,
-        role_permissions=role_permissions,
-        role_counts=role_counts
-    )
+    all_permissions = page_perms + project_perms
+    
+    # Her role'un izinlerini dict olarak hazırla
+    role_permissions_map = {}
+    for role in roles:
+        perms = role.get_permissions()
+        role_permissions_map[role.id] = perms
+    
+    return render_template('admin/permissions.html', 
+                         roles=roles,
+                         users=users,
+                         all_permissions=all_permissions,
+                         page_perms=page_perms,
+                         project_perms=project_perms,
+                         role_permissions_map=role_permissions_map)

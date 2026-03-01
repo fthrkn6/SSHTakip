@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Rol ve Yetki Yönetimi - SSH Takip{% endblock %}
+{% block title %}Yetkilendirme Yönetimi - SSH Takip{% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4">
@@ -8,364 +8,156 @@
     <div class="row mb-4">
         <div class="col">
             <h1>
-                <i class="bi bi-lock"></i>
-                Rol ve Yetki Yönetimi
+                <i class="bi bi-shield-check"></i>
+                Yetkilendirme Yönetimi
             </h1>
-            <p class="text-muted">Kullanıcı rolleri ve sistem yetkilerini yönetin</p>
+            <p class="text-muted">Rol izinlerini yönetin - Hangi rol hangi sayfaları ve projeleri görebilir</p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Geri
+            </a>
         </div>
     </div>
 
-    <!-- Flash Messages -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-
-    <!-- Rol Özeti -->
-    <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card border-left-primary">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div>
-                            <div class="text-xs font-weight-bold text-primary mb-1">
-                                Admin Kullanıcı
-                            </div>
-                            <h3 class="mb-0">{{ users|selectattr('is_admin')|list|length }}</h3>
-                        </div>
-                        <i class="bi bi-crown fs-3 ms-3 text-primary" style="opacity: 0.5;"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="card border-left-info">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div>
-                            <div class="text-xs font-weight-bold text-info mb-1">
-                                Saha Kullanıcı
-                            </div>
-                            <h3 class="mb-0">{{ users|selectattr('role', 'equalto', 'saha')|list|length }}</h3>
-                        </div>
-                        <i class="bi bi-tools fs-3 ms-3 text-info" style="opacity: 0.5;"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="card border-left-success">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div>
-                            <div class="text-xs font-weight-bold text-success mb-1">
-                                Toplam Kullanıcı
-                            </div>
-                            <h3 class="mb-0">{{ users|length }}</h3>
-                        </div>
-                        <i class="bi bi-people fs-3 ms-3 text-success" style="opacity: 0.5;"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Kullanıcı Listesi -->
+    <!-- İzin Matrisi -->
     <div class="card">
-        <div class="card-header bg-light">
-            <h5 class="mb-0">
-                <i class="bi bi-list"></i>
-                Kullanıcı Rolleri
-            </h5>
+        <div class="card-header bg-primary text-white">
+            <i class="bi bi-table"></i> Rol-İzin Matrisi
         </div>
         <div class="card-body">
-            {% if users %}
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Kullanıcı Adı</th>
-                                <th>Ad Soyad</th>
-                                <th>E-mail</th>
-                                <th>Mevcut Rol</th>
-                                <th>Durum</th>
-                                <th>Atanan Projeler</th>
-                                <th>İşlemler</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for user in users %}
-                                <tr>
-                                    <td>
-                                        <strong>{{ user.username }}</strong>
-                                    </td>
-                                    <td>
-                                        {{ user.full_name or '-' }}
-                                    </td>
-                                    <td>
-                                        <small>{{ user.email }}</small>
-                                    </td>
-                                    <td>
-                                        {% if user.is_admin %}
-                                            <span class="badge bg-danger">
-                                                <i class="bi bi-crown"></i> Admin
-                                            </span>
-                                        {% else %}
-                                            <span class="badge bg-info">
-                                                <i class="bi bi-tools"></i> Saha
-                                            </span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if user.is_active %}
-                                            <span class="badge bg-success">Aktif</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary">İnaktif</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if user.assigned_projects %}
-                                            {% for project in user.assigned_projects %}
-                                                {% if loop.index <= 3 %}
-                                                    <span class="badge bg-primary">{{ project|upper }}</span>
-                                                {% endif %}
-                                            {% endfor %}
-                                            {% if user.assigned_projects|length > 3 %}
-                                                <span class="badge bg-secondary">+{{ user.assigned_projects|length - 3 }}</span>
-                                            {% endif %}
-                                        {% else %}
-                                            <span class="text-muted">-</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if user.id != current_user.id %}
-                                            <!-- Rol Değiştir Dropdown -->
-                                            <div class="dropdown">
-                                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
-                                                        type="button" 
-                                                        data-bs-toggle="dropdown"
-                                                        aria-expanded="false">
-                                                    <i class="bi bi-pencil"></i> Rol
-                                                </button>
-                                                <ul class="dropdown-menu">
-                                                    {% for role in all_roles %}
-                                                        <li>
-                                                            <form method="POST" 
-                                                                  action="{{ url_for('admin.update_user_role', user_id=user.id) }}"
-                                                                  style="display: inline;">
-                                                                <input type="hidden" name="role" value="{{ role }}">
-                                                                <button type="submit" class="dropdown-item"
-                                                                        {% if user.role == role %}disabled{% endif %}>
-                                                                    {% if role == 'admin' %}
-                                                                        <i class="bi bi-crown"></i> Admin
-                                                                    {% else %}
-                                                                        <i class="bi bi-tools"></i> Saha
-                                                                    {% endif %}
-                                                                </button>
-                                                            </form>
-                                                        </li>
-                                                    {% endfor %}
-                                                </ul>
-                                            </div>
-                                        {% else %}
-                                            <span class="badge bg-warning">Sensin</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+            {% if not roles %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i>
+                Sistemde henüz rol tanımlanmadı!
+            </div>
+            {% elif not page_perms %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i>
+                İzinler bulunamadı!
+            </div>
             {% else %}
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i>
-                    Henüz kullanıcı yok
-                </div>
+            <div style="overflow-x: auto;">
+                <table class="table table-bordered table-hover table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 120px;"><strong>Roller</strong></th>
+                            {% for perm in page_perms %}
+                            <th class="text-center" style="min-width: 100px;">
+                                <small>{{ perm.description }}</small>
+                            </th>
+                            {% endfor %}
+                            {% for perm in project_perms %}
+                            <th class="text-center" style="min-width: 100px;">
+                                <small><strong>{{ perm.description }}</strong></small>
+                            </th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for role in roles %}
+                        <tr>
+                            <td><strong>{{ role.name }}</strong></td>
+                            
+                            <!-- Sayfa izinleri -->
+                            {% for perm in page_perms %}
+                            <td class="text-center">
+                                {% set perm_key = 'perm_' + perm.id|string %}
+                                {% set has_perm = perm_key in role_permissions_map.get(role.id, {}) %}
+                                <input 
+                                    class="form-check-input permission-toggle" 
+                                    type="checkbox" 
+                                    data-role-id="{{ role.id }}"
+                                    data-perm-id="{{ perm.id }}"
+                                    {% if has_perm %}checked{% endif %}
+                                    style="width: 20px; height: 20px; cursor: pointer;"
+                                >
+                            </td>
+                            {% endfor %}
+                            
+                            <!-- Proje izinleri -->
+                            {% for perm in project_perms %}
+                            <td class="text-center" style="background-color: #f0f0f0;">
+                                {% set perm_key = 'perm_' + perm.id|string %}
+                                {% set has_perm = perm_key in role_permissions_map.get(role.id, {}) %}
+                                <input 
+                                    class="form-check-input permission-toggle" 
+                                    type="checkbox" 
+                                    data-role-id="{{ role.id }}"
+                                    data-perm-id="{{ perm.id }}"
+                                    {% if has_perm %}checked{% endif %}
+                                    style="width: 20px; height: 20px; cursor: pointer;"
+                                >
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
             {% endif %}
         </div>
     </div>
 
-    <!-- Rol Tanımları -->
-    <div class="row mt-4">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header bg-light">
-                    <h5 class="mb-0">
-                        <i class="bi bi-crown"></i>
-                        Admin Rolü
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <p class="text-muted">Admin rolüne sahip kullanıcılar:</p>
-                    <ul class="list-unstyled">
-                        <li><i class="bi bi-check-circle text-success"></i> Tüm projelere erişim</li>
-                        <li><i class="bi bi-check-circle text-success"></i> Kullanıcı yönetim paneli</li>
-                        <li><i class="bi bi-check-circle text-success"></i> Proje yönetimi</li>
-                        <li><i class="bi bi-check-circle text-success"></i> Yedekleme ve geri yükleme</li>
-                        <li><i class="bi bi-check-circle text-success"></i> Denetim günlüğü görüntüleme</li>
-                        <li><i class="bi bi-check-circle text-success"></i> Sistem ayarları</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header bg-light">
-                    <h5 class="mb-0">
-                        <i class="bi bi-tools"></i>
-                        Saha Rolü
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <p class="text-muted">Saha rolüne sahip kullanıcılar:</p>
-                    <ul class="list-unstyled">
-                        <li><i class="bi bi-check-circle text-success"></i> Atanan projelere erişim</li>
-                        <li><i class="bi bi-check-circle text-success"></i> Dashboard görüntüleme</li>
-                        <li><i class="bi bi-check-circle text-success"></i> Araç bilgileri güncelleme</li>
-                        <li><i class="bi bi-check-circle text-success"></i> Arıza yönetimi</li>
-                        <li><i class="bi bi-check-circle text-success"></i> Bakım planı takibi</li>
-                        <li><i class="bi bi-times-circle text-danger"></i> Admin paneline erişim yok</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Sayfa İzin Yönetimi -->
-    {% if permissions %}
+    <!-- Kullanıcı Rolleri Özeti -->
     <div class="card mt-4">
-        <div class="card-header bg-light">
-            <h5 class="mb-0">
-                <i class="bi bi-shield-lock"></i>
-                Sayfa İzinlerini Yönet
-            </h5>
+        <div class="card-header bg-info text-white">
+            <i class="bi bi-people"></i> Kullanıcı Rolleri Özeti
         </div>
         <div class="card-body">
-            <form method="POST" id="permissions-form">
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <label for="role-select" class="form-label">
-                            <strong>Rol Seç</strong>
-                        </label>
-                        <select class="form-select" id="role-select" name="role" onchange="updatePermissionForm()">
-                            <option value="">-- Rol Seçiniz --</option>
-                            <option value="admin">Admin</option>
-                            <option value="manager">Müdür/Manager</option>
-                            <option value="saha">Saha Kullanıcısı</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6" style="display: flex; align-items: flex-end;">
-                        <button type="submit" class="btn btn-primary w-100" id="save-btn" style="display: none;">
-                            <i class="bi bi-check-circle"></i>
-                            İzinleri Kaydet
-                        </button>
-                    </div>
-                </div>
-
-                <div id="permissions-container" style="display: none;">
-                    <div class="alert alert-info">
-                        <strong>Seçilen rol için izinleri belirleyin:</strong> Aşağıdaki sayfaları bu rolle işaretleyin.
-                    </div>
-
-                    <div class="row">
-                        {% for permission in permissions %}
-                        <div class="col-md-6 mb-3">
-                            <div class="form-check">
-                                <input class="form-check-input permission-checkbox" 
-                                       type="checkbox" 
-                                       name="permissions" 
-                                       value="{{ permission.id }}"
-                                       id="perm-{{ permission.id }}"
-                                       data-role-permissions="{{ role_permissions }}">
-                                <label class="form-check-label" for="perm-{{ permission.id }}">
-                                    <strong>{{ permission.display_name }}</strong>
-                                    {% if permission.page_name %}
-                                    <br>
-                                    <small class="text-muted">({{ permission.page_name }})</small>
-                                    {% endif %}
-                                </label>
-                            </div>
+            {% if not roles %}
+            <div class="alert alert-warning">Rol bulunamadı!</div>
+            {% else %}
+            <div class="row">
+                {% for role in roles %}
+                <div class="col-md-4 mb-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <span class="badge bg-primary">{{ role.name }}</span>
+                            </h5>
+                            <p class="card-text">
+                                <strong>Kullanıcı sayısı:</strong> <span class="badge bg-secondary">{{ role.users|length }}</span>
+                            </p>
+                            {% set role_perms = role_permissions_map.get(role.id, {}) %}
+                            <p class="card-text">
+                                <strong>Atanan izin:</strong> <span class="badge bg-info">{{ role_perms|length }}</span>
+                            </p>
                         </div>
-                        {% endfor %}
                     </div>
                 </div>
-            </form>
+                {% endfor %}
+            </div>
+            {% endif %}
         </div>
     </div>
-    {% else %}
-    <div class="alert alert-warning mt-4">
-        <i class="bi bi-exclamation-triangle"></i>
-        <strong>İzin tanımlanmış sayfa bulunamadı.</strong>
-        Lütfen sistem yöneticisine başvurun.
-    </div>
-    {% endif %}
-
 </div>
 
-<style>
-    .border-left-primary {
-        border-left: 4px solid var(--primary-color);
-    }
-    .border-left-info {
-        border-left: 4px solid var(--info-color);
-    }
-    .border-left-success {
-        border-left: 4px solid var(--success-color);
-    }
-
-    .dropdown-item:disabled {
-        color: #bbb;
-        cursor: not-allowed;
-        background-color: #f0f0f0;
-    }
-</style>
-
 <script>
-// Rol izinlerini JSON olarak sakla
-const rolePermissionsObj = {
-    'admin': {{ role_permissions.get('admin', [])|tojson }},
-    'manager': {{ role_permissions.get('manager', [])|tojson }},
-    'saha': {{ role_permissions.get('saha', [])|tojson }}
-};
-
-function updatePermissionForm() {
-    const roleSelect = document.getElementById('role-select');
-    const permissionsContainer = document.getElementById('permissions-container');
-    const saveBtn = document.getElementById('save-btn');
-    const selectedRole = roleSelect.value;
-
-    if (!selectedRole) {
-        // Rol seçilmedi
-        permissionsContainer.style.display = 'none';
-        saveBtn.style.display = 'none';
-    } else {
-        // Rol seçildi
-        permissionsContainer.style.display = 'block';
-        saveBtn.style.display = 'block';
-
-        // Bu role ait izinleri kontrol et
-        const rolePerms = rolePermissionsObj[selectedRole] || [];
-        const checkboxes = document.querySelectorAll('.permission-checkbox');
-
-        checkboxes.forEach(checkbox => {
-            const permId = parseInt(checkbox.value);
-            checkbox.checked = rolePerms.includes(permId);
-        });
-    }
-}
-
-// Sayfa yüklendiğinde
 document.addEventListener('DOMContentLoaded', function() {
-    updatePermissionForm();
+    document.querySelectorAll('.permission-toggle').forEach(toggle => {
+        toggle.addEventListener('change', function() {
+            fetch('{{ url_for("role_mgmt.toggle_permission") }}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    role_id: this.dataset.roleId,
+                    permission_id: this.dataset.permId
+                })
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (!d.success) {
+                    alert('Hata: ' + d.message);
+                    this.checked = !this.checked;
+                }
+            })
+            .catch(e => {
+                alert('İstek hatası: ' + e);
+                this.checked = !this.checked;
+            });
+        });
+    });
 });
 </script>
 {% endblock %}

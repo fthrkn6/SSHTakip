@@ -13,12 +13,15 @@
             </h1>
         </div>
         <div class="col-auto">
-            <a href="{{ url_for('admin.add_user') }}" class="btn btn-primary">
-                <i class="fas fa-plus"></i> Yeni Kullanıcı
-            </a>
-            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Geri
-            </a>
+                <a href="{{ url_for('admin.add_user') }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Yeni Kullanıcı
+                </a>
+                <a href="{{ url_for('role_mgmt.permissions') }}" class="btn btn-warning">
+                    <i class="bi bi-lock"></i> Rol Yönetimi
+                </a>
+                <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Geri
+                </a>
         </div>
     </div>
 
@@ -58,15 +61,15 @@
                             <small class="text-muted">@{{ user.username }}</small>
                         </td>
                         <td>{{ user.email }}</td>
-                        <td>
-                            {% if user.is_admin() %}
-                            <span class="badge badge-danger">
-                                <i class="fas fa-crown"></i> Admin
-                            </span>
+                        <td style="cursor: pointer; background-color: #f8f9fa;" data-bs-toggle="modal" data-bs-target="#changeRoleModal" onclick="openRoleModal({{ user.id }}, '{{ user.full_name }}', {{ user.role_id or 0 }})">
+                            {% if user.role_obj %}
+                                <span class="badge bg-primary" title="Tıkla: Rolünü değiştir">
+                                    <i class="fas fa-tag"></i> {{ user.role_obj.name }}
+                                </span>
+                            {% elif user.role %}
+                                <span class="badge bg-secondary">{{ user.role }}</span>
                             {% else %}
-                            <span class="badge badge-info">
-                                <i class="fas fa-wrench"></i> Saha
-                            </span>
+                                <span class="badge bg-light text-dark">Tanımsız</span>
                             {% endif %}
                         </td>
                         <td>
@@ -91,6 +94,9 @@
                             {% endif %}
                         </td>
                         <td>
+                            <button class="btn btn-sm btn-info" data-target="#changeRoleModal" data-toggle="modal" onclick="openRoleModal({{ user.id }}, '{{ user.full_name }}', {{ user.role_id or 0 }})" title="Rolünü değiştir">
+                                <i class="fas fa-exchange-alt"></i>
+                            </button>
                             <a href="{{ url_for('admin.edit_user', user_id=user.id) }}" class="btn btn-sm btn-warning"
                                 title="Düzenle">
                                 <i class="fas fa-edit"></i>
@@ -121,5 +127,187 @@
         <a href="{{ url_for('admin.add_user') }}">Yeni kullanıcı ekle</a>
     </div>
     {% endif %}
+
+    <!-- Rol Değiştir Modal -->
+    <div class="modal fade" id="changeRoleModal" tabindex="-1" role="dialog" aria-labelledby="changeRoleModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title" id="changeRoleModalLabel">
+                        <i class="fas fa-exchange-alt"></i> Kullanıcı Rolünü Değiştir
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Kapat"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning" role="alert">
+                        <i class="fas fa-exclamation-triangle"></i> 
+                        <strong id="userNameDisplay"></strong> kullanıcısının rolünü değiştirmek üzeresiniz.
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Yeni Rol Seç:</label>
+                        {% if all_roles %}
+                            {% for role in all_roles %}
+                            <div class="form-check mb-2">
+                                <input type="radio" class="form-check-input" id="role{{ role.id }}" name="newRole" value="{{ role.id }}">
+                                <label class="form-check-label" for="role{{ role.id }}">
+                                    <strong>{{ role.name }}</strong> {% if role.description %}<small class="text-muted">- {{ role.description }}</small>{% endif %}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="alert alert-warning">Sistem'de hiç rol tanımlanmadığı. Rol Yönetimi sayfasından rol ekleyiniz.</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div id="projectsWarning" class="alert alert-info mt-3" style="display: none;">
+                        <i class="fas fa-info-circle"></i> Saha rolüne dönüştürülürse, kullanıcıya manuel olarak proje atamalısınız.
+                        <a href="#" id="editUserLink">Düzenle sayfasından atayabilirsiniz.</a>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="button" class="btn btn-warning" id="confirmRoleChangeBtn">
+                        <i class="fas fa-check"></i> Rolü Değiştir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentUserIdForRole = null;
+
+function openRoleModal(userId, userName, currentRole) {
+    currentUserIdForRole = userId;
+    console.log('[openRoleModal] userId=' + userId + ', userName=' + userName + ', currentRole=' + currentRole);
+    
+    // Modal'ı doldur
+    const userNameEl = document.getElementById('userNameDisplay');
+    if (userNameEl) {
+        userNameEl.textContent = userName;
+        console.log('[openRoleModal] userNameEl updated');
+    }
+    
+    // Tüm radio buttons'ı uncheck et ve mevcut rolü seç
+    const roleInputs = document.querySelectorAll('input[name="newRole"]');
+    console.log('[openRoleModal] roleInputs count = ' + roleInputs.length);
+    roleInputs.forEach(input => {
+        if (input.value === currentRole) {
+            input.checked = true;
+        } else {
+            input.checked = false;
+        }
+    });
+    
+    // Düzenle linki
+    const editLinkEl = document.getElementById('editUserLink');
+    if (editLinkEl) {
+        editLinkEl.href = "/admin/users/" + userId + "/edit";
+    }
+    
+    // Proje uyarısını gizle
+    const warningEl = document.getElementById('projectsWarning');
+    if (warningEl) {
+        warningEl.style.display = 'none';
+    }
+    
+    // Modal'ı aç (Bootstrap compatible)
+    const modalEl = document.getElementById('changeRoleModal');
+    if (modalEl) {
+        console.log('[openRoleModal] modal element found');
+        // Bootstrap 5
+        if (window.bootstrap && window.bootstrap.Modal) {
+            console.log('[openRoleModal] Using Bootstrap 5');
+            new bootstrap.Modal(modalEl).show();
+        } 
+        // Bootstrap 4 (jQuery ile)
+        else if (window.$ && window.$.fn && window.$.fn.modal) {
+            console.log('[openRoleModal] Using jQuery modal');
+            $(modalEl).modal('show');
+        }
+        else {
+            console.error('[openRoleModal] No modal implementation found');
+        }
+    } else {
+        console.error('[openRoleModal] changeRoleModal element not found');
+    }
+}
+
+// Rol değiştir butonuna tıklandığında
+document.addEventListener('DOMContentLoaded', function() {
+    const confirmBtn = document.getElementById('confirmRoleChangeBtn');
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', function() {
+            const newRoleInput = document.querySelector('input[name="newRole"]:checked');
+            if (!newRoleInput) {
+                alert('Lütfen bir rol seçiniz!');
+                return;
+            }
+            
+            const newRole = newRoleInput.value;
+            
+            // AJAX isteği gönder
+            fetch('/admin/users/' + currentUserIdForRole + '/change-role', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ role: newRole })
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Response data:', data);
+                if (data.success) {
+                    // Modal'ı kapat
+                    const modalEl = document.getElementById('changeRoleModal');
+                    if (modalEl) {
+                        if (window.bootstrap && window.bootstrap.Modal) {
+                            bootstrap.Modal.getInstance(modalEl).hide();
+                        } else if (window.$ && window.$.fn && window.$.fn.modal) {
+                            $(modalEl).modal('hide');
+                        }
+                    }
+                    
+                    // Bildirim göster
+                    alert('✅ ' + data.message);
+                    
+                    // Sayfayı yenile
+                    setTimeout(function() {
+                        location.reload();
+                    }, 500);
+                } else {
+                    alert('❌ Hata: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Fetch Hatası:', error);
+                alert('❌ Bir hata oluştu: ' + error.message);
+            });
+        });
+    }
+    
+    // Rol seçimi değiştiğinde uyarıyı göster/gizle
+    const roleInputs = document.querySelectorAll('input[name="newRole"]');
+    const warningEl = document.getElementById('projectsWarning');
+    
+    roleInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            // "Saha" rolü seçilirse uyarı göster
+            if (this.value === 'saha' && warningEl) {
+                warningEl.style.display = 'block';
+            } else if (warningEl) {
+                warningEl.style.display = 'none';
+            }
+        });
+    });
+});
+</script>
 {% endblock %}
