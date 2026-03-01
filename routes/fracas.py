@@ -583,14 +583,14 @@ def api_pareto(category):
     """API: Pareto analizi"""
     df = load_ariza_listesi_data()
     if df is None:
-        df = lnify({'error': 'Veri bulunamadı'}), 404
+        return jsonify({'error': 'Veri bulunamadı'}), 404
     
     pareto = calculate_pareto_analysis(df)
     
-    if category in pareto:
-        return jsonify(pareto[category])
+    if pareto is None or category not in pareto:
+        return jsonify({'error': 'Geçersiz kategori'}), 400
     
-    return jsonify({'error': 'Geçersiz kategori'}), 400
+    return jsonify(pareto[category])
 
 
 @bp.route('/api/trend')
@@ -699,6 +699,239 @@ def api_km_analysis():
         })
     
     return jsonify(result)
+
+
+@bp.route('/filter', methods=['GET'])
+@login_required
+def fracas_filter():
+    """FRACAS verileri filtrele - Tarih ve kategori"""
+    df = load_fracas_data()
+    
+    if df is None:
+        return jsonify({'error': 'Veri bulunamadı'}), 404
+    
+    # Filtre parametreleri
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    failure_class = request.args.get('failure_class')
+    supplier = request.args.get('supplier')
+    
+    # Tarih sütununu bul
+    date_col = get_column(df, ['tarih', 'date', 'hata tarih', 'failure date'])
+    
+    # Filtreleri uygula
+    filtered_df = df.copy()
+    
+    # Tarih filtresi
+    if start_date and date_col:
+        try:
+            start = pd.to_datetime(start_date)
+            filtered_df[date_col] = pd.to_datetime(filtered_df[date_col], errors='coerce')
+            filtered_df = filtered_df[filtered_df[date_col] >= start]
+        except:
+            pass
+    
+    if end_date and date_col:
+        try:
+            end = pd.to_datetime(end_date)
+            filtered_df[date_col] = pd.to_datetime(filtered_df[date_col], errors='coerce')
+            filtered_df = filtered_df[filtered_df[date_col] <= end]
+        except:
+            pass
+    
+    # Arıza sınıfı filtresi
+    if failure_class:
+        class_col = get_column(filtered_df, ['arıza sınıfı', 'failure class', 'sınıf'])
+        if class_col:
+            filtered_df = filtered_df[filtered_df[class_col].astype(str).str.startswith(failure_class)]
+    
+    # Tedarikçi filtresi
+    if supplier:
+        supplier_col = get_column(filtered_df, ['tedarikçi', 'supplier', 'supplier name'])
+        if supplier_col:
+            filtered_df = filtered_df[filtered_df[supplier_col].astype(str).str.contains(supplier, case=False, na=False)]
+    
+    # İstatistikler
+    stats = calculate_basic_stats(filtered_df)
+    pareto = calculate_pareto_analysis(filtered_df)
+    trend = calculate_trend_analysis(filtered_df)
+    
+    return jsonify({
+        'success': True,
+        'total_records': len(filtered_df),
+        'filtered_count': len(filtered_df),
+        'stats': stats,
+        'pareto': pareto,
+        'trend': trend
+    })
+
+
+@bp.route('/export/excel', methods=['GET'])
+@login_required
+def export_excel():
+    """FRACAS verileri Excel'e aktar"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from io import BytesIO
+    
+    df = load_fracas_data()
+    
+    if df is None:
+        flash('FRACAS verileri bulunamadı!', 'danger')
+        return redirect(url_for('fracas.index'))
+    
+    # Filtre parametreleri
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    failure_class = request.args.get('failure_class')
+    
+    date_col = get_column(df, ['tarih', 'date', 'hata tarih'])
+    filtered_df = df.copy()
+    
+    # Filtreler uygula
+    if start_date and date_col:
+        try:
+            start = pd.to_datetime(start_date)
+            filtered_df[date_col] = pd.to_datetime(filtered_df[date_col], errors='coerce')
+            filtered_df = filtered_df[filtered_df[date_col] >= start]
+        except:
+            pass
+    
+    if end_date and date_col:
+        try:
+            end = pd.to_datetime(end_date)
+            filtered_df[date_col] = pd.to_datetime(filtered_df[date_col], errors='coerce')
+            filtered_df = filtered_df[filtered_df[date_col] <= end]
+        except:
+            pass
+    
+    if failure_class:
+        class_col = get_column(filtered_df, ['arıza sınıfı', 'failure class'])
+        if class_col:
+            filtered_df = filtered_df[filtered_df[class_col].astype(str).str.startswith(failure_class)]
+    
+    # Excel dosyası oluştur
+    project = session.get('current_project', 'belgrad')
+    
+    try:
+        output = BytesIO()
+        filtered_df.to_excel(output, sheet_name='FRACAS', index=False)
+        output.seek(0)
+        
+        from flask import send_file
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'FRACAS_{project}_{datetime.now().strftime("%Y%m%d")}.xlsx'
+        )
+    except Exception as e:
+        logger.error(f'Excel export hatası: {e}')
+        flash('Excel export sırasında hata oluştu!', 'danger')
+        return redirect(url_for('fracas.index'))
+
+
+@bp.route('/export/pdf', methods=['GET'])
+@login_required
+def export_pdf():
+    """FRACAS verileri PDF'ye aktar"""
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import landscape, A4
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from io import BytesIO
+        from flask import send_file
+        
+        df = load_fracas_data()
+        
+        if df is None:
+            flash('FRACAS verileri bulunamadı!', 'danger')
+            return redirect(url_for('fracas.index'))
+        
+        project = session.get('current_project', 'belgrad')
+        
+        # Filtre parametreleri
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        date_col = get_column(df, ['tarih', 'date', 'hata tarih'])
+        filtered_df = df.copy()
+        
+        if start_date and date_col:
+            try:
+                start = pd.to_datetime(start_date)
+                filtered_df[date_col] = pd.to_datetime(filtered_df[date_col], errors='coerce')
+                filtered_df = filtered_df[filtered_df[date_col] >= start]
+            except:
+                pass
+        
+        if end_date and date_col:
+            try:
+                end = pd.to_datetime(end_date)
+                filtered_df[date_col] = pd.to_datetime(filtered_df[date_col], errors='coerce')
+                filtered_df = filtered_df[filtered_df[date_col] <= end]
+            except:
+                pass
+        
+        # PDF oluştur
+        output = BytesIO()
+        doc = SimpleDocTemplate(
+            output,
+            pagesize=landscape(A4),
+            topMargin=0.5*inch,
+            bottomMargin=0.5*inch,
+            leftMargin=0.5*inch,
+            rightMargin=0.5*inch
+        )
+        
+        styles = getSampleStyleSheet()
+        elements = []
+        
+        # Başlık
+        title = Paragraph(f'<b>FRACAS Analiz Raporu - {project.upper()}</b>', styles['Title'])
+        elements.append(title)
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # İstatistikler
+        stats = calculate_basic_stats(filtered_df)
+        stats_text = f"Toplam Arızalar: {stats['total_failures']} | Araçlar: {stats['unique_vehicles']} | Modüller: {stats['unique_modules']}"
+        elements.append(Paragraph(stats_text, styles['Normal']))
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Tablo - İlk 100 satır
+        table_data = [list(filtered_df.columns)]
+        for idx, row in filtered_df.head(100).iterrows():
+            table_data.append([str(val)[:30] for val in row])  # Sütun genişliğini sınırla
+        
+        table = Table(table_data, colWidths=[1*inch if i == 0 else 0.5*inch for i in range(len(filtered_df.columns))])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('FONTSIZE', (0, 1), (-1, -1), 7),
+        ]))
+        
+        elements.append(table)
+        
+        doc.build(elements)
+        output.seek(0)
+        
+        return send_file(
+            output,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f'FRACAS_{project}_{datetime.now().strftime("%Y%m%d")}.pdf'
+        )
+    except Exception as e:
+        logger.error(f'PDF export hatası: {e}')
+        flash('PDF export sırasında hata oluştu!', 'danger')
+        return redirect(url_for('fracas.index'))
 
 
 @bp.route('/api/safety-analysis')
