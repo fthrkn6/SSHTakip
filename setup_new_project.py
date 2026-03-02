@@ -124,12 +124,24 @@ def create_new_project(project_name, vehicle_codes=None, maintenance_template=No
     return True
 
 if __name__ == '__main__':
+    import sys
+    
     print("=== YENİ PROJE OLUŞTUR ===\n")
     
-    # Örnek: ANKARA projesi oluştur
-    ankara_vehicles = [5001, 5002, 5003, 5004, 5005]
-    
-    create_new_project(
-        project_name='ankara',
-        vehicle_codes=ankara_vehicles
-    )
+    # Komut satırından kullanım: python setup_new_project.py samsun 8001 8002 8003
+    if len(sys.argv) > 1:
+        project_name = sys.argv[1]
+        vehicle_codes = [int(x) for x in sys.argv[2:]] if len(sys.argv) > 2 else None
+        
+        create_new_project(
+            project_name=project_name,
+            vehicle_codes=vehicle_codes
+        )
+    else:
+        # Default: ankara
+        ankara_vehicles = [5001, 5002, 5003, 5004, 5005]
+        
+        create_new_project(
+            project_name='ankara',
+            vehicle_codes=ankara_vehicles
+        )
