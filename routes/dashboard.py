@@ -840,14 +840,26 @@ def get_equipment_failures(equipment_code=None):
             
             sistem_col = None
             for col in df.columns:
-                if col.lower().strip() == 'sistem':  # Exact match
+                # "Sistem" kelimesini içer ama "Alt Sistem" değil
+                col_clean = col.lower().replace('\n', ' ').strip()
+                if col_clean == 'sistem':
                     sistem_col = col
                     break
-                if 'alt sistem' in col.lower():  # FRACAS fallback
-                    sistem_col = col
-                    break
-                if 'module' in col.lower():
-                    sistem_col = col
+            
+            # Fallback: Alt Sistem
+            if not sistem_col:
+                for col in df.columns:
+                    if 'alt sistem' in col.lower():
+                        sistem_col = col
+                        break
+            
+            # Fallback: module (module arayalım - Araç Module değil)
+            if not sistem_col:
+                for col in df.columns:
+                    col_clean = col.lower()
+                    if 'modul' in col_clean and 'araç' not in col_clean:  # Araç Module değil
+                        sistem_col = col
+                        break
                     break
             
             print(f"[DEBUG-API] Tüm sütunlar: {list(df.columns)}", flush=True)
