@@ -274,17 +274,36 @@
                                 </div>
                                 <div class="col-md-6 col-lg-3 mb-2">
                                     <dt class="fw-bold small">MTTR (dk)</dt>
+                                    <dd class="small mb-0">{% if row|length > 26 %}{{ row[26] or '-' }}{% else %}-{%
+                                        endif %}</dd>
+                                </div>
+                                <div class="col-md-6 col-lg-3 mb-2">
+                                    <dt class="fw-bold small">Servise Veriliş Tarih</dt>
                                     <dd class="small mb-0">{% if row|length > 22 %}{{ row[22] or '-' }}{% else %}-{%
                                         endif %}</dd>
                                 </div>
                                 <div class="col-md-6 col-lg-3 mb-2">
-                                    <dt class="fw-bold small">Servise Veriliş</dt>
+                                    <dt class="fw-bold small">Servise Veriliş Saati</dt>
                                     <dd class="small mb-0">{% if row|length > 23 %}{{ row[23] or '-' }}{% else %}-{%
                                         endif %}</dd>
                                 </div>
                                 <div class="col-md-6 col-lg-3 mb-2">
-                                    <dt class="fw-bold small">Servise Veriliş Saati</dt>
+                                    <dt class="fw-bold small">Arıza Tipi</dt>
                                     <dd class="small mb-0">{% if row|length > 24 %}{{ row[24] or '-' }}{% else %}-{%
+                                        endif %}</dd>
+                                </div>
+                            </div>
+
+                            <!-- MTTR/MDT Bilgileri -->
+                            <div class="row g-3 mt-3">
+                                <div class="col-md-6 col-lg-3 mb-2">
+                                    <dt class="fw-bold small">Araç MTTR / MDT</dt>
+                                    <dd class="small mb-0">{% if row|length > 26 %}{{ row[26] or '-' }}{% else %}-{%
+                                        endif %}</dd>
+                                </div>
+                                <div class="col-md-6 col-lg-3 mb-2">
+                                    <dt class="fw-bold small">Kompanent MTTR / MDT</dt>
+                                    <dd class="small mb-0">{% if row|length > 27 %}{{ row[27] or '-' }}{% else %}-{%
                                         endif %}</dd>
                                 </div>
                             </div>
@@ -293,22 +312,22 @@
                             <div class="row g-3 mt-3">
                                 <div class="col-md-6 col-lg-3 mb-2">
                                     <dt class="fw-bold small">Parça Kodu</dt>
-                                    <dd class="small mb-0">{% if row|length > 26 %}{{ row[26]|string if 'Yok' not in
-                                        (row[26]|string) else 'Yok' }}{% else %}-{% endif %}</dd>
-                                </div>
-                                <div class="col-md-6 col-lg-3 mb-2">
-                                    <dt class="fw-bold small">Parça Adı</dt>
-                                    <dd class="small mb-0">{% if row|length > 27 %}{{ row[27]|string if 'Yok' not in
-                                        (row[27]|string) else 'Yok' }}{% else %}-{% endif %}</dd>
-                                </div>
-                                <div class="col-md-6 col-lg-3 mb-2">
-                                    <dt class="fw-bold small">Seri No</dt>
                                     <dd class="small mb-0">{% if row|length > 28 %}{{ row[28]|string if 'Yok' not in
                                         (row[28]|string) else 'Yok' }}{% else %}-{% endif %}</dd>
                                 </div>
                                 <div class="col-md-6 col-lg-3 mb-2">
+                                    <dt class="fw-bold small">Seri No</dt>
+                                    <dd class="small mb-0">{% if row|length > 29 %}{{ row[29]|string if 'Yok' not in
+                                        (row[29]|string) else 'Yok' }}{% else %}-{% endif %}</dd>
+                                </div>
+                                <div class="col-md-6 col-lg-3 mb-2">
+                                    <dt class="fw-bold small">Parça Adı</dt>
+                                    <dd class="small mb-0">{% if row|length > 30 %}{{ row[30]|string if 'Yok' not in
+                                        (row[30]|string) else 'Yok' }}{% else %}-{% endif %}</dd>
+                                </div>
+                                <div class="col-md-6 col-lg-3 mb-2">
                                     <dt class="fw-bold small">Adedi</dt>
-                                    <dd class="small mb-0">{% if row|length > 29 %}{{ row[29] if row[29] != 0 else '-'
+                                    <dd class="small mb-0">{% if row|length > 31 %}{{ row[31] if row[31] != 0 else '-'
                                         }}{% else %}-{% endif %}</dd>
                                 </div>
                             </div>

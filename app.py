@@ -400,29 +400,29 @@ def create_app():
                         break
             
             if request.method == 'GET':
-                # Son FRACAS ID'yi Arıza Listesi'nden bul
+                # Son FRACAS ID'yi FRACAS TEMPLATE dosyasından bul (Ariza Listesi'nden değil!)
                 import tempfile
                 import time
                 next_fracas_id = 1
                 
                 # APP.ROOT_PATH kullanarak doğru lokasyonu bul
-                ariza_listesi_dir = os.path.join(app.root_path, 'logs', project, 'ariza_listesi')
-                os.makedirs(ariza_listesi_dir, exist_ok=True)
-                temp_dir = tempfile.gettempdir()
+                fracas_file = os.path.join(app.root_path, 'logs', project, 'ariza_listesi', f'Fracas_{project.upper()}.xlsx')
                 
-                ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_{project.upper()}.xlsx")
+                print(f"[GET-DEBUG] Dosya yolu: {fracas_file}")
+                print(f"[GET-DEBUG] Dosya var mı: {os.path.exists(fracas_file)}")
                 
-                if os.path.exists(ariza_listesi_file):
+                if os.path.exists(fracas_file):
                     try:
-                        # Excel'i direkt aç (temp'e kopyalamadan)
+                        # FRACAS template dosyasını oku
                         from openpyxl import load_workbook
-                        wb = load_workbook(ariza_listesi_file, data_only=True)
-                        ws = wb.active
+                        wb = load_workbook(fracas_file, data_only=True)
+                        ws = wb['FRACAS']
                         
-                        # A sütununda FRACAS ID'leri ara (Row 5'ten başla, Row 4 header)
+                        # E sütununda FRACAS ID'leri ara (Row 5'ten başla, Row 4 header)
+                        # FRACAS template'de ID sütunu E'dir
                         ids = []
                         for row in range(5, ws.max_row + 1):
-                            cell_val = ws.cell(row=row, column=1).value
+                            cell_val = ws.cell(row=row, column=5).value  # E = 5th column
                             if cell_val and isinstance(cell_val, str) and 'FF-' in str(cell_val):
                                 try:
                                     num = int(str(cell_val).split('FF-')[-1])
@@ -438,6 +438,7 @@ def create_app():
                         else:
                             next_fracas_id = 1
                     except Exception as e:
+                        print(f"   [ERROR] FRACAS ID okunamadı ({fracas_file}): {e}")
                         next_fracas_id = 1
                 
                 # Tramvaylar ve sistemler
@@ -618,34 +619,33 @@ def create_app():
                     fracas_id = form_data.get('fracas_id', '').strip()
                     print(f"   🔢 Form'dan gelen FRACAS ID: '{fracas_id}'")
                     
-                    # Arıza Listesi dosyasından FRACAS ID'yi hesapla (YALNIzCA BURADAN)
+                    # FRACAS TEMPLATE dosyasından FRACAS ID'yi hesapla (Ariza Listesi değil!)
                     import tempfile
                     import time
                     
-                    # APP.ROOT_PATH kullanarak doğru lokasyonu bul (os.path.dirname görmek yerine)
-                    ariza_listesi_dir = os.path.join(app.root_path, 'logs', project, 'ariza_listesi')
-                    os.makedirs(ariza_listesi_dir, exist_ok=True)
+                    # APP.ROOT_PATH kullanarak doğru lokasyonu bul
+                    fracas_file = os.path.join(app.root_path, 'logs', project, 'ariza_listesi', f'Fracas_{project.upper()}.xlsx')
+                    os.makedirs(os.path.dirname(fracas_file), exist_ok=True)
                     
                     temp_dir = tempfile.gettempdir()
-                    ariza_listesi_file = os.path.join(ariza_listesi_dir, f"Ariza_Listesi_{project.upper()}.xlsx")
                     
-                    # FRACAS ID hesapla (YALNIzCA Arıza Listesi'nden - TEMP'TEN OKU)
+                    # FRACAS ID hesapla (Fracas_PROJE.xlsx'ten - FracasWriter'la senkron)
                     next_fracas_num = 1
-                    if os.path.exists(ariza_listesi_file):
+                    if os.path.exists(fracas_file):
                         try:
                             # Main dosyayı temp'e kopyala (lock'u çözmek için)
-                            temp_read_file = os.path.join(temp_dir, f"Ariza_check_{int(time.time())}.xlsx")
-                            shutil.copy(ariza_listesi_file, temp_read_file)
+                            temp_read_file = os.path.join(temp_dir, f"Fracas_check_{int(time.time())}.xlsx")
+                            shutil.copy(fracas_file, temp_read_file)
                             time.sleep(0.2)
                             
-                            # Temp'ten oku
+                            # Temp'ten FRACAS sheet'ini oku
                             wb_check = load_workbook(temp_read_file, data_only=True)
-                            ws_check = wb_check.active
+                            ws_check = wb_check['FRACAS']
                             
-                            # A sütununda (FRACAS ID) max numarayı bul
-                            print(f"   [INFO] Arıza Listesi max row: {ws_check.max_row}")
+                            # E sütununda (FRACAS ID) max numarayı bul
+                            print(f"   [INFO] Fracas_{project.upper()} max row: {ws_check.max_row}")
                             for row in range(5, ws_check.max_row + 1):
-                                cell_val = ws_check.cell(row=row, column=1).value
+                                cell_val = ws_check.cell(row=row, column=5).value  # E sütunu = column 5
                                 if cell_val:
                                     try:
                                         if isinstance(cell_val, str) and 'FF-' in cell_val:
@@ -701,7 +701,7 @@ def create_app():
                     from openpyxl.styles import Border, Side, Font, PatternFill, Alignment
                     import shutil
                     
-                    ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'ariza_listesi')
+                    ariza_listesi_dir = os.path.join(app.root_path, 'logs', project, 'ariza_listesi')
                     os.makedirs(ariza_listesi_dir, exist_ok=True)
                     
                     # Güncellik Arıza Listesi dosyasını bul
@@ -942,19 +942,76 @@ def create_app():
                             from PIL import Image as PILImage
                             
                             project = session.get('current_project', 'belgrad')
-                            hbr_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'HBR')
+                            hbr_dir = os.path.join(app.root_path, 'logs', project, 'HBR')
                             os.makedirs(hbr_dir, exist_ok=True)
                             
                             # Template yükleme
-                            template_path = os.path.join(os.path.dirname(__file__), 'data', project, 'FR_010_R06_SSH HBR.xlsx')
+                            template_path = os.path.join(app.root_path, 'data', project, 'FR_010_R06_SSH HBR.xlsx')
                             if not os.path.exists(template_path):
                                 print(f"   [WARNING] HBR Template bulunamadı: {template_path}")
                             else:
                                 print(f"   [OK] Template yüklendi: {template_path}")
-                                # NCR numarası oluştur
-                                hbr_files = [f for f in os.listdir(hbr_dir) if f.startswith('BEL25-NCR-')]
-                                ncr_counter = len(hbr_files) + 1
-                                ncr_number = f"BEL25-NCR-{ncr_counter:03d}"
+                                # HBR PREFIX'ini oku (Veriler.xlsx'ten veya mapping'ten)
+                                hbr_code = None
+                                # Case-insensitive dosya bulma
+                                data_dir = os.path.join(app.root_path, 'data', project)
+                                veriler_path = None
+                                if os.path.exists(data_dir):
+                                    for file in os.listdir(data_dir):
+                                        if file.lower() == 'veriler.xlsx':
+                                            veriler_path = os.path.join(data_dir, file)
+                                            break
+                                
+                                if veriler_path and os.path.exists(veriler_path):
+                                    try:
+                                        wb_veriler = load_workbook(veriler_path)
+                                        if 'Sayfa2' in wb_veriler.sheetnames:
+                                            ws_sayfa2 = wb_veriler['Sayfa2']
+                                            hbr_code = ws_sayfa2['B2'].value
+                                            print(f"   ✓ Veriler.xlsx'ten HBR kodu okundu: {hbr_code} (dosya: {os.path.basename(veriler_path)})")
+                                        wb_veriler.close()
+                                    except Exception as e:
+                                        print(f"   [WARNING] Veriler.xlsx'ten HBR kodu okunamadı: {e}")
+                                else:
+                                    print(f"   [INFO] Veriler.xlsx bulunamadı: {veriler_path}")
+                                
+                                # Fallback: Proje mapping'i
+                                if not hbr_code:
+                                    hbr_code_map = {
+                                        'belgrad': 'BEL25',
+                                        'iasi': 'IAS25',
+                                        'timisoara': 'TIM25',
+                                        'kayseri': 'KAY5+6',
+                                        'kocaeli': 'KOC25',
+                                        'gebze': 'GEB25'
+                                    }
+                                    hbr_code = hbr_code_map.get(project, 'BOZ')
+                                    print(f"   ! Fallback mapping'ten HBR kodu: {hbr_code} (proje: {project})")
+                                
+                                print(f"   📌 Seçili HBR Kodu: {hbr_code}")
+                                print(f"   📂 HBR Klasörü: {hbr_dir}")
+                                # Klasördeki mevcut HBR dosyalarını tara ve en yüksek numarayı bul
+                                ncr_numbers = []
+                                if os.path.exists(hbr_dir):
+                                    existing_files = os.listdir(hbr_dir)
+                                    print(f"   📋 Klasördeki dosyalar ({len(existing_files)} toplam): {existing_files}")
+                                    for f in existing_files:
+                                        print(f"      Kontrol: {f} (endswith .xlsx: {f.endswith('.xlsx')}, -NCR- içeriyor: {'-NCR-' in f})")
+                                        if f.endswith('.xlsx') and '-NCR-' in f:
+                                            try:
+                                                # {code}-NCR-{number}.xlsx formatından number'ı çıkar
+                                                num_str = f.split('-NCR-')[-1].replace('.xlsx', '')
+                                                num = int(num_str)
+                                                ncr_numbers.append(num)
+                                                print(f"         ✓ Ayrıştırıldı: {f} → Numara: {num}")
+                                            except (ValueError, IndexError) as e:
+                                                print(f"         ✗ Ayrıştırılamadı: {f} → {e}")
+                                else:
+                                    print(f"   [INFO] HBR klasörü mevcut değil, oluşturulacak")
+                                
+                                # Sonraki numarayı hesapla
+                                ncr_counter = (max(ncr_numbers) if ncr_numbers else 0) + 1
+                                ncr_number = f"{hbr_code}-NCR-{ncr_counter:03d}"
                                 hbr_filename = f"{ncr_number}.xlsx"
                                 hbr_filepath = os.path.join(hbr_dir, hbr_filename)
                                 
@@ -1064,7 +1121,7 @@ def create_app():
                                 
                                 # E8: Müşteri bilgisi (veriler.xlsx'den B3'ten çek)
                                 musteri_code = ''
-                                veriler_path = os.path.join(os.path.dirname(__file__), 'data', project, 'veriler.xlsx')
+                                veriler_path = os.path.join(app.root_path, 'data', project, 'veriler.xlsx')
                                 if os.path.exists(veriler_path):
                                     try:
                                         veriler_wb = load_workbook(veriler_path)
@@ -1197,7 +1254,7 @@ def create_app():
             from datetime import datetime
             
             project = session.get('current_project', 'belgrad')
-            hbr_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'HBR')
+            hbr_dir = os.path.join(app.root_path, 'logs', project, 'HBR')
             
             print(f"\n📂 HBR Listesi yükleniyor...")
             print(f"   Proje: {project}")
@@ -1215,8 +1272,8 @@ def create_app():
                     print(f"   Dosyalar: {files_found}")
                     
                     for filename in files_found:
-                        # BEL25-NCR- ile başlayan tüm .xlsx dosyalarını al (komple filtre)
-                        if filename.endswith('.xlsx') and filename.startswith('BEL25-NCR-'):
+                        # Tüm -NCR- formatındaki .xlsx dosyalarını al
+                        if filename.endswith('.xlsx') and '-NCR-' in filename:
                             filepath = os.path.join(hbr_dir, filename)
                             
                             try:
@@ -1276,12 +1333,12 @@ def create_app():
             import os
             from werkzeug.utils import secure_filename
             
-            # Güvenlik: sadece BEL25-NCR- formatındaki dosyaları sil
-            if not (filename.startswith('BEL25-NCR-') and filename.endswith('.xlsx')):
+            # Güvenlik: sadece {CODE}-NCR-{NUMBER}.xlsx formatındaki dosyaları sil
+            if not (filename.endswith('.xlsx') and '-NCR-' in filename):
                 return {'error': 'Geçersiz dosya adı'}, 400
             
             project = session.get('current_project', 'belgrad')
-            hbr_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'HBR')
+            hbr_dir = os.path.join(app.root_path, 'logs', project, 'HBR')
             filepath = os.path.join(hbr_dir, secure_filename(filename))
             
             try:
@@ -1303,13 +1360,13 @@ def create_app():
             from werkzeug.utils import secure_filename
             import os
             
-            # Güvenlik: sadece BEL25-NCR- formatındaki dosyaları izin ver
-            if not (filename.startswith('BEL25-NCR-') and filename.endswith('.xlsx')):
+            # Güvenlik: sadece {CODE}-NCR-{NUMBER}.xlsx formatındaki dosyaları izin ver
+            if not (filename.endswith('.xlsx') and '-NCR-' in filename):
                 flash('❌ Geçersiz dosya adı', 'danger')
                 return redirect(url_for('hbr_listesi'))
             
             project = session.get('current_project', 'belgrad')
-            hbr_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'HBR')
+            hbr_dir = os.path.join(app.root_path, 'logs', project, 'HBR')
             filepath = os.path.join(hbr_dir, secure_filename(filename))
             
             # Güvenlik: path traversal kontrol et
@@ -1334,7 +1391,7 @@ def create_app():
             project = session.get('current_project', 'belgrad')
             
             # Birincil konum: logs/{project}/ariza_listesi/Fracas_{PROJECT}.xlsx
-            ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'ariza_listesi')
+            ariza_listesi_dir = os.path.join(app.root_path, 'logs', project, 'ariza_listesi')
             
             ariza_listesi_file = None
             use_sheet = None
@@ -1404,6 +1461,53 @@ def create_app():
                             if processed_row[28] == 'Yok' and processed_row[30] == 'Yok':
                                 processed_row[31] = 0
                             
+                            # ===== MTTR HESAPLAMA =====
+                            # Column 21 (V): Tamir Süresi - "3 saat 0 dakika" formatını dakikaya çevir
+                            tamir_suresi_text = processed_row[21] if len(processed_row) > 21 else None
+                            mttr_minutes = 0
+                            
+                            if tamir_suresi_text and isinstance(tamir_suresi_text, str):
+                                try:
+                                    # "3 saat 0 dakika" → dakika sayısına çevir
+                                    parts = tamir_suresi_text.lower().split()
+                                    saat = 0
+                                    dakika = 0
+                                    
+                                    for i, part in enumerate(parts):
+                                        if 'saat' in part and i > 0:
+                                            try:
+                                                saat = int(parts[i-1])
+                                            except:
+                                                pass
+                                        if 'dakika' in part and i > 0:
+                                            try:
+                                                dakika = int(parts[i-1])
+                                            except:
+                                                pass
+                                    
+                                    mttr_minutes = saat * 60 + dakika
+                                except:
+                                    mttr_minutes = 0
+                            
+                            # Eğer processed_row'un uzunluğu 32'den az ise doldur
+                            while len(processed_row) < 32:
+                                processed_row.append(0)
+                            
+                            # Column 26 (AA): Araç MTTR / MDT - Şartlı
+                            # Column 27 (AB): Komponent MTTR / MDT = MTTR (dk)
+                            
+                            ariza_sinifi = processed_row[10] if len(processed_row) > 10 else None  # K sütunu
+                            detayli_bilgi = processed_row[25] if len(processed_row) > 25 else None  # Z sütunu
+                            
+                            # Komponent MTTR = MTTR (dk)
+                            processed_row[27] = mttr_minutes
+                            
+                            # Araç MTTR: IF (A or B) OR (Servise Engel) THEN Komponent MTTR ELSE 0
+                            if (ariza_sinifi in ['A', 'B']) or (detayli_bilgi and 'Servise Engel' in str(detayli_bilgi)):
+                                processed_row[26] = mttr_minutes
+                            else:
+                                processed_row[26] = 0
+                            
                             rows.append(processed_row)
                     
                     row_count = len(rows)
@@ -1436,7 +1540,7 @@ def create_app():
             
             try:
                 project = session.get('current_project', 'belgrad')
-                ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'ariza_listesi')
+                ariza_listesi_dir = os.path.join(app.root_path, 'logs', project, 'ariza_listesi')
                 
                 # FRACAS dosyasını bul
                 fracas_file = None
@@ -1467,7 +1571,7 @@ def create_app():
             import time
             
             project = session.get('current_project', 'belgrad')
-            ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'ariza_listesi')
+            ariza_listesi_dir = os.path.join(app.root_path, 'logs', project, 'ariza_listesi')
             
             # FRACAS dosyasını bul
             fracas_file = None
