@@ -154,8 +154,31 @@ def create_app():
         app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'bozankaya-ssh_takip-2024-gizli')
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ssh_takip_bozankaya.db'
         app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'pool_size': 10,
+            'pool_recycle': 3600,
+            'pool_pre_ping': True,
+        }
         app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'uploads')
         app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
+        
+        # Performance Optimization
+        app.config['JSON_SORT_KEYS'] = False  # Smaller JSON responses
+        app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000  # 1 year cache for static files
+        app.config['JINJA_AUTO_RELOAD'] = False  # Disable auto reload in production
+        app.config['TEMPLATES_AUTO_RELOAD'] = False  # Disable auto reload in production
+        app.config['SESSION_COOKIE_HTTPONLY'] = True  # Security: prevent JavaScript access
+        app.config['SESSION_COOKIE_SECURE'] = False  # Set to True if using HTTPS
+        app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection
+        app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session timeout
+        app.config['COMPRESS_LEVEL'] = 6  # Gzip compression level
+        
+        # Enable compression
+        try:
+            from flask_compress import Compress
+            Compress(app)
+        except ImportError:
+            pass  # Flask-Compress not installed, skipping
 
         # Initialize database
         db.init_app(app)
@@ -3402,13 +3425,33 @@ def create_app():
             print(f"\n>> {request.method} {request.path} - IP: {request.remote_addr}")
 
         @app.after_request
-        def log_response(response):
-            """Log all responses"""
-            # Cache headers - Dynamic content should not be cached
-            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-            response.headers['Pragma'] = 'no-cache'
-            response.headers['Expires'] = '0'
+        def optimize_response(response):
+            """Optimize responses with caching and compression"""
+            # Log response
             print(f"<< {response.status_code} {response.status} - {request.path}")
+            
+            # Determine cache strategy based on content type and path
+            if request.path.startswith('/static/'):
+                # Cache static assets for 1 year
+                response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+                response.headers['ETag'] = 'W/' + str(hash(response.get_data())) if response.is_sequence else ''
+            elif response.content_type and 'application/json' in response.content_type:
+                # API responses - no cache
+                response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+                response.headers['Pragma'] = 'no-cache'
+            elif response.content_type and 'text/html' in response.content_type:
+                # HTML pages - short cache (5 minutes)
+                response.headers['Cache-Control'] = 'public, max-age=300'
+                response.headers['X-Content-Type-Options'] = 'nosniff'
+            else:
+                # Other content - no cache
+                response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            
+            # Security headers
+            response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+            response.headers['X-XSS-Protection'] = '1; mode=block'
+            response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+            
             return response
 
         # Initialize parts cache on app startup

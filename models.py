@@ -575,7 +575,6 @@ class MaintenancePlan(db.Model):
 class SparePartInventory(db.Model):
     """Yedek parça envanter modeli"""
     __tablename__ = 'spare_parts'
-    
     id = db.Column(db.Integer, primary_key=True)
     part_code = db.Column(db.String(50), unique=True, nullable=False)
     part_name = db.Column(db.String(200), nullable=False)

@@ -599,6 +599,32 @@
         }
     </style>
     {% block extra_css %}{% endblock %}
+    
+    <!-- Performance Optimization: Lazy Loading and Image Optimization -->
+    <script>
+        // Native Lazy Loading Fallback
+        if ('IntersectionObserver' in window) {
+            document.addEventListener('DOMContentLoaded', function() {
+                const images = document.querySelectorAll('img[loading="lazy"]');
+                images.forEach(img => {
+                    img.loading = 'lazy';
+                });
+            });
+        }
+        
+        // Preload critical resources
+        if (document.readyState === 'complete') {
+            // Fonts already loaded
+        } else {
+            window.addEventListener('load', () => {
+                // Defer non-critical CSS/JS
+                const deferredLinks = document.querySelectorAll('link[data-defer]');
+                deferredLinks.forEach(link => {
+                    link.rel = 'stylesheet';
+                });
+            });
+        }
+    </script>
 </head>
 
 <body>
@@ -882,10 +908,10 @@
 
 
     <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" defer></script>
 
     <!-- Main JS -->
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
 
     {% block scripts %}{% endblock %}
     {% block extra_js %}{% endblock %}

@@ -201,7 +201,8 @@ def change_user_role(user_id):
         
         # Admin sayısını kontrol et (en az 1 admin kalmalı)
         if user.is_admin() and new_role.name != 'admin':
-            admin_users = User.query.filter(User.role_id == Role.query.filter_by(name='admin').first().id).count() if Role.query.filter_by(name='admin').first() else 0
+            admin_role = Role.query.filter_by(name='admin').first()
+            admin_users = User.query.filter(User.role_id == admin_role.id).count() if admin_role else 0
             if admin_users <= 1:
                 return jsonify({'success': False, 'message': "Sistem'de en az 1 admin kalmalıdır!"}), 400
         
