@@ -322,9 +322,8 @@ def calculate_fleet_mttr():
     - Toplam Tamir Süresi: 50,000 dakika
     - Toplam Arızalar: 100
     - MTTR = 50,000 / 100 = 500 dakika = 8 saat 20 dakika
-      (Her arıza ortalama 8 saat 20 dakikada tamir edilir)
     
-    Veri Kaynağı: Excel'deki "MTTR (dk)" sütunu ("61 dk", "120 dk" gibi format)
+    Veri Kaynağı: FRACAS.xlsx AB sütunu (Komponent MTTR)
     """
     from flask import current_app
     import re
@@ -332,64 +331,64 @@ def calculate_fleet_mttr():
     try:
         current_project = session.get('current_project', 'belgrad')
         
-        # Excel dosyasını bul
-        ariza_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
-        ariza_listesi_file = None
+        # FRACAS dosyasını bul
+        data_dir = os.path.join(current_app.root_path, 'data', current_project)
+        fracas_file = None
         
-        if os.path.exists(ariza_dir):
-            for file in os.listdir(ariza_dir):
-                if file.endswith('.xlsx') and not file.startswith('~$'):
-                    ariza_listesi_file = os.path.join(ariza_dir, file)
+        if os.path.exists(data_dir):
+            for file in os.listdir(data_dir):
+                if file.lower().startswith('fracas') and file.endswith('.xlsx'):
+                    fracas_file = os.path.join(data_dir, file)
                     break
         
         mttr_minutes = 0
         total_failures = 0
+        total_repair_time = 0
         
-        if ariza_listesi_file:
+        if fracas_file:
             try:
-                df = pd.read_excel(ariza_listesi_file, sheet_name='Ariza Listesi', header=3)
+                # FRACAS Excel'inin FRACAS sheet'ini oku (header=3, yani 4. satır)
+                df = pd.read_excel(fracas_file, sheet_name='FRACAS', header=3)
                 
-                # "MTTR (dk)" sütununu ara
-                mttr_col = None
+                # AB sütununu ara (Komponent MTTR)
+                komponent_mttr_col = None
                 for col in df.columns:
-                    if 'mttr' in col.lower() and 'dk' in col.lower():
-                        mttr_col = col
+                    if 'komponent' in col.lower() and 'mttr' in col.lower():
+                        komponent_mttr_col = col
                         break
                 
-                # Eğer MTTR sütunu varsa, ortalamasını hesapla
-                if mttr_col:
+                # Eğer Komponent MTTR sütunu varsa, topla ve hesapla
+                if komponent_mttr_col:
                     mttr_values = []
                     
-                    # Excel verisi "120 dk", "61 dk" gibi string formatında olabilir
-                    for val in df[mttr_col].dropna():
+                    for val in df[komponent_mttr_col].dropna():
                         try:
-                            val_str = str(val).strip()
-                            # Metin içinden sayıyı çıkar (regex)
-                            # "120 dk", "120", vb. formatları destekle
-                            match = re.search(r'(\d+(?:[\.,]\d+)?)', val_str)
-                            if match:
-                                # Virgül veya nokta ayracını düzelt
-                                number_str = match.group(1).replace(',', '.')
-                                mttr_values.append(float(number_str))
+                            # Değer numero olabilir direkt
+                            if isinstance(val, (int, float)):
+                                mttr_values.append(float(val))
+                            else:
+                                val_str = str(val).strip()
+                                # "180", "180 dk" gibi formatları destekle
+                                match = re.search(r'(\d+(?:[\.,]\d+)?)', val_str)
+                                if match:
+                                    number_str = match.group(1).replace(',', '.')
+                                    mttr_values.append(float(number_str))
                         except:
                             continue
                     
                     if len(mttr_values) > 0:
-                        mttr_minutes = sum(mttr_values) / len(mttr_values)
-                        mttr_minutes = round(mttr_minutes, 1)
+                        total_repair_time = sum(mttr_values)
                         total_failures = len(mttr_values)
-                        logger.debug(f'[MTTR DEBUG] {len(mttr_values)} arizadan MTTR ortalamasi: {mttr_minutes} dk')
+                        mttr_minutes = total_repair_time / total_failures  # Formül: Toplam Tamir Süresi / Arıza Sayısı
+                        mttr_minutes = round(mttr_minutes, 1)
+                        logger.debug(f'[MTTR DEBUG] Toplam Tamir Süresi: {total_repair_time} dk, Arıza Sayısı: {total_failures}, MTTR: {mttr_minutes} dk')
                     else:
-                        # Fallback: Tüm arızaları say
-                        total_failures = len(df[df.iloc[:, 0].notna()])
-                        logger.debug(f'[MTTR DEBUG] MTTR degeri bulunamadi, fallback: {total_failures} ariza')
+                        logger.debug(f'[MTTR DEBUG] FRACAS dosyasında Komponent MTTR değeri bulunamadi')
                 else:
-                    # MTTR sütunu yoksa tüm arızaları say
-                    total_failures = len(df[df.iloc[:, 0].notna()])
-                    logger.debug(f'[MTTR DEBUG] MTTR sutunu bulunamadi, fallback: {total_failures} ariza')
+                    logger.debug(f'[MTTR DEBUG] AB (Komponent MTTR) sutunu bulunamadi')
             
             except Exception as e:
-                logger.error(f'[MTTR DEBUG] Excel MTTR okuma hatasi: {e}')
+                logger.error(f'[MTTR DEBUG] FRACAS MTTR okuma hatasi: {e}')
                 import traceback
                 logger.error(traceback.format_exc())
                 total_failures = 0
@@ -400,13 +399,14 @@ def calculate_fleet_mttr():
         minutes = int(mttr_minutes % 60) if mttr_minutes > 0 else 0
         mttr_formatted = f"{int(mttr_minutes)} dk" if mttr_minutes > 0 else "0 dk"
         
-        logger.debug(f'[MTTR FINAL] mttr_minutes={mttr_minutes}, formatted={mttr_formatted}, failures={total_failures}')
+        logger.debug(f'[MTTR FINAL] Proje:{current_project}, Toplam Tamir Süresi:{total_repair_time} dk, Arıza Sayısı:{total_failures}, MTTR:{mttr_minutes} dk')
         
         return {
             'mttr_minutes': mttr_minutes,
-            'mttr_formatted': mttr_formatted,  # "8h 20m" formatı
-            'mttr_hours': round(mttr_minutes / 60, 1),  # Saat cinsinden
+            'mttr_formatted': mttr_formatted,
+            'mttr_hours': round(mttr_minutes / 60, 1),
             'total_failures': total_failures,
+            'total_repair_time': total_repair_time,
             'unit': 'dakika (dk)'
         }
     
