@@ -371,21 +371,6 @@
                         </div>
                     </div>
 
-                    <!-- Aylık Ortalama KM -->
-                    <div class="mb-4">
-                        <label for="edit_monthly_km" class="form-label fw-bold text-dark mb-2">
-                            <i class="bi bi-graph-up me-2 text-info"></i>Aylık Ortalama KM
-                        </label>
-                        <div class="input-group input-group-lg">
-                            <input type="number" name="monthly_km" id="edit_monthly_km"
-                                class="form-control border-2 border-info-subtle" min="0" placeholder="0"
-                                style="font-size: 1.1rem;">
-                            <span class="input-group-text bg-info-subtle border-2 border-info-subtle text-info fw-bold">
-                                km/ay
-                            </span>
-                        </div>
-                    </div>
-
                     <!-- Notlar -->
                     <div class="mb-3">
                         <label for="edit_notes" class="form-label fw-bold text-dark mb-2">
@@ -437,17 +422,14 @@
                         <table class="table table-sm table-borderless align-middle mb-0">
                             <thead class="table-light position-sticky top-0 z-3">
                                 <tr class="border-bottom-2 border-primary">
-                                    <th class="fw-bold ps-3 py-3" style="width: 15%;">
+                                    <th class="fw-bold ps-3 py-3" style="width: 20%;">
                                         <i class="bi bi-train-front me-2 text-primary"></i>Tramvay
                                     </th>
-                                    <th class="fw-bold text-center py-3" style="width: 15%;">
+                                    <th class="fw-bold text-center py-3" style="width: 20%;">
                                         <i class="bi bi-speedometer2 me-1 text-muted"></i>Mevcut KM
                                     </th>
-                                    <th class="fw-bold text-center py-3" style="width: 30%;">
+                                    <th class="fw-bold text-center py-3" style="width: 60%;">
                                         <i class="bi bi-pencil-square me-1 text-success"></i>Güncel KM
-                                    </th>
-                                    <th class="fw-bold py-3" style="width: 40%;">
-                                        <i class="bi bi-chat-left-text me-1 text-secondary"></i>Notlar
                                     </th>
                                 </tr>
                             </thead>
@@ -485,18 +467,6 @@
                                             style="font-size: 1.1rem; border: 2px solid #e0e0e0; padding: 0.7rem 0.5rem; border-radius: 6px; transition: all 0.2s ease;"
                                             autocomplete="off"
                                             aria-label="Tramvay {{ tram.equipment_code or tram.id }} KM">
-                                    </td>
-                                    <td class="py-2">
-                                        <input type="text" class="form-control form-control-sm notes-input"
-                                            name="notes_{{ tram.equipment_code or tram.id }}"
-                                            id="notes_{{ tram.equipment_code or tram.id }}"
-                                            data-tram-id="{{ tram.equipment_code or tram.id }}" 
-                                            placeholder="Not ekleyin..." 
-                                            value="{{ tram.notes or '' }}" 
-                                            maxlength="150"
-                                            style="font-size: 0.95rem; border: 1px solid #e0e0e0; padding: 0.6rem 0.5rem; border-radius: 6px; transition: all 0.2s ease;"
-                                            autocomplete="off"
-                                            aria-label="Tramvay {{ tram.equipment_code or tram.id }} notları">
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -551,14 +521,12 @@
         const tramId = button.getAttribute('data-tram-id');
         const tramCode = button.getAttribute('data-tram-code') || tramId;
         const currentKm = button.getAttribute('data-current-km') || '0';
-        const monthlyKm = button.getAttribute('data-monthly-km') || '0';
         const notes = button.getAttribute('data-notes') || '';
 
         document.getElementById('edit_tram_id').value = tramId;
         document.getElementById('edit_tram_name').value = tramCode;
         document.getElementById('edit_current_km_display').value = parseInt(currentKm).toLocaleString('tr-TR') + ' km';
         document.getElementById('edit_current_km').value = currentKm;
-        document.getElementById('edit_monthly_km').value = monthlyKm;
         document.getElementById('edit_notes').value = notes;
         
         // Focus to input field
@@ -566,11 +534,11 @@
     });
 
     // Enter'a basınca sonraki satıra geç
-    document.querySelectorAll('.km-input, .notes-input').forEach((input, index) => {
+    document.querySelectorAll('.km-input').forEach((input, index) => {
         input.addEventListener('keydown', function (e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                const allInputs = Array.from(document.querySelectorAll('.km-input, .notes-input'));
+                const allInputs = Array.from(document.querySelectorAll('.km-input'));
                 const nextIndex = allInputs.indexOf(this) + 1;
 
                 if (nextIndex < allInputs.length) {
@@ -586,7 +554,6 @@
         // Input değişince satırı highlight et ve sayıcı güncelle
         input.addEventListener('input', function () {
             const row = this.closest('.input-row');
-            const tramId = this.getAttribute('data-tram-id');
             const kmInput = row.querySelector('.km-input');
 
             // Satırı highlight et (sadece KM input'una bağlı)
@@ -637,14 +604,12 @@
         document.querySelectorAll('.km-input').forEach(input => {
             const tramId = input.getAttribute('data-tram-id');
             const newKm = input.value;
-            const notes = document.querySelector(`.notes-input[data-tram-id="${tramId}"]`).value;
 
             // Eğer yeni KM girilmişse
-            if (newKm) {
-                console.log(`📊 Tram ID: ${tramId}, Güncel KM: ${newKm}, Notlar: ${notes}`);
+            if (newKm && parseInt(newKm) > 0) {
+                console.log(`📊 Tram ID: ${tramId}, Güncel KM: ${newKm}`);
                 updates[tramId] = {
-                    current_km: newKm || null,
-                    notes: notes || ''
+                    current_km: newKm
                 };
                 hasChanges = true;
             }
