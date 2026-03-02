@@ -634,7 +634,7 @@
         // Normalize edilmiş vehicle code (TRN- olmadan, parenthesi kaldır: 3874(3) → 3874)
         let normalizedCode = vehicleCode.replace('TRN-', '').trim();
         normalizedCode = normalizedCode.replace(/\(\d+\)$/g, '').trim();
-        console.log('[API-CALL] Vehicle code normalize: ' + vehicleCode + ' → ' + normalizedCode, flush=True);
+        console.log('[API-CALL] Vehicle code normalize: ' + vehicleCode + ' → ' + normalizedCode);
 
         // API'den o araçla ilgili arızaları getir
         fetch(`/dashboard/api/failures/${normalizedCode}`)
