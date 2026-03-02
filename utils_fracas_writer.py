@@ -378,8 +378,9 @@ class FracasWriter:
         print(f"   [MTTR] AA (Araç MTTR): {prepared['AA']}")
         print(f"   [MTTR] AB (Komponent MTTR): {prepared['AB']}")
         
-        # İşçilik Maliyeti hesapla (Saatlik Ücret × MTTR dakika / 60)
+        # İşçilik Maliyeti hesapla (Saatlik Ücret × Personel Sayısı × MTTR dakika / 60)
         hourly_rate = 0
+        personnel_count = 1  # Default: 1 personel
         if data_dir and os.path.exists(data_dir):
             for file in os.listdir(data_dir):
                 if 'veriler' in file.lower() and file.endswith('.xlsx'):
@@ -389,20 +390,22 @@ class FracasWriter:
                         if 'Sayfa2' in wb_veriler.sheetnames:
                             ws_sayfa2 = wb_veriler['Sayfa2']
                             hourly_rate = ws_sayfa2['G2'].value or 0
+                            personnel_count = ws_sayfa2['H2'].value or 1
                             print(f"   [LABOR_COST] Saatlik Ücret (G2): {hourly_rate}")
+                            print(f"   [LABOR_COST] Personel Sayısı (H2): {personnel_count}")
                         wb_veriler.close()
                     except Exception as e:
-                        print(f"   [LABOR_COST] Error reading hourly rate: {e}")
+                        print(f"   [LABOR_COST] Error reading labor data: {e}")
                     break
         
-        # İşçilik maliyeti = (Saatlik Ücret × MTTR dakika) / 60
-        if hourly_rate and mttr_minutes:
-            labor_cost = (hourly_rate * mttr_minutes) / 60
+        # İşçilik maliyeti = (Saatlik Ücret × Personel Sayısı × MTTR dakika) / 60
+        if hourly_rate and mttr_minutes and personnel_count:
+            labor_cost = (hourly_rate * personnel_count * mttr_minutes) / 60
             prepared['AG'] = round(labor_cost, 2)
-            print(f"   [LABOR_COST] AG (İşçilik Maliyeti): {prepared['AG']} = ({hourly_rate} × {mttr_minutes}) / 60")
+            print(f"   [LABOR_COST] AG (İşçilik Maliyeti): {prepared['AG']} = ({hourly_rate} × {personnel_count} × {mttr_minutes}) / 60")
         else:
             prepared['AG'] = 0
-            print(f"   [LABOR_COST] AG (İşçilik Maliyeti): 0 (Saatlik Ücret: {hourly_rate}, MTTR: {mttr_minutes})")
+            print(f"   [LABOR_COST] AG (İşçilik Maliyeti): 0 (Saatlik Ücret: {hourly_rate}, Personel: {personnel_count}, MTTR: {mttr_minutes})")
         
         # FRACAS ID'yi otomatik oluştur (eğer verilmediyse)
         if 'E' not in prepared or not prepared['E']:
