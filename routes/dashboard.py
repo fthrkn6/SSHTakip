@@ -862,8 +862,18 @@ def get_equipment_failures(equipment_code=None):
                         break
                     break
             
+            # MTTR sütunlarını bul
+            mttr_arac_col = None
+            mttr_komponent_col = None
+            for col in df.columns:
+                col_clean = col.lower()
+                if 'araç' in col_clean and 'mttr' in col_clean:
+                    mttr_arac_col = col
+                if ('kompanent' in col_clean or 'component' in col_clean) and ('mttr' in col_clean or 'mdt' in col_clean):
+                    mttr_komponent_col = col
+            
             print(f"[DEBUG-API] Tüm sütunlar: {list(df.columns)}", flush=True)
-            print(f"[DEBUG-API] Sütunlar - tram_id: {tram_id_col}, ariza: {ariza_col}, sistem: {sistem_col}", flush=True)
+            print(f"[DEBUG-API] Sütunlar - tram_id: {tram_id_col}, ariza: {ariza_col}, sistem: {sistem_col}, Araç MTTR: {mttr_arac_col}, Komponent MTTR: {mttr_komponent_col}", flush=True)
             
             if not tram_id_col or not ariza_col:
                 logger.warning(f'[API] Gerekli sütunlar bulunamadı. tram_id: {tram_id_col}, ariza: {ariza_col}')
@@ -935,12 +945,38 @@ def get_equipment_failures(equipment_code=None):
                     # Arıza Sınıfı
                     ariza_sinifi = str(row.get(ariza_col, '')).strip()
                     
+                    # MTTR Araç
+                    mttr_arac = row.get(mttr_arac_col) if mttr_arac_col else None
+                    if mttr_arac is not None and str(mttr_arac).strip() and str(mttr_arac) != 'nan':
+                        try:
+                            mttr_arac = float(mttr_arac)
+                            if mttr_arac == int(mttr_arac):
+                                mttr_arac = int(mttr_arac)
+                        except:
+                            mttr_arac = None
+                    else:
+                        mttr_arac = None
+                    
+                    # MTTR Komponent
+                    mttr_komponent = row.get(mttr_komponent_col) if mttr_komponent_col else None
+                    if mttr_komponent is not None and str(mttr_komponent).strip() and str(mttr_komponent) != 'nan':
+                        try:
+                            mttr_komponent = float(mttr_komponent)
+                            if mttr_komponent == int(mttr_komponent):
+                                mttr_komponent = int(mttr_komponent)
+                        except:
+                            mttr_komponent = None
+                    else:
+                        mttr_komponent = None
+                    
                     failures.append({
                         'fracas_id': tram_id,
                         'arac_no': tram_id,
                         'sistem': sistem,
                         'ariza_tanimi': ariza_sinifi,
                         'tarih': '',
+                        'mttr_arac': mttr_arac,
+                        'mttr_komponent': mttr_komponent,
                     })
                 except Exception as e:
                     logger.warning(f'[API] Satır işleme uyarısı: {e}')

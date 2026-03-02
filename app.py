@@ -1732,9 +1732,15 @@ def create_app():
             """Tüm KM noktalarında yapılması gereken bakımları döndür"""
             import json
             
-            # maintenance.json'u yükle
-            maintenance_file = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'maintenance.json')
+            current_project = session.get('current_project', 'belgrad').lower()
+            
+            # maintenance.json'u proje bazlı yükle
+            maintenance_file = os.path.join(os.path.dirname(__file__), 'data', current_project, 'maintenance.json')
             maintenance_data = {}
+            
+            # Fallback: belgrad
+            if not os.path.exists(maintenance_file):
+                maintenance_file = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'maintenance.json')
             
             if os.path.exists(maintenance_file):
                 with open(maintenance_file, 'r', encoding='utf-8') as f:
