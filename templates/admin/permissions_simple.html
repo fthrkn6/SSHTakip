@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}Yetkilendirme Yönetimi - SSH Takip{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Başlık -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1>
+                <i class="bi bi-shield-check"></i>
+                Yetkilendirme Yönetimi
+            </h1>
+            <p class="text-muted">Rol izinlerini yönetin - Hangi rol hangi sayfaları ve projeleri görebilir</p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Geri
+            </a>
+        </div>
+    </div>
+
+    <!-- İzin Matrisi -->
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <i class="bi bi-table"></i> Rol-İzin Matrisi
+        </div>
+        <div class="card-body">
+            {% if not roles %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i>
+                Sistemde henüz rol tanımlanmadı!
+            </div>
+            {% elif not page_perms %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i>
+                İzinler bulunamadı!
+            </div>
+            {% else %}
+            <div style="overflow-x: auto;">
+                <table class="table table-bordered table-hover table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 120px;"><strong>Roller</strong></th>
+                            {% for perm in page_perms %}
+                            <th class="text-center" style="min-width: 100px;">
+                                <small>{{ perm.description }}</small>
+                            </th>
+                            {% endfor %}
+                            {% for perm in project_perms %}
+                            <th class="text-center" style="min-width: 100px;">
+                                <small><strong>{{ perm.description }}</strong></small>
+                            </th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for role in roles %}
+                        <tr>
+                            <td><strong>{{ role.name }}</strong></td>
+                            
+                            <!-- Sayfa izinleri -->
+                            {% for perm in page_perms %}
+                            <td class="text-center">
+                                {% set perm_key = 'perm_' + perm.id|string %}
+                                {% set has_perm = perm_key in role_permissions_map.get(role.id, {}) %}
+                                <input 
+                                    class="form-check-input permission-toggle" 
+                                    type="checkbox" 
+                                    data-role-id="{{ role.id }}"
+                                    data-perm-id="{{ perm.id }}"
+                                    {% if has_perm %}checked{% endif %}
+                                    style="width: 20px; height: 20px; cursor: pointer;"
+                                >
+                            </td>
+                            {% endfor %}
+                            
+                            <!-- Proje izinleri -->
+                            {% for perm in project_perms %}
+                            <td class="text-center" style="background-color: #f0f0f0;">
+                                {% set perm_key = 'perm_' + perm.id|string %}
+                                {% set has_perm = perm_key in role_permissions_map.get(role.id, {}) %}
+                                <input 
+                                    class="form-check-input permission-toggle" 
+                                    type="checkbox" 
+                                    data-role-id="{{ role.id }}"
+                                    data-perm-id="{{ perm.id }}"
+                                    {% if has_perm %}checked{% endif %}
+                                    style="width: 20px; height: 20px; cursor: pointer;"
+                                >
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Kullanıcı Rolleri Özeti -->
+    <div class="card mt-4">
+        <div class="card-header bg-info text-white">
+            <i class="bi bi-people"></i> Kullanıcı Rolleri Özeti
+        </div>
+        <div class="card-body">
+            {% if not roles %}
+            <div class="alert alert-warning">Rol bulunamadı!</div>
+            {% else %}
+            <div class="row">
+                {% for role in roles %}
+                <div class="col-md-4 mb-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <span class="badge bg-primary">{{ role.name }}</span>
+                            </h5>
+                            <p class="card-text">
+                                <strong>Kullanıcı sayısı:</strong> <span class="badge bg-secondary">{{ role.users|length }}</span>
+                            </p>
+                            {% set role_perms = role_permissions_map.get(role.id, {}) %}
+                            <p class="card-text">
+                                <strong>Atanan izin:</strong> <span class="badge bg-info">{{ role_perms|length }}</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.permission-toggle').forEach(toggle => {
+        toggle.addEventListener('change', function() {
+            fetch('{{ url_for("role_mgmt.toggle_permission") }}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    role_id: this.dataset.roleId,
+                    permission_id: this.dataset.permId
+                })
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (!d.success) {
+                    alert('Hata: ' + d.message);
+                    this.checked = !this.checked;
+                }
+            })
+            .catch(e => {
+                alert('İstek hatası: ' + e);
+                this.checked = !this.checked;
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

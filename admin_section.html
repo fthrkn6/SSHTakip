@@ -1,0 +1,86 @@
+sidebar-menu-title">Yönetim</div>
+
+            <a href="/admin/dashboard"
+                class="sidebar-link ">
+                <i class="bi bi-shield-lock"></i>
+                <span>Admin Paneli</span>
+            </a>
+
+            <a href="/admin/users"
+                class="sidebar-link ">
+                <i class="bi bi-people"></i>
+                <span>Kullanıcı Yönetimi</span>
+            </a>
+
+            <a href="/admin/projects"
+                class="sidebar-link ">
+                <i class="bi bi-folder2-open"></i>
+                <span>Proje Yönetimi</span>
+            </a>
+
+            <a href="/admin/backups"
+                class="sidebar-link ">
+                <i class="bi bi-database"></i>
+                <span>Yedekleme</span>
+            </a>
+
+            <a href="/kullanicilar"
+                class="sidebar-link ">
+                <i class="bi bi-people-fill"></i>
+                <span>Eski Kullanıcılar</span>
+            </a>
+
+            <a href="/audit-log" class="sidebar-link ">
+                <i class="bi bi-shield-check"></i>
+                <span>Denetim Günlüğü</span>
+            </a>
+            
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Navbar -->
+        <header class="top-navbar">
+            <div class="navbar-search">
+                <i class="bi bi-search"></i>
+                <input type="text" placeholder="Ara... (ekipman, arıza, iş emri)">
+            </div>
+
+            <div class="navbar-actions">
+                <!-- Proje Seçici (Yalnız Saha Kullanıcıları için) -->
+                
+                <div class="dropdown">
+                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown">
+                        <i class="bi bi-folder2-open"></i>
+                        
+                        belgrad
+                        
+                    </button>
+                    <ul class="dropdown-menu">
+                        
+                        
+                        <!-- Admin: Tüm Projeler -->
+                        
+                        <li>
+                            <a class="dropdown-item active"
+                                href="?project=belgrad">
+                                <i
+                                    class="bi bi-check me-2"></i>
+                                Belgrad
+                            </a>
+                        </li>
+                        
+                        <li>
+                            <a class="dropdown-item "
+                                href="?project=gebze">
+                                <i
+                                    class="bi bi-check "></i>
+                                Gebze
+                            </a>
+                        </li>
+                        
+                        <li>
+                            <a class="dropdown-item "
+                            
