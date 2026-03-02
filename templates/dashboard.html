@@ -631,8 +631,10 @@
 
         selectedVehicle = vehicleCode;
 
-        // Normalize edilmiş vehicle code (TRN- olmadan)
-        const normalizedCode = vehicleCode.replace('TRN-', '').trim();
+        // Normalize edilmiş vehicle code (TRN- olmadan, parenthesi kaldır: 3874(3) → 3874)
+        let normalizedCode = vehicleCode.replace('TRN-', '').trim();
+        normalizedCode = normalizedCode.replace(/\(\d+\)$/g, '').trim();
+        console.log('[API-CALL] Vehicle code normalize: ' + vehicleCode + ' → ' + normalizedCode, flush=True);
 
         // API'den o araçla ilgili arızaları getir
         fetch(`/dashboard/api/failures/${normalizedCode}`)
@@ -653,9 +655,12 @@
                     data.failures.forEach((ariza, idx) => {
                         console.log(`[RENDER-${idx}] Arıza:`, ariza);
                         
-                        // Araç no'yu normalize et (1547.0 → 1547)
+                        // Araç no'yu normalize et: '1547.0' → '1547', '3874(3)' → '3874'
                         let aracNoNormalized = ariza.arac_no;
                         try {
+                            // Parenthesi kaldır
+                            aracNoNormalized = aracNoNormalized.replace(/\(\d+\)$/g, '').trim();
+                            // Ondalık kaldır
                             const aracNoFloat = parseFloat(aracNoNormalized);
                             if (!isNaN(aracNoFloat)) {
                                 aracNoNormalized = parseInt(aracNoFloat).toString();

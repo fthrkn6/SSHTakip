@@ -877,9 +877,17 @@ def get_equipment_failures(equipment_code=None):
                 filtered_df[tram_id_col] = filtered_df[tram_id_col].astype(str).str.strip()
                 print(f"[DEBUG-API] Normalize ÖNCESİ sütun örnekleri: {filtered_df[tram_id_col].head().tolist()}", flush=True)
                 
+                # Paranthesli kodları temizle: '3874(3)' → '3874'
+                import re
                 filtered_df[tram_id_col] = filtered_df[tram_id_col].apply(
-                    lambda x: str(int(float(x))) if x.replace('.', '').isdigit() else x
+                    lambda x: re.sub(r'\(\d+\)$', '', str(x)).strip() if pd.notna(x) else x
                 )
+                
+                # Sayısal normalize: '3874.0' → '3874'
+                filtered_df[tram_id_col] = filtered_df[tram_id_col].apply(
+                    lambda x: str(int(float(x))) if x.replace('.', '').replace('-', '').isdigit() else x
+                )
+                
                 print(f"[DEBUG-API] Normalize SONRASI sütun örnekleri: {filtered_df[tram_id_col].head().tolist()}", flush=True)
                 print(f"[DEBUG-API] Aranıyor: '{equipment_code}' - Sütundaki tüm değerler: {filtered_df[tram_id_col].unique()[:20]}", flush=True)
                 
