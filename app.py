@@ -388,7 +388,8 @@ def create_app():
             import os
             
             project = session.get('current_project', 'belgrad')
-            data_dir = os.path.join(os.path.dirname(__file__), 'data', project)
+            # APP.ROOT_PATH kullanarak doğru lokasyonu bul
+            data_dir = os.path.join(app.root_path, 'data', project)
             
             # FRACAS Excel dosyasını bul
             excel_path = None
@@ -404,7 +405,8 @@ def create_app():
                 import time
                 next_fracas_id = 1
                 
-                ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'ariza_listesi')
+                # APP.ROOT_PATH kullanarak doğru lokasyonu bul
+                ariza_listesi_dir = os.path.join(app.root_path, 'logs', project, 'ariza_listesi')
                 os.makedirs(ariza_listesi_dir, exist_ok=True)
                 temp_dir = tempfile.gettempdir()
                 
@@ -620,7 +622,8 @@ def create_app():
                     import tempfile
                     import time
                     
-                    ariza_listesi_dir = os.path.join(os.path.dirname(__file__), 'logs', project, 'ariza_listesi')
+                    # APP.ROOT_PATH kullanarak doğru lokasyonu bul (os.path.dirname görmek yerine)
+                    ariza_listesi_dir = os.path.join(app.root_path, 'logs', project, 'ariza_listesi')
                     os.makedirs(ariza_listesi_dir, exist_ok=True)
                     
                     temp_dir = tempfile.gettempdir()

@@ -148,14 +148,18 @@ class FracasWriter:
         """BOZ-{FRACAS_CODE}-FF-NNN formatında FRACAS ID oluştur (Arıza Listesi ile senkronize)"""
         from openpyxl import load_workbook
         import os
-        from flask import session
         
-        # Aktif projeyi al
-        project = session.get('current_project', 'belgrad')
+        # Aktif projeyi al - init'de belirlenmiş project'i kullan
+        project = self.project
         
         # Veriler.xlsx'in Sayfa2 B2'sinden FRACAS kodunu oku
         fracas_code = None
-        data_dir = os.path.join(os.path.dirname(__file__), 'data', project)
+        
+        # Base path kullanarak data_dir'i oluştur (self.base_path varsa kullan)
+        if self.base_path:
+            data_dir = os.path.join(self.base_path, 'data', project)
+        else:
+            data_dir = os.path.join(os.path.dirname(__file__), 'data', project)
         
         if os.path.exists(data_dir):
             for file in os.listdir(data_dir):
@@ -183,12 +187,13 @@ class FracasWriter:
             }
             fracas_code = project_code_map.get(project, 'BOZ')
         
-        # Arıza Listesi dosyasından son numarayı al (aynı sistem)
-        ariza_listesi_file = os.path.join(
-            os.path.dirname(__file__), 
-            'logs', project, 'ariza_listesi', 
-            f'Ariza_Listesi_{project.upper()}.xlsx'
-        )
+        # Arıza Listesi dosyasından son numarayı al - BASE_PATH kullanarak! (aynı sistem)
+        relative_path = f'logs/{project}/ariza_listesi/Ariza_Listesi_{project.upper()}.xlsx'
+        
+        if self.base_path:
+            ariza_listesi_file = os.path.join(self.base_path, relative_path)
+        else:
+            ariza_listesi_file = os.path.join(os.path.dirname(__file__), relative_path)
         
         next_num = 1
         if os.path.exists(ariza_listesi_file):
@@ -205,9 +210,13 @@ class FracasWriter:
                 wb.close()
                 if ids:
                     next_num = max(ids) + 1
+                print(f"   ✓ FRACAS ID (Arıza Listesi'nden): {project}/{fracas_code} - Son: {next_num - 1}, Yeni: {next_num}")
             except Exception as e:
-                print(f"⚠️ Arıza Listesi'nden FRACAS ID hesaplanamadı: {e}")
+                print(f"⚠️ Arıza Listesi'nden FRACAS ID hesaplanamadı: {ariza_listesi_file}")
+                print(f"   Error: {e}")
                 pass
+        else:
+            print(f"⚠️ Arıza Listesi bulunamadı: {ariza_listesi_file}")
         
         fracas_id = f'BOZ-{fracas_code}-FF-{next_num:03d}'
         return fracas_id
