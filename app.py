@@ -1709,14 +1709,11 @@ def create_app():
                 logger.error(f"bakim_planlari equipment error: {e}")
                 equipments = Equipment.query.filter_by(project_code=project_code).all()
             
-            # Bakım verilerini yükle (proje bazlı)
+            # Bakım verilerini yükle (proje bazlı SADECE - fallback YOK!)
             maintenance_file = os.path.join(os.path.dirname(__file__), 'data', project_code, 'maintenance.json')
             maintenance_data = {}
             
-            # Fallback: belgrad directory'sinde yoksa, standart yolu dene
-            if not os.path.exists(maintenance_file):
-                maintenance_file = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'maintenance.json')
-            
+            # SADECE proje-spesifik veriyi yükle, fallback yapma
             if os.path.exists(maintenance_file):
                 with open(maintenance_file, 'r', encoding='utf-8') as f:
                     maintenance_data = json.load(f)
@@ -1738,10 +1735,7 @@ def create_app():
             maintenance_file = os.path.join(os.path.dirname(__file__), 'data', current_project, 'maintenance.json')
             maintenance_data = {}
             
-            # Fallback: belgrad
-            if not os.path.exists(maintenance_file):
-                maintenance_file = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'maintenance.json')
-            
+            # SADECE proje-spesifik veriyi yükle, fallback yapma
             if os.path.exists(maintenance_file):
                 with open(maintenance_file, 'r', encoding='utf-8') as f:
                     maintenance_data = json.load(f)
@@ -1816,18 +1810,13 @@ def create_app():
             # SINGLE SOURCE OF TRUTH: Equipment tablosu
             # Excel senkronizasyonu devre dışı - sadece Equipment'dan okuyoruz
             
-            # Bakım verilerini yükle (proje bazlı)
+            # Bakım verilerini yükle (proje bazlı SADECE)
             maintenance_file = os.path.join(os.path.dirname(__file__), 'data', current_project, 'maintenance.json')
             maintenance_data = {}
             
             if os.path.exists(maintenance_file):
                 with open(maintenance_file, 'r', encoding='utf-8') as f:
                     maintenance_data = json.load(f)
-            else:
-                fallback_file = os.path.join(os.path.dirname(__file__), 'data', 'belgrad', 'maintenance.json')
-                if os.path.exists(fallback_file):
-                    with open(fallback_file, 'r', encoding='utf-8') as f:
-                        maintenance_data = json.load(f)
             
             # Bakım KM'lerini sırayla al
             maintenance_levels = sorted([k for k in maintenance_data.keys()], 
