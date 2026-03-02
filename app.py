@@ -887,15 +887,19 @@ def create_app():
                             print(f"   [INFO] Form alanları: {list(fracas_data.keys())}")
                             print(f"   📂 App root path: {app.root_path}")
                             
-                            # FracasWriter ile Fracas template'ine yaz (Flask root_path geçerek)
-                            writer = FracasWriter(base_path=app.root_path)
+                            # Aktif proje'yi al
+                            current_project = session.get('current_project', 'belgrad')
+                            
+                            # FracasWriter ile Fracas template'ine yaz (Flask root_path ve project geçerek)
+                            writer = FracasWriter(base_path=app.root_path, project=current_project)
                             print(f"   📁 Template yolu: {writer.file_path}")
                             print(f"   ✓ Template var mı: {os.path.exists(writer.file_path)}")
                             
                             result = writer.write_failure_data(fracas_data)
                             
                             if result.get('success'):
-                                print(f"   [OK] Fracas_BELGRAD.xlsx'ye yazıldı - Satır: {result['row']}, FRACAS ID: {result['fracas_id']}")
+                                project_upper = current_project.upper()
+                                print(f"   [OK] Fracas_{project_upper}.xlsx'ye yazıldı - Satır: {result['row']}, FRACAS ID: {result['fracas_id']}")
                                 
                                 # FRACAS dosyasını da yedekle
                                 try:

@@ -78,37 +78,44 @@ class FracasWriter:
     # İlk veri satırı
     FIRST_DATA_ROW = 5
     
-    # Üretim / Test ortamı
-    FRACAS_FILE_PATH = 'logs/belgrad/ariza_listesi/Fracas_BELGRAD.xlsx'
+    # Üretim / Test ortamı (dynamic olacak)
     PROJECT_NAME = 'Bozankaya'  # Fracas template'de bu sabit oluyor
     
-    def __init__(self, base_path=None):
+    def __init__(self, base_path=None, project='belgrad'):
         """FracasWriter'ı başlat
         
         Args:
             base_path: Root workspace path (eğer None ise otomatik tespit et)
+            project: Proje adı (belgrad, kayseri, iasi, vb.) - FRACAS dosya yolunu belirler
         """
         self.base_path = base_path
+        self.project = project.lower() if project else 'belgrad'
         self.workbook = None
         self.worksheet = None
         self.file_path = self.get_fracas_file_path()
         
     def get_fracas_file_path(self):
-        """Fracas template dosya yolunu al"""
+        """Fracas template dosya yolunu al (project'e göre dinamik)"""
+        # Dosya adını oluştur - Fracas_BELGRAD.xlsx, Fracas_KAYSERI.xlsx, vb.
+        # Project adının ilk harfini büyüt: belgrad -> BELGRAD
+        project_upper = self.project.upper()
+        fracas_file_name = f'Fracas_{project_upper}.xlsx'
+        fracas_file_path = f'logs/{self.project}/ariza_listesi/{fracas_file_name}'
+        
         if self.base_path:
             # Eğer base_path verilmişse onu kullan
-            file_path = os.path.join(self.base_path, self.FRACAS_FILE_PATH)
+            file_path = os.path.join(self.base_path, fracas_file_path)
             if os.path.exists(file_path):
                 return os.path.abspath(file_path)
         
         # Auto-detect: workspace root'u bul (app.py veya utils_fracas_writer.py'in bulunduğu yer)
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        file_path = os.path.join(current_dir, self.FRACAS_FILE_PATH)
+        file_path = os.path.join(current_dir, fracas_file_path)
         
         # Eğer dosya bulunamadıysa, bir üst klasöre bak
         if not os.path.exists(file_path):
             parent_dir = os.path.dirname(current_dir)
-            alt_path = os.path.join(parent_dir, self.FRACAS_FILE_PATH)
+            alt_path = os.path.join(parent_dir, fracas_file_path)
             if os.path.exists(alt_path):
                 file_path = alt_path
         
