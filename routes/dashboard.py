@@ -754,43 +754,34 @@ def get_equipment_failures(equipment_code=None):
     try:
         import pandas as pd
         import os
+        import glob
         
         current_project = session.get('current_project', 'belgrad')
+        print(f"[DEBUG-API] current_project from session: {current_project}")
+        print(f"[DEBUG-API] equipment_code: {equipment_code}")
         
-        # Birincil konum: logs/{project}/ariza_listesi/Fracas_{project_code}.xlsx
+        # Birincil konum: logs/{project}/ariza_listesi/
         ariza_listesi_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs', current_project, 'ariza_listesi')
         
         ariza_listesi_file = None
         use_sheet = None
         header_row = 0
         
-        # Project to file name mapping (handles Turkish characters)
-        project_file_map = {
-            'belgrad': 'Fracas_BELGRAD.xlsx',
-            'gebze': 'Fracas_GEBZE.xlsx',
-            'iasi': 'Fracas_IASI.xlsx',
-            'kayseri': 'Fracas_KAYSERİ.xlsx',
-            'kocaeli': 'Fracas_KOCAELI.xlsx',
-            'timisoara': 'Fracas_TIMISOARA.xlsx'
-        }
+        print(f"[DEBUG-API] Arizing_listesi_dir: {ariza_listesi_dir}")
+        print(f"[DEBUG-API] Dir exists: {os.path.exists(ariza_listesi_dir)}")
         
         if os.path.exists(ariza_listesi_dir):
-            # FRACAS template dosyasını ara - project-specific dosya (örn: Fracas_BELGRAD.xlsx)
-            if current_project in project_file_map:
-                specific_fracas = os.path.join(ariza_listesi_dir, project_file_map[current_project])
-                if os.path.exists(specific_fracas):
-                    ariza_listesi_file = specific_fracas
-                    use_sheet = 'FRACAS'
-                    header_row = 3  # FRACAS headers row 4 (index 3)
+            # Tüm Fracas_*.xlsx dosyalarını ara (Türkçe karakterleri ignore et)
+            fracas_files = glob.glob(os.path.join(ariza_listesi_dir, 'Fracas_*.xlsx'))
+            fracas_files = [f for f in fracas_files if not f.startswith('~$')]
             
-            # Fallback: varsa başka Fracas_*.xlsx
-            if not ariza_listesi_file:
-                for file in os.listdir(ariza_listesi_dir):
-                    if file.upper().startswith('FRACAS_') and file.endswith('.xlsx') and not file.startswith('~$'):
-                        ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
-                        use_sheet = 'FRACAS'
-                        header_row = 3
-                        break
+            print(f"[DEBUG-API] Bulunan Fracas dosyaları: {fracas_files}")
+            
+            if fracas_files:
+                ariza_listesi_file = fracas_files[0]
+                use_sheet = 'FRACAS'
+                header_row = 3
+                print(f"[DEBUG-API] Seçilen Fracas dosyası: {ariza_listesi_file}")
         
         # Fallback: Ariza_Listesi dosyası
         if not ariza_listesi_file and os.path.exists(ariza_listesi_dir):
@@ -799,6 +790,7 @@ def get_equipment_failures(equipment_code=None):
                     ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
                     use_sheet = 'Ariza Listesi'
                     header_row = 3
+                    print(f"[DEBUG-API] Fallback Ariza_Listesi kullanılıyor: {ariza_listesi_file}")
                     break
         
         # Fallback: data/{project}/Veriler.xlsx (Sayfa2)
@@ -808,15 +800,20 @@ def get_equipment_failures(equipment_code=None):
                 ariza_listesi_file = veriler_file
                 use_sheet = 'Sayfa2'
                 header_row = 0
+                print(f"[DEBUG-API] Fallback Veriler.xlsx kullanılıyor: {ariza_listesi_file}")
         
         if not ariza_listesi_file or not os.path.exists(ariza_listesi_file):
             logger.warning(f'[API] Arıza kaynağı bulunamadı: {current_project}')
-            return jsonify({'failures': [], 'count': 0})
+            print(f"[DEBUG-API] ✗ Arıza kaynağı bulunamadı!")
+            return jsonify({'failures': [], 'count': 0, 'error': 'Arıza kaynağı bulunamadı'})
+        
+        print(f"[DEBUG-API] Kullanılan dosya: {ariza_listesi_file}, Sheet: {use_sheet}")
         
         try:
             # Excel'i oku
             df = pd.read_excel(ariza_listesi_file, sheet_name=use_sheet, header=header_row)
             logger.info(f'[API] {ariza_listesi_file} okundu - {len(df)} satır, sütunlar: {list(df.columns)[:5]}...')
+            print(f"[DEBUG-API] Excel okundu: {len(df)} satır")
             
             # Sütunları bul - flexible names
             tram_id_col = None
@@ -852,9 +849,12 @@ def get_equipment_failures(equipment_code=None):
                     sistem_col = col
                     break
             
+            print(f"[DEBUG-API] Sütunlar - tram_id: {tram_id_col}, ariza: {ariza_col}, sistem: {sistem_col}")
+            
             if not tram_id_col or not ariza_col:
                 logger.warning(f'[API] Gerekli sütunlar bulunamadı. tram_id: {tram_id_col}, ariza: {ariza_col}')
-                return jsonify({'failures': [], 'count': 0})
+                print(f"[DEBUG-API] ✗ Gerekli sütunlar bulunamadı!")
+                return jsonify({'failures': [], 'count': 0, 'error': 'Sütun eşleştirmesi yapılamadı'})
             
             # Arıza dolu satırları filtrele
             filtered_df = df[df[ariza_col].notna()]
@@ -864,6 +864,7 @@ def get_equipment_failures(equipment_code=None):
             filtered_df = filtered_df[filtered_df[ariza_col].astype(str) != 'nan']
             
             logger.info(f'[API] Arıza dolu satırlar: {len(filtered_df)}')
+            print(f"[DEBUG-API] Arıza dolu satırlar: {len(filtered_df)}")
             
             # Equipment code verilirse filtrele
             if equipment_code:
@@ -877,6 +878,7 @@ def get_equipment_failures(equipment_code=None):
                 
                 filtered_df = filtered_df[filtered_df[tram_id_col] == equipment_code]
                 logger.info(f'[API] {equipment_code} araçı: {len(filtered_df)} arıza')
+                print(f"[DEBUG-API] {equipment_code} araçı filtresi: {len(filtered_df)} arıza")
             
             # Son 5 arızayı al
             if len(filtered_df) > 5:
@@ -916,15 +918,18 @@ def get_equipment_failures(equipment_code=None):
                     continue
             
             logger.info(f'[API] {len(failures)} arıza döndürülüyor')
+            print(f"[DEBUG-API] ✓ {len(failures)} arıza gönderiliyor")
             return jsonify({'failures': failures, 'count': len(failures)})
             
         except Exception as excel_error:
             logger.error(f'[API] Excel okuma hatası: {excel_error}')
+            print(f"[DEBUG-API] ✗ Excel okuma hatası: {excel_error}")
             return jsonify({'failures': [], 'error': str(excel_error)})
     
     except Exception as e:
         logger.error(f'[API] Hata: {type(e).__name__}: {e}')
         import traceback
         logger.error(traceback.format_exc())
+        print(f"[DEBUG-API] ✗ API Hatası: {e}")
         return jsonify({'failures': [], 'error': f'API Error: {str(e)}'})
 
