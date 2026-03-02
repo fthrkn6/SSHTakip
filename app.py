@@ -24,6 +24,7 @@ from utils.auth_decorators import require_admin, require_project_access, check_p
 from utils_km_logger import log_km_change
 from utils_km_manager import KMDataManager
 from utils_daily_service_logger import log_service_status
+from utils_equipment_sync import sync_equipment_with_excel
 from utils_project_excel_store import (
     read_all_km,
     upsert_km,
@@ -1731,6 +1732,9 @@ def create_app():
             
             current_project = session.get('current_project', 'belgrad').lower()
             
+            # SYNC: Excel ile Database'i eşitle
+            sync_equipment_with_excel(current_project)
+            
             # maintenance.json'u proje bazlı yükle
             maintenance_file = os.path.join(os.path.dirname(__file__), 'data', current_project, 'maintenance.json')
             maintenance_data = {}
@@ -1806,6 +1810,9 @@ def create_app():
             from datetime import datetime
             
             current_project = session.get('current_project', 'belgrad').lower()
+            
+            # SYNC: Excel ile Database'i eşitle
+            sync_equipment_with_excel(current_project)
             
             # SINGLE SOURCE OF TRUTH: Equipment tablosu
             # Excel senkronizasyonu devre dışı - sadece Equipment'dan okuyoruz
@@ -2230,6 +2237,10 @@ def create_app():
                 
                 # Equipment tablosundan araçları al
                 current_project = session.get('current_project', 'belgrad')
+                
+                # SYNC: Excel ile Database'i eşitle
+                sync_equipment_with_excel(current_project)
+                
                 # Sadece mevcut KM verisi olan araçları al (0'dan büyük)
                 equipments = Equipment.query.filter_by(project_code=current_project)\
                     .filter(Equipment.current_km > 0)\
