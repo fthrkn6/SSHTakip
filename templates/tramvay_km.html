@@ -5,16 +5,31 @@
 {% block content %}
 <style>
     /* KM Input Focus Styling */
-    .km-input:focus {
-        border-color: #0c63e4 !important;
-        box-shadow: 0 0 0 0.2rem rgba(12, 99, 228, 0.25);
-        background-color: #f0f7ff;
+    .km-input {
+        border-color: #e0e0e0 !important;
+        transition: all 0.2s ease;
     }
 
-    .monthly-km-input:focus,
+    .km-input:focus {
+        border-color: #0c63e4 !important;
+        box-shadow: 0 0 0 0.3rem rgba(12, 99, 228, 0.25), inset 0 1px 2px rgba(12, 99, 228, 0.1) !important;
+        background-color: #f8fbff !important;
+    }
+
+    .km-input::placeholder {
+        color: #b0b0b0;
+        font-style: italic;
+    }
+
+    .notes-input {
+        border-color: #e0e0e0 !important;
+        transition: all 0.2s ease;
+    }
+
     .notes-input:focus {
         border-color: #0c63e4 !important;
-        box-shadow: 0 0 0 0.2rem rgba(12, 99, 228, 0.15);
+        box-shadow: 0 0 0 0.2rem rgba(12, 99, 228, 0.15) !important;
+        background-color: #f8fbff !important;
     }
 
     /* Input Row Highlight Animation */
@@ -24,11 +39,12 @@
 
     @keyframes slideIn {
         from {
-            opacity: 0.9;
+            opacity: 0.95;
+            transform: translateX(-5px);
         }
-
         to {
             opacity: 1;
+            transform: translateX(0);
         }
     }
 
@@ -51,6 +67,79 @@
         padding: 2px 6px;
         font-family: monospace;
         font-size: 0.875em;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Edit Modal Enhancements */
+    .bg-gradient {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    }
+
+    .modal-content {
+        border-radius: 12px;
+    }
+
+    .form-label {
+        color: #2c3e50;
+        letter-spacing: 0.5px;
+    }
+
+    .input-group-lg .form-control,
+    .input-group-lg .input-group-text {
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        font-size: 1.05rem;
+    }
+
+    .input-group-text {
+        background-color: transparent !important;
+        border-color: inherit;
+    }
+
+    /* Form Control Styling */
+    .form-control {
+        border-radius: 8px;
+        border: 2px solid #e0e0e0;
+        transition: all 0.2s ease;
+    }
+
+    .form-control:focus {
+        border-color: #0c63e4;
+        box-shadow: 0 0 0 0.2rem rgba(12, 99, 228, 0.15);
+    }
+
+    .form-control.border-success-subtle:focus {
+        border-color: #198754;
+        box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.15);
+    }
+
+    .form-control.border-info-subtle:focus {
+        border-color: #0dcaf0;
+        box-shadow: 0 0 0 0.2rem rgba(13, 202, 240, 0.15);
+    }
+
+    .form-control.border-warning-subtle:focus {
+        border-color: #ffc107;
+        box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.15);
+    }
+
+    /* Textarea Styling */
+    textarea.form-control {
+        resize: vertical;
+    }
+
+    textarea.form-control:focus {
+        background-color: #fffaf0;
+    }
+
+    /* Button Hover Effect */
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .btn-success:hover {
+        transform: translateY(-2px);
     }
 </style>
 
@@ -211,41 +300,111 @@
 
 <!-- Tek Tramvay Düzenleme Modal -->
 <div class="modal fade" id="editModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>KM Güncelle</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-0 bg-gradient pb-4"
+                style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 2rem 1.5rem 1.5rem !important;">
+                <div class="flex-grow-1">
+                    <h5 class="modal-title text-white mb-1">
+                        <i class="bi bi-pencil-square me-2"></i>KM Bilgilerini Güncelle
+                    </h5>
+                    <p class="text-white-50 small mb-0">
+                        <i class="bi bi-info-circle me-1"></i>Tramvay hızlı tamir süresi bilgilerini girin
+                    </p>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form method="POST" action="{{ url_for('tramvay_km_guncelle') }}">
-                <div class="modal-body">
+                <div class="modal-body px-4 py-4">
                     <input type="hidden" name="tram_id" id="edit_tram_id">
 
-                    <div class="mb-3">
-                        <label for="edit_tram_name" class="form-label">Tramvay</label>
-                        <input type="text" class="form-control" id="edit_tram_name" name="tram_name" readonly>
+                    <!-- Tramvay Bilgisi (Readonly) -->
+                    <div class="mb-4 pb-3 border-bottom">
+                        <label for="edit_tram_name" class="form-label fw-bold text-dark mb-2">
+                            <i class="bi bi-train-front me-2 text-primary"></i>Tramvay
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-0">
+                                <i class="bi bi-info-circle text-primary"></i>
+                            </span>
+                            <input type="text" class="form-control form-control-lg bg-light border-0 fw-bold"
+                                id="edit_tram_name" name="tram_name" readonly style="cursor: default;">
+                        </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label for="edit_current_km" class="form-label">Mevcut KM <span class="text-danger">*</span></label>
-                        <input type="number" name="current_km" id="edit_current_km" class="form-control" min="0"
-                            required>
+                    <!-- Mevcut KM (Readonly) -->
+                    <div class="mb-4">
+                        <label for="edit_current_km_display" class="form-label fw-bold text-dark mb-2">
+                            <i class="bi bi-speedometer2 me-2 text-muted"></i>Mevcut KM
+                        </label>
+                        <div class="input-group mb-3">
+                            <span class="input-group-text bg-secondary-subtle border-0">
+                                <i class="bi bi-pin-map text-secondary"></i>
+                            </span>
+                            <input type="text" class="form-control form-control-lg bg-secondary-subtle border-0 fw-bold"
+                                id="edit_current_km_display" readonly style="cursor: default;">
+                        </div>
+                        <small class="text-muted d-block">
+                            <i class="bi bi-clock-history me-1"></i>Sisteme kayıtlı mevcut kilometre
+                        </small>
                     </div>
 
-                    <div class="mb-3">
-                        <label for="edit_monthly_km" class="form-label">Aylık Ortalama KM</label>
-                        <input type="number" name="monthly_km" id="edit_monthly_km" class="form-control" min="0">
+                    <!-- Yeni KM Girişi -->
+                    <div class="mb-4">
+                        <label for="edit_current_km" class="form-label fw-bold text-dark mb-2">
+                            <i class="bi bi-pencil me-2 text-success"></i>Güncellenmiş KM
+                            <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group input-group-lg">
+                            <input type="number" name="current_km" id="edit_current_km"
+                                class="form-control border-2 border-success-subtle" min="0" required
+                                placeholder="Yeni KM değerini girin"
+                                style="font-size: 1.2rem; font-weight: 500;">
+                            <span class="input-group-text bg-success-subtle border-2 border-success-subtle text-success fw-bold">
+                                km
+                            </span>
+                        </div>
+                        <div class="mt-2 p-2 bg-info-subtle border-start border-3 border-info">
+                            <small class="text-muted">
+                                <i class="bi bi-lightbulb me-1 text-info"></i>Tramvayın güncel kilometre değerini girin
+                            </small>
+                        </div>
                     </div>
 
+                    <!-- Aylık Ortalama KM -->
+                    <div class="mb-4">
+                        <label for="edit_monthly_km" class="form-label fw-bold text-dark mb-2">
+                            <i class="bi bi-graph-up me-2 text-info"></i>Aylık Ortalama KM
+                        </label>
+                        <div class="input-group input-group-lg">
+                            <input type="number" name="monthly_km" id="edit_monthly_km"
+                                class="form-control border-2 border-info-subtle" min="0" placeholder="0"
+                                style="font-size: 1.1rem;">
+                            <span class="input-group-text bg-info-subtle border-2 border-info-subtle text-info fw-bold">
+                                km/ay
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Notlar -->
                     <div class="mb-3">
-                        <label for="edit_notes" class="form-label">Notlar</label>
-                        <textarea name="notes" id="edit_notes" class="form-control" rows="2"></textarea>
+                        <label for="edit_notes" class="form-label fw-bold text-dark mb-2">
+                            <i class="bi bi-chat-left-text me-2 text-warning"></i>Notlar
+                        </label>
+                        <textarea name="notes" id="edit_notes" class="form-control border-2 border-warning-subtle"
+                            rows="3" placeholder="Herhangi bir not ekleyin (opsiyonel)"
+                            style="resize: none; font-size: 1rem;"></textarea>
+                        <small class="text-muted d-block mt-1">
+                            <i class="bi bi-info-circle me-1"></i>Maksimum 200 karakter
+                        </small>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check-lg me-2"></i>Kaydet
+                <div class="modal-footer border-top bg-light py-3">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg me-2"></i>İptal
+                    </button>
+                    <button type="submit" class="btn btn-success btn-lg px-5">
+                        <i class="bi bi-check-circle me-2"></i>Kaydet
                     </button>
                 </div>
             </form>
@@ -295,12 +454,12 @@
                             <tbody class="tbody-scroll">
                                 {% for tram in equipments %}
                                 <tr class="input-row border-bottom" data-tram-id="{{ tram.equipment_code or tram.id }}"
-                                    style="transition: background-color 0.2s ease;">
-                                    <td class="ps-3 py-2">
+                                    style="transition: all 0.2s ease; background-color: #fafafa;">
+                                    <td class="ps-3 py-3">
                                         <div class="d-flex align-items-center">
-                                            <div class="bg-primary bg-opacity-10 rounded p-2 me-2"
-                                                style="width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                                <i class="bi bi-train-front text-primary"
+                                            <div class="bg-gradient rounded-circle p-2 me-2"
+                                                style="width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                                                <i class="bi bi-train-front text-white"
                                                     style="font-size: 1.3rem;"></i>
                                             </div>
                                             <div>
@@ -311,16 +470,19 @@
                                         </div>
                                     </td>
                                     <td class="text-center py-2">
-                                        <span class="badge bg-secondary fs-6 px-3 py-2">{{ "{:,}".format(tram.current_km
-                                            or 0) }} km</span>
+                                        <span class="badge bg-secondary fs-6 px-3 py-2">
+                                            <i class="bi bi-speedometer2 me-1"></i>{{ "{:,}".format(tram.current_km or 0) }} km
+                                        </span>
                                     </td>
                                     <td class="text-center py-2">
                                         <input type="number"
                                             class="form-control form-control-sm km-input text-center fw-bold"
                                             name="km_{{ tram.equipment_code or tram.id }}"
                                             id="km_{{ tram.equipment_code or tram.id }}"
-                                            data-tram-id="{{ tram.equipment_code or tram.id }}" placeholder="0" min="0"
-                                            style="font-size: 1.1rem; border: 2px solid #d0d0d0; padding: 0.6rem 0.4rem;"
+                                            data-tram-id="{{ tram.equipment_code or tram.id }}" 
+                                            placeholder="Yeni KM girin" 
+                                            min="0"
+                                            style="font-size: 1.1rem; border: 2px solid #e0e0e0; padding: 0.7rem 0.5rem; border-radius: 6px; transition: all 0.2s ease;"
                                             autocomplete="off"
                                             aria-label="Tramvay {{ tram.equipment_code or tram.id }} KM">
                                     </td>
@@ -328,9 +490,11 @@
                                         <input type="text" class="form-control form-control-sm notes-input"
                                             name="notes_{{ tram.equipment_code or tram.id }}"
                                             id="notes_{{ tram.equipment_code or tram.id }}"
-                                            data-tram-id="{{ tram.equipment_code or tram.id }}" placeholder="Not ekle..."
-                                            value="{{ tram.notes or '' }}" maxlength="100"
-                                            style="font-size: 0.95rem; border: 1px solid #e0e0e0; padding: 0.5rem 0.4rem;"
+                                            data-tram-id="{{ tram.equipment_code or tram.id }}" 
+                                            placeholder="Not ekleyin..." 
+                                            value="{{ tram.notes or '' }}" 
+                                            maxlength="150"
+                                            style="font-size: 0.95rem; border: 1px solid #e0e0e0; padding: 0.6rem 0.5rem; border-radius: 6px; transition: all 0.2s ease;"
                                             autocomplete="off"
                                             aria-label="Tramvay {{ tram.equipment_code or tram.id }} notları">
                                     </td>
@@ -392,9 +556,13 @@
 
         document.getElementById('edit_tram_id').value = tramId;
         document.getElementById('edit_tram_name').value = tramCode;
+        document.getElementById('edit_current_km_display').value = parseInt(currentKm).toLocaleString('tr-TR') + ' km';
         document.getElementById('edit_current_km').value = currentKm;
         document.getElementById('edit_monthly_km').value = monthlyKm;
         document.getElementById('edit_notes').value = notes;
+        
+        // Focus to input field
+        setTimeout(() => document.getElementById('edit_current_km').focus(), 300);
     });
 
     // Enter'a basınca sonraki satıra geç
@@ -419,23 +587,26 @@
         input.addEventListener('input', function () {
             const row = this.closest('.input-row');
             const tramId = this.getAttribute('data-tram-id');
+            const kmInput = row.querySelector('.km-input');
 
-            // Satırı highlight et
-            if (this.value) {
+            // Satırı highlight et (sadece KM input'una bağlı)
+            if (kmInput.value) {
                 row.style.backgroundColor = '#e7f5ff';
-                row.style.borderLeft = '3px solid #0c63e4';
+                row.style.borderLeft = '4px solid #0c63e4';
+                row.style.boxShadow = '0 2px 8px rgba(12, 99, 228, 0.12)';
                 row.style.paddingLeft = '0.5rem';
             } else {
-                row.style.backgroundColor = '';
+                row.style.backgroundColor = '#fafafa';
                 row.style.borderLeft = '';
+                row.style.boxShadow = '';
                 row.style.paddingLeft = '';
             }
 
             // Güncellenen sayısını hesapla
             let count = 0;
             document.querySelectorAll('.input-row').forEach(r => {
-                const kmInput = r.querySelector('.km-input');
-                if (kmInput && kmInput.value) {
+                const km = r.querySelector('.km-input');
+                if (km && km.value && parseInt(km.value) > 0) {
                     count++;
                 }
             });
