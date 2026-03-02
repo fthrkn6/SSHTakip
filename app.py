@@ -1841,6 +1841,12 @@ def create_app():
                 Equipment.project_code == current_project
             ).order_by(Equipment.equipment_code).all()
             
+            print(f"[DEBUG-BAKIM] current_project: {current_project}, found {len(equipment_list)} equipments", flush=True)
+            
+            # Kontrol: tüm Equipment'lerin project_code'larını göster (debug)
+            all_equipment_projects = Equipment.query.filter(Equipment.parent_id == None).with_entities(Equipment.project_code, Equipment.equipment_code).limit(50).all()
+            print(f"[DEBUG-BAKIM] Sample 50 equipment project_codes: {[(e.project_code, e.equipment_code) for e in all_equipment_projects[:10]]}", flush=True)
+            
             # Sonuç listesi
             result = []
             
