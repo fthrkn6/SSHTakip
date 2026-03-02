@@ -808,31 +808,10 @@
                         Proje Seç
                         {% endif %}
                     </button>
-                    <ul class="dropdown-menu">
-                        {% set user_projects = current_user.get_assigned_projects() %}
-                        {% if user_projects == '*' %}
-                        <!-- Admin: Tüm Projeler -->
-                        {% for project_code in ['belgrad', 'gebze', 'iasi', 'kayseri', 'kocaeli', 'timisoara'] %}
-                        <li>
-                            <a class="dropdown-item {% if session.get('project_code') == project_code %}active{% endif %}"
-                                href="?project={{ project_code }}">
-                                <i
-                                    class="bi bi-check {% if session.get('project_code') == project_code %}me-2{% endif %}"></i>
-                                {{ project_code|title }}
-                            </a>
-                        </li>
-                        {% endfor %}
-                        {% elif user_projects %}
-                        <!-- Saha: Atanan Projeler -->
-                        {% for proj_code in user_projects %}
-                        <li>
-                            <a class="dropdown-item {% if session.get('project_code') == proj_code %}active{% endif %}"
-                                href="?project={{ proj_code }}">
-                                <i
-                                    class="bi bi-check {% if session.get('project_code') == proj_code %}me-2{% endif %}"></i>
-                                {{ proj_code|title }}
-                            </a>
-                        </li>
+                    <ul class="dropdown-menu" id="projectDropdownMenu">
+                        <!-- Dinamik olarak doldurulacak -->
+                    </ul>
+                </div>
                         {% endfor %}
                         {% endif %}
                     </ul>
@@ -912,6 +891,44 @@
 
     <!-- Main JS -->
     <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
+
+    <!-- Dinamik Proje Yükleme -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropdownMenu = document.getElementById('projectDropdownMenu');
+            if (!dropdownMenu) return;
+            
+            // Projeleri yükle
+            fetch('/api/projects')
+                .then(response => response.json())
+                .then(projects => {
+                    dropdownMenu.innerHTML = '';
+                    projects.forEach(project => {
+                        const li = document.createElement('li');
+                        const a = document.createElement('a');
+                        a.className = 'dropdown-item';
+                        a.href = '?project=' + project.code;
+                        
+                        // Aktif proje'yi işaretle
+                        const currentProject = '{{ session.get("project_code", "") }}';
+                        if (currentProject === project.code) {
+                            a.classList.add('active');
+                        }
+                        
+                        // İçerik
+                        a.innerHTML = `<i class="bi bi-check ${currentProject === project.code ? 'me-2' : ''}"></i>${project.name}`;
+                        
+                        li.appendChild(a);
+                        dropdownMenu.appendChild(li);
+                    });
+                })
+                .catch(error => {
+                    console.error('Projeler yüklenirken hata:', error);
+                    // Fallback
+                    dropdownMenu.innerHTML = '<li><a class="dropdown-item" href="?project=belgrad">Belgrad</a></li>';
+                });
+        });
+    </script>
 
     {% block scripts %}{% endblock %}
     {% block extra_js %}{% endblock %}

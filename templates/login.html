@@ -315,15 +315,9 @@
                     <label class="form-label">Proje Seçin *</label>
                     <div class="input-group-icon">
                         <i class="bi bi-folder2-open"></i>
-                        <select name="project" class="form-control" style="padding-left: 48px;" required
+                        <select name="project" id="projectSelect" class="form-control" style="padding-left: 48px;" required
                             onchange="validateProjectSelection(this)">
                             <option value="">-- Lütfen Proje Seçin --</option>
-                            <option value="belgrad">🇷🇸 Belgrad</option>
-                            <option value="iasi">🇷🇴 Iași</option>
-                            <option value="timisoara">🇷🇴 Timișoara</option>
-                            <option value="kayseri">🇹🇷 Kayseri</option>
-                            <option value="kocaeli">🇹🇷 Kocaeli</option>
-                            <option value="gebze">🇹🇷 Gebze</option>
                         </select>
                     </div>
                 </div>
@@ -402,6 +396,40 @@
                 alert('Lütfen bir proje seçiniz!');
                 return false;
             }
+        });
+        
+        // Projeleri dinamik yükle
+        document.addEventListener('DOMContentLoaded', function() {
+            const projectSelect = document.getElementById('projectSelect');
+            
+            fetch('/api/projects')
+                .then(response => response.json())
+                .then(projects => {
+                    projects.forEach(project => {
+                        const option = document.createElement('option');
+                        option.value = project.code;
+                        option.textContent = project.name;
+                        projectSelect.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Projeler yüklenirken hata:', error);
+                    // Fallback: sabit projeler
+                    const fallbackProjects = [
+                        {code: 'belgrad', name: 'Belgrad'},
+                        {code: 'gebze', name: 'Gebze'},
+                        {code: 'iasi', name: 'Iasi'},
+                        {code: 'kayseri', name: 'Kayseri'},
+                        {code: 'kocaeli', name: 'Kocaeli'},
+                        {code: 'timisoara', name: 'Timisoara'}
+                    ];
+                    fallbackProjects.forEach(project => {
+                        const option = document.createElement('option');
+                        option.value = project.code;
+                        option.textContent = project.name;
+                        projectSelect.appendChild(option);
+                    });
+                });
         });
     </script>
 </body>

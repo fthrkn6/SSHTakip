@@ -1608,6 +1608,31 @@ def create_app():
                 flash(f'[ERROR] İndirme hatas: {str(e)}', 'danger')
                 return redirect(url_for('ariza_listesi_veriler'))
 
+        @app.route('/api/projects')
+        def get_projects():
+            """Systemde mevcut tüm projeleri döndür (data/ klasöründen oku)"""
+            import os
+            
+            projects_dir = os.path.join(os.path.dirname(__file__), 'data')
+            projects = []
+            
+            if os.path.exists(projects_dir):
+                for item in os.listdir(projects_dir):
+                    item_path = os.path.join(projects_dir, item)
+                    # Klasör ve Veriler.xlsx var mı kontrol et
+                    if os.path.isdir(item_path):
+                        excel_path = os.path.join(item_path, 'Veriler.xlsx')
+                        if os.path.exists(excel_path):
+                            projects.append({
+                                'code': item,
+                                'name': item.capitalize()
+                            })
+            
+            # Alfabetik sıralama
+            projects.sort(key=lambda x: x['code'])
+            
+            return jsonify(projects)
+
         @app.route('/api/parts-lookup', methods=['GET'])
         @login_required
         def parts_lookup():
