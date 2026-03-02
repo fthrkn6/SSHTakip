@@ -636,13 +636,23 @@
 
         // API'den o araçla ilgili arızaları getir
         fetch(`/dashboard/api/failures/${normalizedCode}`)
-            .then(response => response.json())
+            .then(response => {
+                console.log('[FETCH] Response status:', response.status);
+                return response.json();
+            })
             .then(data => {
+                console.log('[API-SUCCESS] Dönen veri:', data);
+                console.log('[API-SUCCESS] Arıza sayısı:', data.failures ? data.failures.length : 0);
+                
                 const arizaContainer = document.getElementById('ariza-container');
+                console.log('[DOM] Container bulundu:', arizaContainer !== null);
 
                 if (data.failures && data.failures.length > 0) {
+                    console.log('[RENDER] Arızaları render etmeye başla');
                     let html = '';
-                    data.failures.forEach(ariza => {
+                    data.failures.forEach((ariza, idx) => {
+                        console.log(`[RENDER-${idx}] Arıza:`, ariza);
+                        
                         // Araç no'yu normalize et (1547.0 → 1547)
                         let aracNoNormalized = ariza.arac_no;
                         try {
@@ -654,28 +664,36 @@
                             // String olarak bırak
                         }
                         
+                        console.log(`[RENDER-${idx}] Normalized arac_no:`, aracNoNormalized);
+                        
                         html += `
-                            <div class="ariza-item d-flex align-items-start p-3 mb-2 rounded-3" style="background: #fef2f2;">
+                            <div class="ariza-item d-flex align-items-start p-3 mb-2 rounded-3" style="background: #fef2f2; border-left: 4px solid #dc3545;">
                                 <div class="me-3">
                                     <span class="badge bg-danger">Açık</span>
                                 </div>
                                 <div class="flex-grow-1">
-                                    <h6 class="mb-1 text-dark">${ariza.fracas_id}</h6>
-                                    <small class="text-muted">
-                                        <i class="bi bi-train-front me-1"></i><span class="arac-code" onclick="filterArizalar('${aracNoNormalized}')" style="cursor: pointer; text-decoration: underline;">${aracNoNormalized}</span>
+                                    <h6 class="mb-1 text-dark"><i class="bi bi-exclamation-triangle-fill me-2 text-danger"></i>${ariza.fracas_id || 'N/A'}</h6>
+                                    <small class="text-muted d-block mb-2">
+                                        <i class="bi bi-train-front me-1"></i>
+                                        <span class="arac-code" onclick="filterArizalar('${aracNoNormalized}')" style="cursor: pointer; text-decoration: underline; color: #0c63e4;">${aracNoNormalized}</span>
                                     </small>
-                                    <br>
-                                    <small class="text-muted">${ariza.sistem}: ${ariza.ariza_tanimi}</small>
-                                    <br>
-                                    <small class="text-muted">Tarih: ${ariza.tarih}</small>
+                                    <small class="text-muted d-block mb-2">
+                                        <i class="bi bi-gear me-1"></i><strong>Sistem:</strong> ${ariza.sistem || 'Bilinmiyor'}
+                                    </small>
+                                    <small class="text-muted d-block" style="line-height: 1.5;">
+                                        <i class="bi bi-chat-left-text me-1"></i><strong>Arıza:</strong> ${ariza.ariza_tanimi || 'Tanım yok'}
+                                    </small>
+                                    ${ariza.tarih ? `<small class="text-muted d-block mt-2"><i class="bi bi-calendar me-1"></i>${ariza.tarih}</small>` : ''}
                                 </div>
                             </div>
                         `;
                     });
                     arizaContainer.innerHTML = html;
+                    console.log('[RENDER] HTML render tamamlandı');
                     document.getElementById('ariza-count').textContent = data.failures.length;
                 } else {
                     // Arıza yok
+                    console.log('[RENDER] Arıza bulunamadı - empty state göster');
                     arizaContainer.innerHTML = `
                         <div class="text-center py-5">
                             <i class="bi bi-check-circle text-success" style="font-size: 48px;"></i>
@@ -690,11 +708,16 @@
                 document.getElementById('filtered-vehicle-badge').textContent = normalizedCode;
                 document.getElementById('filtered-vehicle-badge').style.display = 'inline';
                 document.getElementById('clear-filter-btn').style.display = 'inline';
+                
+                console.log('[SUCCESS] Filtrele tamamlandı');
             })
             .catch(error => {
-                console.error('Hata:', error);
+                console.error('[ERROR] Fetch hatası:', error);
+                console.error('[ERROR] Error message:', error.message);
                 const arizaContainer = document.getElementById('ariza-container');
-                arizaContainer.innerHTML = '<div class="text-danger">Veri yüklenirken hata oluştu</div>';
+                if (arizaContainer) {
+                    arizaContainer.innerHTML = `<div class="text-danger"><i class="bi bi-exclamation-circle me-2"></i>Veri yüklenirken hata oluştu: ${error.message}</div>`;
+                }
             });
     }
 
