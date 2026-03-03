@@ -1377,7 +1377,12 @@ def create_app():
                 return redirect(url_for('hbr_listesi'))
             
             try:
-                return send_file(filepath, as_attachment=True, download_name=filename)
+                return send_file(
+                    filepath, 
+                    as_attachment=True, 
+                    download_name=filename,
+                    mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                )
             except Exception as e:
                 print(f"   ❌ HBR indirme hatası: {str(e)}")
                 flash(f'❌ İndirme başarısız: {str(e)}', 'danger')
