@@ -128,10 +128,17 @@ def load_parts_cache(project=None):
     # data/{project}/ içinde GÜNCEL ile başlayan Excel'i bul
     part_file = None
     if os.path.exists(data_dir):
-        for file in os.listdir(data_dir):
-            if file.upper().startswith('GÜNCEL') and file.endswith('.xlsx') and not file.startswith('~$'):
+        files = os.listdir(data_dir)
+        for file in files:
+            # Case-insensitive extensions check
+            file_upper = file.upper()
+            if file_upper.startswith('GÜNCEL') and file_upper.endswith('.XLSX') and not file.startswith('~$'):
                 part_file = os.path.join(data_dir, file)
                 break
+    else:
+        print(f"[WARN] Parts directory not found: {data_dir}")
+    else:
+        print(f"[DEBUG] Directory not found: {data_dir}")
     
     if not part_file or not os.path.exists(part_file):
         _parts_cache[project] = []
