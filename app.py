@@ -1396,7 +1396,7 @@ def create_app():
                 return send_file(
                     filepath, 
                     as_attachment=True, 
-                    download_name=filename,
+                    attachment_filename=filename,
                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 )
             except Exception as e:
