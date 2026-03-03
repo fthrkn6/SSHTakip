@@ -137,8 +137,6 @@ def load_parts_cache(project=None):
                 break
     else:
         print(f"[WARN] Parts directory not found: {data_dir}")
-    else:
-        print(f"[DEBUG] Directory not found: {data_dir}")
     
     if not part_file or not os.path.exists(part_file):
         _parts_cache[project] = []
