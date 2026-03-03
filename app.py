@@ -104,21 +104,37 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-# Global parts cache - initialized once
-_parts_cache = None
-_parts_cache_time = None
+# Global parts cache - initialized per project
+_parts_cache = {}
+_parts_cache_time = {}
 
-def load_parts_cache():
-    """Excel dosyasını yükle ve cache'e al"""
+def load_parts_cache(project=None):
+    """Excel dosyasını proje bazında yükle ve cache'e al"""
     global _parts_cache, _parts_cache_time
     import pandas as pd
     from datetime import datetime
     
-    data_dir = os.path.join(os.path.dirname(__file__), 'data', 'belgrad')
-    part_file = os.path.join(data_dir, 'GÜNCEL BELGRAD TRAMVAY 11.09.2025.XLSX')
+    if project is None:
+        project = 'belgrad'
     
-    if not os.path.exists(part_file):
-        _parts_cache = []
+    project = project.lower()
+    
+    # Cache'te varsa döndür
+    if project in _parts_cache and _parts_cache[project]:
+        return _parts_cache[project]
+    
+    data_dir = os.path.join(os.path.dirname(__file__), 'data', project)
+    
+    # data/{project}/ içinde GÜNCEL ile başlayan Excel'i bul
+    part_file = None
+    if os.path.exists(data_dir):
+        for file in os.listdir(data_dir):
+            if file.upper().startswith('GÜNCEL') and file.endswith('.xlsx') and not file.startswith('~$'):
+                part_file = os.path.join(data_dir, file)
+                break
+    
+    if not part_file or not os.path.exists(part_file):
+        _parts_cache[project] = []
         return []
     
     try:
@@ -138,13 +154,13 @@ def load_parts_cache():
                     'nesne_metni_lower': nesne_metni.lower()
                 })
         
-        _parts_cache = parts
-        _parts_cache_time = datetime.now()
-        print(f"[OK] Parts cache yükle: {len(parts)} parça")
+        _parts_cache[project] = parts
+        _parts_cache_time[project] = datetime.now()
+        print(f"[OK] Parts cache yüklendi ({project}): {len(parts)} parça - {part_file}")
         return parts
     except Exception as e:
-        print(f"Parts cache hatas: {e}")
-        _parts_cache = []
+        print(f"Parts cache hatası ({project}): {e}")
+        _parts_cache[project] = []
         return []
 
 
@@ -1642,18 +1658,18 @@ def create_app():
         @app.route('/api/parts-lookup', methods=['GET'])
         @login_required
         def parts_lookup():
-            """Bileşen numarası - Nesne kısa metni arasında hızlı lookup yapıyor"""
-            global _parts_cache
+            """Bileşen numarası - Nesne kısa metni arasında hızlı lookup yapıyor (proje-bazlı)"""
             
             query = request.args.get('q', '').strip()
+            project = request.args.get('project') or session.get('current_project', 'belgrad')
+            
             if not query or len(query) < 2:
                 return jsonify([])
             
-            # Cache'i yükle (varsa)
-            if _parts_cache is None:
-                load_parts_cache()
+            # Cache'i proje için yükle
+            parts_cache = load_parts_cache(project)
             
-            if not _parts_cache:
+            if not parts_cache:
                 return jsonify([])
             
             query_lower = query.lower()
@@ -1662,7 +1678,7 @@ def create_app():
             
             # Hızlı arama: tam eşleşme başta, sonra kısmi
             # 1. Bileşen numarası ile tam başlangıç eşleşmesi
-            for part in _parts_cache:
+            for part in parts_cache:
                 if part['bilesen_no'].startswith(query_upper):
                     results.append({
                         'bilesen_no': part['bilesen_no'],
@@ -1672,7 +1688,7 @@ def create_app():
                         return jsonify(results)
             
             # 2. Nesne metni ile tam başlangıç eşleşmesi
-            for part in _parts_cache:
+            for part in parts_cache:
                 if part['nesne_metni'].startswith(query_upper):
                     # Duplike kontrol
                     if not any(r['bilesen_no'] == part['bilesen_no'] for r in results):
@@ -1684,7 +1700,7 @@ def create_app():
                         return jsonify(results)
             
             # 3. Bileşen numarası veya Nesne metni içinde kısmi eşleşme
-            for part in _parts_cache:
+            for part in parts_cache:
                 if query_upper in part['bilesen_no'] or query_upper in part['nesne_metni']:
                     # Duplike kontrol
                     if not any(r['bilesen_no'] == part['bilesen_no'] for r in results):

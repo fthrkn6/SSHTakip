@@ -262,7 +262,7 @@
 
 {% block content %}
 <div class="container-fluid py-2">
-    <form method="POST" enctype="multipart/form-data" id="arizaBildirimForm">
+    <form method="POST" enctype="multipart/form-data" id="arizaBildirimForm" data-project="{{ session.get('current_project', 'belgrad') }}">
         <div class="row">
             <!-- Sol Kolon -->
             <div class="col-lg-6">
@@ -770,6 +770,10 @@
     }
 
     // ============= PARÇA AUTOCOMPLETE SEARCH WITH DEBOUNCING =============
+    // Proje bilgisini al
+    const arizaBildirimForm = document.getElementById('arizaBildirimForm');
+    const currentProject = arizaBildirimForm ? arizaBildirimForm.dataset.project : 'belgrad';
+    
     // Debounce function for performance optimization
     function debounce(func, delay) {
         let timeout;
@@ -796,20 +800,7 @@
             }
 
             try {
-                const response = await fetch(`/api/parts-lookup?q=${encodeURIComponent(query)}`);
-                const results = await response.json();
-
-                // Filtered results: show only matching "Nesne Kısa Metni"
-                const filteredResults = results.filter(r =>
-                    r.nesne_metni.includes(query.toUpperCase())
-                );
-
-                if (filteredResults.length === 0) {
-                    parcaAdiList.style.display = 'none';
-                    return;
-                }
-
-                // Clear and populate the list
+                    const response = await fetch(`/api/parts-lookup?q=${encodeURIComponent(query)}&project=${encodeURIComponent(currentProject)}`);
                 parcaAdiList.innerHTML = '';
                 filteredResults.forEach(item => {
                     const li = document.createElement('li');
@@ -856,20 +847,7 @@
             }
 
             try {
-                const response = await fetch(`/api/parts-lookup?q=${encodeURIComponent(query)}`);
-                const results = await response.json();
-
-                // Filtered results: show only matching "Bileşen Numarası"
-                const filteredResults = results.filter(r =>
-                    r.bilesen_no.includes(query.toUpperCase())
-                );
-
-                if (filteredResults.length === 0) {
-                    parcaKoduList.style.display = 'none';
-                    return;
-                }
-
-                // Clear and populate the list
+                    const response = await fetch(`/api/parts-lookup?q=${encodeURIComponent(query)}&project=${encodeURIComponent(currentProject)}`);
                 parcaKoduList.innerHTML = '';
                 filteredResults.forEach(item => {
                     const li = document.createElement('li');

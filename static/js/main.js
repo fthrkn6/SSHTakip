@@ -182,11 +182,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (!koduInput) return; // Sayfa bileşen bulmamazsa çık
 
+    // Proje bilgisini al
+    const form = document.getElementById('arizaBildirimForm');
+    const project = form ? form.dataset.project || 'belgrad' : 'belgrad';
+
     // Helper: API'den veri çek
     async function fetchParts(query) {
         if (query.length < 2) return [];
         try {
-            const response = await fetch(`/api/parts-lookup?q=${encodeURIComponent(query)}`);
+            const response = await fetch(`/api/parts-lookup?q=${encodeURIComponent(query)}&project=${encodeURIComponent(project)}`);
             return await response.json();
         } catch (e) {
             console.error('Parça lookup hatası:', e);
