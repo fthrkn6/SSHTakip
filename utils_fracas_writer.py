@@ -391,6 +391,13 @@ class FracasWriter:
                             ws_sayfa2 = wb_veriler['Sayfa2']
                             hourly_rate = ws_sayfa2['G2'].value or 0
                             personnel_count = ws_sayfa2['H2'].value or 1
+                            # String'leri float'a çevir
+                            try:
+                                hourly_rate = float(hourly_rate) if hourly_rate else 0
+                                personnel_count = float(personnel_count) if personnel_count else 1
+                            except (ValueError, TypeError):
+                                hourly_rate = 0
+                                personnel_count = 1
                             print(f"   [LABOR_COST] Saatlik Ücret (G2): {hourly_rate}")
                             print(f"   [LABOR_COST] Personel Sayısı (H2): {personnel_count}")
                         wb_veriler.close()
@@ -399,13 +406,19 @@ class FracasWriter:
                     break
         
         # İşçilik maliyeti = (Saatlik Ücret × Personel Sayısı × MTTR dakika) / 60
-        if hourly_rate and mttr_minutes and personnel_count:
-            labor_cost = (hourly_rate * personnel_count * mttr_minutes) / 60
+        # mttr_minutes'ı de float'a çevir
+        try:
+            mttr_minutes_float = float(mttr_minutes) if mttr_minutes else 0
+        except (ValueError, TypeError):
+            mttr_minutes_float = 0
+        
+        if hourly_rate and mttr_minutes_float and personnel_count:
+            labor_cost = (hourly_rate * personnel_count * mttr_minutes_float) / 60
             prepared['AG'] = round(labor_cost, 2)
-            print(f"   [LABOR_COST] AG (İşçilik Maliyeti): {prepared['AG']} = ({hourly_rate} × {personnel_count} × {mttr_minutes}) / 60")
+            print(f"   [LABOR_COST] AG (İşçilik Maliyeti): {prepared['AG']} = ({hourly_rate} × {personnel_count} × {mttr_minutes_float}) / 60")
         else:
             prepared['AG'] = 0
-            print(f"   [LABOR_COST] AG (İşçilik Maliyeti): 0 (Saatlik Ücret: {hourly_rate}, Personel: {personnel_count}, MTTR: {mttr_minutes})")
+            print(f"   [LABOR_COST] AG (İşçilik Maliyeti): 0 (Saatlik Ücret: {hourly_rate}, Personel: {personnel_count}, MTTR: {mttr_minutes_float})")
         
         # FRACAS ID'yi otomatik oluştur (eğer verilmediyse)
         if 'E' not in prepared or not prepared['E']:
