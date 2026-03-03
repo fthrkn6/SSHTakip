@@ -12,6 +12,7 @@ import os
 from datetime import datetime
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
+from copy import copy
 import logging
 
 logger = logging.getLogger(__name__)
@@ -93,7 +94,28 @@ class FracasWriter:
         self.workbook = None
         self.worksheet = None
         self.file_path = self.get_fracas_file_path()
+    
+    def _copy_cell_style(self, source_cell, target_cell):
+        """Hücrenin biçimini (style) diğer hücreye kopyala
         
+        Kopyalanan özellikler:
+        - Font (yazı tipi, boyutu, rengi, vb.)
+        - Fill (arka plan rengi)
+        - Border (kenarlıklar)
+        - Alignment (hizalama)
+        - Number format (sayı formatı)
+        """
+        if source_cell.font:
+            target_cell.font = copy(source_cell.font)
+        if source_cell.fill:
+            target_cell.fill = copy(source_cell.fill)
+        if source_cell.border:
+            target_cell.border = copy(source_cell.border)
+        if source_cell.alignment:
+            target_cell.alignment = copy(source_cell.alignment)
+        if source_cell.number_format:
+            target_cell.number_format = source_cell.number_format
+    
     def get_fracas_file_path(self):
         """Fracas template dosya yolunu al (project'e göre dinamik)"""
         # Dosya adını oluştur - Fracas_BELGRAD.xlsx, Fracas_KAYSERI.xlsx, vb.
@@ -488,9 +510,15 @@ class FracasWriter:
             for col_letter, value in prepared_data.items():
                 if value:  # Sadece boş olmayan değerleri yaz
                     cell = ws[f'{col_letter}{next_row}']
+                    
+                    # Şablon satırından hücre biçimini kopyala (renk, font, vb. korunur)
+                    template_cell = ws[f'{col_letter}{self.HEADER_ROW}']
+                    self._copy_cell_style(template_cell, cell)
+                    
+                    # Değeri yaz
                     cell.value = value
-                    print(f"   [WRITE] {col_letter}{next_row} = {value}")
-                    logger.debug(f"Yazıldı: {col_letter}{next_row} = {value}")
+                    print(f"   [WRITE] {col_letter}{next_row} = {value} (format copied from {col_letter}{self.HEADER_ROW})")
+                    logger.debug(f"Yazıldı: {col_letter}{next_row} = {value} (format korundu)")
             
             # Temp dosyayı kaydet
             wb.save(temp_file)
