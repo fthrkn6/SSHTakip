@@ -61,6 +61,7 @@ PROJECTS = [
     {'code': 'kayseri', 'name': 'Kayseri', 'country': 'Türkiye', 'flag': '🇹🇷'},
     {'code': 'kocaeli', 'name': 'Kocaeli', 'country': 'Türkiye', 'flag': '🇹🇷'},
     {'code': 'gebze', 'name': 'Gebze', 'country': 'Türkiye', 'flag': '🇹🇷'},
+    {'code': 'samsun', 'name': 'Samsun', 'country': 'Türkiye', 'flag': '🇹🇷'},
 ]
 
 # Sistem üzerindeki tüm sayfalar - Yetkilendirme için
