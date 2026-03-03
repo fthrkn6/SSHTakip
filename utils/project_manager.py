@@ -38,8 +38,35 @@ class ProjectManager:
     
     @staticmethod
     def get_all_projects():
-        """Tüm projeleri (aktif + pasif) listele"""
+        """Tüm projeleri listele (projects_config.json + data/ klasöründen dinamik tarama)"""
+        # Öncelikle projects_config.json'dan yükle
         projects, _ = ProjectManager.load_projects()
+        existing_codes = {p['code'] for p in projects}
+        
+        # data/ klasöründe Veriler.xlsx olan klasörleri tara
+        try:
+            data_path = os.path.join(current_app.root_path, 'data')
+            if os.path.exists(data_path):
+                for folder_name in os.listdir(data_path):
+                    folder_path = os.path.join(data_path, folder_name)
+                    # Klasör mü ve Veriler.xlsx var mı kontrol et
+                    if os.path.isdir(folder_path) and os.path.exists(os.path.join(folder_path, 'Veriler.xlsx')):
+                        code = folder_name.lower()
+                        # Henüz listelenmemişse ekle
+                        if code not in existing_codes:
+                            projects.append({
+                                'code': code,
+                                'name': folder_name.capitalize(),
+                                'description': f'{folder_name} Projesi',
+                                'status': 'aktif',
+                                'location': f'{folder_name}',
+                                'created': datetime.now().strftime('%Y-%m-%d'),
+                                'admin': 'admin@bozankaya.com'
+                            })
+                            existing_codes.add(code)
+        except Exception as e:
+            print(f"data/ klasörü taranırken hata: {e}")
+        
         return projects
     
     @staticmethod

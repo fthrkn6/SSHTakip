@@ -53,6 +53,15 @@
             "location": "Timișoara, Romanya",
             "created": "2025-01-01",
             "admin": "admin@bozankaya.com"
+        },
+        {
+            "code": "samsun",
+            "name": "Samsun",
+            "description": "Samsun",
+            "status": "aktif",
+            "location": "Samsun, Türkiye",
+            "created": "2026-03-03",
+            "admin": "admin@bozankaya.com"
         }
     ],
     "defaults": {
