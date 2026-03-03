@@ -801,6 +801,7 @@
 
             try {
                     const response = await fetch(`/api/parts-lookup?q=${encodeURIComponent(query)}&project=${encodeURIComponent(currentProject)}`);
+                    const filteredResults = await response.json();
                 parcaAdiList.innerHTML = '';
                 filteredResults.forEach(item => {
                     const li = document.createElement('li');
@@ -848,6 +849,7 @@
 
             try {
                     const response = await fetch(`/api/parts-lookup?q=${encodeURIComponent(query)}&project=${encodeURIComponent(currentProject)}`);
+                    const filteredResults = await response.json();
                 parcaKoduList.innerHTML = '';
                 filteredResults.forEach(item => {
                     const li = document.createElement('li');
