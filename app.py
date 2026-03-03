@@ -1375,13 +1375,14 @@ def create_app():
                 print(f"   ❌ HBR silme hatası: {str(e)}")
                 return {'error': f'Silme hatası: {str(e)}'}, 500
 
-        @app.route('/hbr-download/<filename>')
+        @app.route('/hbr-download')
         @login_required
-        def hbr_download(filename):
+        def hbr_download():
             """HBR dosyasını indir"""
             from flask import send_file
-            from werkzeug.utils import secure_filename
             import os
+            
+            filename = request.args.get('filename', '')
             
             # Güvenlik: sadece {CODE}-NCR-{NUMBER}.xlsx formatındaki dosyaları izin ver
             if not (filename.endswith('.xlsx') and '-NCR-' in filename):
@@ -1390,7 +1391,7 @@ def create_app():
             
             project = session.get('current_project', 'belgrad')
             hbr_dir = os.path.join(app.root_path, 'logs', project, 'HBR')
-            filepath = os.path.join(hbr_dir, secure_filename(filename))
+            filepath = os.path.join(hbr_dir, filename)
             
             # Güvenlik: path traversal kontrol et
             if not filepath.startswith(hbr_dir) or not os.path.exists(filepath):
