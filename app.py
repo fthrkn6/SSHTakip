@@ -1294,8 +1294,8 @@ def create_app():
                                     'date': file_time.strftime('%d.%m.%Y %H:%M:%S'),
                                     'size': file_size,
                                     'size_display': size_display,
-                                    'download_url': f'/logs/{project}/HBR/{filename}',
-                                    'open_url': f'/logs/{project}/HBR/{filename}'
+                                    'download_url': f'/hbr-download/{filename}',
+                                    'open_url': f'/hbr-download/{filename}'
                                 })
                                 
                                 total_size += file_size
