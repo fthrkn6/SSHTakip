@@ -170,9 +170,9 @@
                             {% endif %}
                         </td>
                         <td class="text-end">
-                            <a href="/logs/{{ session.get('current_project', 'belgrad') }}/HBR/{{ hbr.name }}" 
+                            <a href="{{ url_for('hbr_download', filename=hbr.name) }}" 
                                class="btn btn-sm btn-success"
-                               download target="_blank">
+                               download>
                                 <i class="bi bi-download"></i> İndir
                             </a>
                             <button class="btn btn-sm btn-outline-secondary" 
