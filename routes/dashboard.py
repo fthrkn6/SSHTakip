@@ -318,12 +318,7 @@ def calculate_fleet_mttr():
     - Düşük MTTR = daha kısa tamir süreleri (bakım verimliliği)
     - Unit: Dakika (dk) veya Saat:Dakika formatında
     
-    Örnek:
-    - Toplam Tamir Süresi: 50,000 dakika
-    - Toplam Arızalar: 100
-    - MTTR = 50,000 / 100 = 500 dakika = 8 saat 20 dakika
-    
-    Veri Kaynağı: FRACAS.xlsx AC veya AB sütunu (Tamir Süresi)
+    Veri Kaynağı: FRACAS.xlsx tamir süresi sütunu (V, AB, AC gibi sütunlar)
     """
     from flask import current_app
     import re
@@ -332,6 +327,7 @@ def calculate_fleet_mttr():
         current_project = session.get('current_project', 'belgrad')
         
         # FRACAS dosyasını bul
+        # 1. Önce data/{project} klasöründe ara
         data_dir = os.path.join(current_app.root_path, 'data', current_project)
         fracas_file = None
         
@@ -340,6 +336,15 @@ def calculate_fleet_mttr():
                 if 'fracas' in file.lower() and file.endswith('.xlsx'):
                     fracas_file = os.path.join(data_dir, file)
                     break
+        
+        # 2. Yoksa logs/{project}/ariza_listesi/ klasöründe ara (Kayseri için)
+        if not fracas_file:
+            logs_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
+            if os.path.exists(logs_dir):
+                for file in os.listdir(logs_dir):
+                    if 'fracas' in file.lower() and file.endswith('.xlsx'):
+                        fracas_file = os.path.join(logs_dir, file)
+                        break
         
         mttr_minutes = 0
         total_failures = 0
@@ -350,53 +355,76 @@ def calculate_fleet_mttr():
                 # FRACAS Excel'inin FRACAS sheet'ini oku (header=3, yani 4. satır)
                 df = pd.read_excel(fracas_file, sheet_name='FRACAS', header=3)
                 
-                # V sütununu ara (Tamir Süresi)
                 mttr_values = []
                 mttr_col = None
+                is_hours = False  # Saat mi dakika mı?
                 
-                # V sütunu = Tamir Süresi (dakika)
-                if len(df.columns) > 21:  # V sütunu 22. sütun (0-indexed: 21)
-                    mttr_col = df.columns[21]  # V sütunu
-                    col_name = str(mttr_col)
+                # 1. AC sütununu önce kontrol et (Kocaeli, İasi, Timisoara): "Tamir Süresi (dakika)"
+                if len(df.columns) > 28:
+                    ac_col = df.columns[28]
+                    col_str = str(ac_col).lower()
                     
+                    if 'tamir' in col_str and ('dakika' in col_str or 'repair' in col_str):
+                        mttr_col = ac_col
+                        for val in df.iloc[:, 28].dropna():
+                            try:
+                                if isinstance(val, (int, float)) and val > 0:
+                                    mttr_values.append(float(val))
+                            except:
+                                continue
+                        is_hours = False
+                
+                # 2. AB sütununu kontrol et (Gebze): "Tamir Süresi (saat)"
+                if not mttr_values and len(df.columns) > 27:
+                    ab_col = df.columns[27]
+                    col_str = str(ab_col).lower()
+                    
+                    if 'tamir' in col_str and ('saat' in col_str or 'hour' in col_str):
+                        mttr_col = ab_col
+                        for val in df.iloc[:, 27].dropna():
+                            try:
+                                if isinstance(val, (int, float)) and val > 0:
+                                    mttr_values.append(float(val))
+                            except:
+                                continue
+                        is_hours = True
+                
+                # 3. V sütununu kontrol et (Belgrad): header'a bakılmadan direkt index 21
+                if not mttr_values and len(df.columns) > 21:
+                    v_col = df.columns[21]
+                    mttr_col = v_col
                     for val in df.iloc[:, 21].dropna():
                         try:
-                            if isinstance(val, (int, float)):
+                            if isinstance(val, (int, float)) and val > 0:
                                 mttr_values.append(float(val))
-                            else:
-                                val_str = str(val).strip()
-                                # Formül veya sayı olabilir
-                                match = re.search(r'(\d+(?:[\.,]\d+)?)', val_str)
-                                if match:
-                                    number_str = match.group(1).replace(',', '.')
-                                    mttr_values.append(float(number_str))
                         except:
                             continue
+                    is_hours = False  # V'nin base var mı kontrol et
+                
+                # Saat değerleri dakikaya çevir
+                if is_hours and mttr_values:
+                    mttr_values = [v * 60 for v in mttr_values]
                 
                 if len(mttr_values) > 0:
                     total_repair_time = sum(mttr_values)
                     total_failures = len(mttr_values)
-                    mttr_minutes = total_repair_time / total_failures  # Formül: Toplam Tamir Süresi / Arıza Sayısı
+                    mttr_minutes = total_repair_time / total_failures
                     mttr_minutes = round(mttr_minutes, 1)
-                    logger.debug(f'[MTTR] Proje: {current_project}, Toplam Tamir Süresi: {total_repair_time} dk, Arıza Sayısı: {total_failures}, MTTR: {mttr_minutes} dk')
+                    logger.debug(f'[MTTR] Proje: {current_project}, Tamir: {total_repair_time:.0f} dk, Arıza: {total_failures}, MTTR: {mttr_minutes} dk (Sütun: {mttr_col})')
                 else:
-                    logger.debug(f'[MTTR] Proje: {current_project} - FRACAS dosyasında tamir süresi değeri bulunamadi')
+                    logger.debug(f'[MTTR] Proje: {current_project} - tamir süresi değeri bulunamadi')
             
             except Exception as e:
-                logger.error(f'[MTTR] FRACAS okuma hatasi: {e}')
+                logger.error(f'[MTTR] {current_project} okuma hatasi: {e}')
                 import traceback
                 logger.error(traceback.format_exc())
                 total_failures = 0
                 mttr_minutes = 0
         else:
-            logger.debug(f'[MTTR] Proje: {current_project} - FRACAS dosyası bulunamadi')
+            logger.debug(f'[MTTR] Proje: {current_project} - FRACAS dosyası yok')
         
-        # Dakikayı saat:dakika formatına dönüştür
-        hours = int(mttr_minutes // 60) if mttr_minutes > 0 else 0
-        minutes = int(mttr_minutes % 60) if mttr_minutes > 0 else 0
+        # Format
         mttr_formatted = f"{int(mttr_minutes)} dk" if mttr_minutes > 0 else "0 dk"
-        
-        logger.debug(f'[MTTR FINAL] Proje: {current_project}, Toplam Tamir: {total_repair_time} dk, Arızalar: {total_failures}, MTTR: {mttr_minutes} dk')
         
         return {
             'mttr_minutes': mttr_minutes,
@@ -413,7 +441,7 @@ def calculate_fleet_mttr():
         logger.error(traceback.format_exc())
         return {
             'mttr_minutes': 0,
-            'mttr_formatted': '0m',
+            'mttr_formatted': '0 dk',
             'mttr_hours': 0,
             'total_failures': 0,
             'unit': 'dakika (dk)'
