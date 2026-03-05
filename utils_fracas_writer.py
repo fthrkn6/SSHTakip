@@ -94,6 +94,7 @@ class FracasWriter:
         self.workbook = None
         self.worksheet = None
         self.file_path = self.get_fracas_file_path()
+        self._style_cache = {}  # Template satırının stillerini cache'lemek için
     
     def _copy_cell_style(self, source_cell, target_cell):
         """Hücrenin biçimini (style) diğer hücreye kopyala
@@ -115,6 +116,50 @@ class FracasWriter:
             target_cell.alignment = copy(source_cell.alignment)
         if source_cell.number_format:
             target_cell.number_format = source_cell.number_format
+    
+    def _cache_template_styles(self):
+        """Template satırının stillerini bellekte cache'le (hızlandırma için)
+        
+        Her sütunun biçim (font, fill, border, vb.) bilgisini bir kez oku,
+        sonra loop içinde teker teker okumak yerine cache'ten al.
+        """
+        if self._style_cache:
+            return  # Zaten cache'lenmiş
+        
+        if not self.worksheet:
+            return
+        
+        # Template satırından (header) tüm sütunları tarayıp stil cache'le
+        for col_idx in range(1, 40):  # Yeterli sütun sayısı
+            col_letter = get_column_letter(col_idx)
+            template_cell = self.worksheet[f'{col_letter}{self.HEADER_ROW}']
+            
+            # Style dictionary'si oluştur
+            style_dict = {
+                'font': copy(template_cell.font) if template_cell.font else None,
+                'fill': copy(template_cell.fill) if template_cell.fill else None,
+                'border': copy(template_cell.border) if template_cell.border else None,
+                'alignment': copy(template_cell.alignment) if template_cell.alignment else None,
+                'number_format': template_cell.number_format if template_cell.number_format else None,
+            }
+            self._style_cache[col_letter] = style_dict
+    
+    def _apply_cached_style(self, col_letter, target_cell):
+        """Cache'lenmiş stili hücreye uygula (hızlı style kopyalama)"""
+        if col_letter not in self._style_cache:
+            return
+        
+        style = self._style_cache[col_letter]
+        if style['font']:
+            target_cell.font = copy(style['font'])
+        if style['fill']:
+            target_cell.fill = copy(style['fill'])
+        if style['border']:
+            target_cell.border = copy(style['border'])
+        if style['alignment']:
+            target_cell.alignment = copy(style['alignment'])
+        if style['number_format']:
+            target_cell.number_format = style['number_format']
     
     def get_fracas_file_path(self):
         """Fracas template dosya yolunu al (project'e göre dinamik)"""
@@ -496,6 +541,9 @@ class FracasWriter:
             self.worksheet = ws
             self.workbook = wb
             
+            # Template stillerini cache'le (başlık satırından bir kez oku)
+            self._cache_template_styles()
+            
             # Bir sonraki satırı bul
             next_row = self.FIRST_DATA_ROW
             while ws[f'E{next_row}'].value is not None:
@@ -511,13 +559,12 @@ class FracasWriter:
                 if value:  # Sadece boş olmayan değerleri yaz
                     cell = ws[f'{col_letter}{next_row}']
                     
-                    # Şablon satırından hücre biçimini kopyala (renk, font, vb. korunur)
-                    template_cell = ws[f'{col_letter}{self.HEADER_ROW}']
-                    self._copy_cell_style(template_cell, cell)
+                    # Cache'lenmiş stili uygula (hızlı - template satırını okumaz)
+                    self._apply_cached_style(col_letter, cell)
                     
                     # Değeri yaz
                     cell.value = value
-                    print(f"   [WRITE] {col_letter}{next_row} = {value} (format copied from {col_letter}{self.HEADER_ROW})")
+                    print(f"   [WRITE] {col_letter}{next_row} = {value} (format cached)")
                     logger.debug(f"Yazıldı: {col_letter}{next_row} = {value} (format korundu)")
             
             # Temp dosyayı kaydet
