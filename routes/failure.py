@@ -5,6 +5,9 @@ from datetime import datetime
 from utils_hbr_manager import HBRManager
 import os
 from werkzeug.utils import secure_filename
+import logging
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('failure', __name__, url_prefix='/arizalar')
 
@@ -112,7 +115,9 @@ def add():
         ('diger', 'Diğer')
     ]
     
-    return render_template('failure/add.html', 
+    return render_template('yeni_ariza_bildir.html',
+                          mode='create',
+                          ariza=None,
                           araclar=araclar,
                           ariza_turleri=ariza_turleri,
                           now=datetime.now())
@@ -130,7 +135,73 @@ def detail(id):
     return render_template('failure/detail.html', ariza=ariza)
 
 
-def _create_hbr_from_form(ariza, request):
+@bp.route('/<int:id>/duzenle', methods=['GET', 'POST'])
+@login_required
+def edit(id):
+    """Arıza düzenle - aynı formu edit mode'da kullan"""
+    current_project = session.get('current_project', 'belgrad')
+    ariza = Failure.query.filter_by(
+        id=id,
+        project_code=current_project
+    ).first_or_404()
+    
+    if request.method == 'POST':
+        # Arızayı güncelle
+        ariza.failure_date = datetime.strptime(request.form.get('ariza_tarihi', ''), '%Y-%m-%dT%H:%M') if request.form.get('ariza_tarihi') else ariza.failure_date
+        ariza.description = request.form.get('description', '')
+        ariza.severity = request.form.get('severity', '')
+        ariza.failure_type = request.form.get('failure_type', '')
+        ariza.tedarikci = request.form.get('tedarikci', '')
+        ariza.malzeme_no = request.form.get('malzeme_no', '')
+        ariza.tamir_suresi = int(request.form.get('tamir_suresi', 0)) if request.form.get('tamir_suresi') else 0
+        ariza.last_updated_by = current_user.id
+        ariza.last_updated_at = datetime.utcnow()
+        
+        # Aracı güncelle (eğer seçildiyse)
+        if request.form.get('arac_id'):
+            ariza.equipment_id = request.form.get('arac_id')
+        
+        db.session.add(ariza)
+        db.session.flush()  # ID'yi al
+        
+        # FRACAS Excel dosyasını güncelle
+        try:
+            _update_fracas_file(ariza, request)
+        except Exception as e:
+            logger.warning(f"[EDIT] FRACAS güncellemesi başarısız: {e}")
+            # Excel hatası kritik değil, devam et
+        
+        # HBR güncelleme (eğer işaretliyse)
+        if request.form.get('create_hbr') == 'true':
+            try:
+                _update_or_create_hbr_for_edit(ariza, request)
+            except Exception as e:
+                logger.warning(f"[EDIT] HBR güncellemesi başarısız: {e}")
+        
+        db.session.commit()
+        
+        flash('✅ Arıza başarıyla güncelleştirildi.', 'success')
+        return redirect(url_for('failure.detail', id=id))
+    
+    # GET: Form'u doldurulmuş halde aç
+    araclar = Equipment.query.filter_by(equipment_type='arac', project_code=current_project).all()
+    
+    ariza_turleri = [
+        ('mekanik', 'Mekanik Arıza'),
+        ('elektrik', 'Elektrik Arızası'),
+        ('elektronik', 'Elektronik Arıza'),
+        ('hidrolik', 'Hidrolik Arıza'),
+        ('pnomatik', 'Pnömatik Arıza'),
+        ('yapi', 'Yapısal Hasar'),
+        ('diger', 'Diğer')
+    ]
+    
+    return render_template('failure/add.html',
+                          mode='edit',
+                          ariza=ariza,
+                          araclar=araclar,
+                          ariza_turleri=ariza_turleri,
+                          now=datetime.now())
     """Form verilerinden HBR Excel dosyası oluştur"""
     try:
         from flask import session
@@ -178,22 +249,184 @@ def _create_hbr_from_form(ariza, request):
         }
         
         # NCR sayıcısını al (project_name ile)
-        project_code, counter = HBRManager.get_next_ncr_counter(project_name, current_app.root_path)
+        try:
+            project_code, counter = HBRManager.get_next_ncr_counter(project_name, current_app.root_path)
+            logger.info(f"[HBR] NCR Counter alındı - Proje: {project_name}, Kod: {project_code}, Counter: {counter}")
+        except Exception as e:
+            logger.warning(f"[HBR] NCR Counter alınamadı, fallback kullanılıyor: {e}")
+            project_code = project_name.upper()[:3].upper() + "25"  # FOL: KOC25, İAS25, vb
+            counter = 1
         
         # HBR dosyası oluştur
+        try:
+            hbr_file = HBRManager.create_hbr_file(
+                project_name,           # Proje ADI (belgrad, iasi, etc)
+                current_app.root_path,
+                current_user,
+                hbr_data,
+                project_code=project_code,  # Veriler.xlsx'ten okunan KOD
+                counter=counter
+            )
+            
+            if hbr_file:
+                logger.info(f"[HBR] ✅ Başarıyla oluşturuldu: {hbr_file}")
+                return True
+            else:
+                logger.warning(f"[HBR] Dosya oluşturulamadı (None döndürüldü)")
+                return False
+                
+        except Exception as e:
+            logger.error(f"[HBR] ❌ Oluşturma hatası: {e}", exc_info=True)
+            return False
+        
+    except Exception as e:
+        logger.error(f"[HBR] ❌ Genel HBR işlem hatası: {e}", exc_info=True)
+        return False
+
+
+def _update_fracas_file(ariza, request):
+    """Arıza düzenlendikçinde FRACAS Excel dosyasını güncelle"""
+    try:
+        from utils.project_manager import ProjectManager
+        from openpyxl import load_workbook
+        
+        project_name = session.get('current_project', 'belgrad')
+        
+        # FRACAS dosyasını bul
+        ariza_listesi_file = ProjectManager.get_fracas_file(project_name)
+        if not ariza_listesi_file or not os.path.exists(ariza_listesi_file):
+            logger.warning(f"[EDIT-FRACAS] FRACAS dosyası bulunamadı: {project_name}")
+            return False
+        
+        # Excel dosyasını aç
+        wb = load_workbook(ariza_listesi_file)
+        ws = wb.active
+        
+        # FRACAS ID'ye göre satırı bul
+        fracas_id = request.form.get('fracas_id') or ariza.fracas_id
+        if not fracas_id:
+            logger.warning(f"[EDIT-FRACAS] FRACAS ID boş veya bulunmadı")
+            return False
+        
+        found_row = None
+        for row_idx, row in enumerate(ws.iter_rows(min_row=5), start=5):  # Header satır 4, veri 5'ten başla
+            # FRACAS ID sütununu kontrol et (genelde 5. sütun)
+            if row[4].value == fracas_id:  # Sütun E (index 4)
+                found_row = row_idx
+                break
+        
+        if not found_row:
+            logger.warning(f"[EDIT-FRACAS] FRACAS ID satırı bulunmadı: {fracas_id}")
+            return False
+        
+        # Sütunları güncelle (sütun indexleri Belgrad'a göre, genel olarak çalışır)
+        sütun_map = {
+            'description': 9,      # J - Arıza Tanımı
+            'severity': 10,        # K - Arıza Sınıfı
+            'tedarikci': 8,        # I - İlgili Tedarikçi
+            'tamir_suresi': 21     # V - Tamir Süresi (dakika)
+        }
+        
+        # Bilgileri yaz
+        if request.form.get('description'):
+            ws.cell(row=found_row, column=sütun_map['description']+1).value = request.form.get('description')
+        
+        if request.form.get('severity'):
+            ws.cell(row=found_row, column=sütun_map['severity']+1).value = request.form.get('severity')
+        
+        if request.form.get('tedarikci'):
+            ws.cell(row=found_row, column=sütun_map['tedarikci']+1).value = request.form.get('tedarikci')
+        
+        if request.form.get('tamir_suresi'):
+            ws.cell(row=found_row, column=sütun_map['tamir_suresi']+1).value = int(request.form.get('tamir_suresi'))
+        
+        # Excel dosyasını kaydet
+        wb.save(ariza_listesi_file)
+        logger.info(f"[EDIT-FRACAS] ✓ Dosya güncelleştirildi: {ariza_listesi_file}")
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"[EDIT-FRACAS] ❌ FRACAS güncellemesi hatası: {e}", exc_info=True)
+        return False
+
+
+def _update_or_create_hbr_for_edit(ariza, request):
+    """Düzenleme sırasında HBR dosyasını güncelle veya oluştur"""
+    try:
+        from utils.project_manager import ProjectManager
+        
+        project_name = session.get('current_project', 'belgrad')
+        
+        # Fotoğraf yükleniyse
+        fotograf_path = None
+        if 'fotograf' in request.files and request.files['fotograf'].filename:
+            file = request.files['fotograf']
+            uploads_dir = os.path.join(current_app.root_path, 'uploads', project_name, 'hbr_fotos')
+            os.makedirs(uploads_dir, exist_ok=True)
+            
+            filename = secure_filename(f"{ariza.failure_code}_{file.filename}")
+            fotograf_path = os.path.join(uploads_dir, filename)
+            file.save(fotograf_path)
+        
+        # HBR verilerini hazırla
+        hbr_data = {
+            'malzeme_no': request.form.get('malzeme_no', ''),
+            'malzeme_adi': request.form.get('malzeme_adi', ''),
+            'ariza_tarihi': ariza.failure_date,
+            'ariza_km': request.form.get('ariza_km', ''),
+            'tedarikci': request.form.get('tedarikci', ''),
+            'musteri': project_name.upper(),
+            'tespit_yontemi': request.form.get('tespit_yontemi', ''),
+            'musteri_bildirimi': request.form.get('musteri_bildirimi') == 'true',
+            'ariza_sinifi': request.form.get('severity', ''),
+            'ariza_tipi': request.form.get('failure_type', ''),
+            'ariza_tanimi': request.form.get('description', ''),
+            'arac_modulu': request.form.get('arac_modulu', ''),
+            'parca_seri_no': request.form.get('parca_seri_no', ''),
+            'fotograf': fotograf_path if fotograf_path else None,
+            'ncr_no': ''
+        }
+        
+        # Mevcut HBR dosyasını sil (var ise) ve yenisini oluştur
+        hbr_dir = os.path.join(current_app.root_path, 'logs', project_name, 'HBR')
+        
+        # Arızaya ait mevcut HBR dosyalarını bul ve sil
+        if os.path.exists(hbr_dir):
+            for file in os.listdir(hbr_dir):
+                if ariza.failure_code in file:
+                    try:
+                        os.remove(os.path.join(hbr_dir, file))
+                        logger.info(f"[EDIT-HBR] Eski HBR dosyası silindi: {file}")
+                    except:
+                        pass
+        
+        # Yeni HBR dosyası oluştur
+        try:
+            from utils_hbr_numbering import get_project_code_from_veriler
+            project_code = get_project_code_from_veriler(project_name)
+        except:
+            project_code = project_name.upper()[:3] + "25"
+        
+        project_code, counter = HBRManager.get_next_ncr_counter(project_name, current_app.root_path)
+        
         hbr_file = HBRManager.create_hbr_file(
-            project_name,           # Proje ADI (belgrad, iasi, etc)
+            project_name,
             current_app.root_path,
             current_user,
             hbr_data,
-            project_code=project_code,  # Veriler.xlsx'ten okunan KOD
+            project_code=project_code,
             counter=counter
         )
         
-        return hbr_file is not None
+        if hbr_file:
+            logger.info(f"[EDIT-HBR] ✓ Yeni HBR dosyası oluşturuldu: {hbr_file}")
+            return True
+        
+        return False
         
     except Exception as e:
-        print(f"HBR oluşturma hatası: {e}")
+        logger.error(f"[EDIT-HBR] ❌ HBR işlem hatası: {e}", exc_info=True)
         return False
 
 

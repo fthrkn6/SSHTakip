@@ -11,6 +11,15 @@
         z-index: 100;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
     }
+
+    .detail-row {
+        display: table-row;
+    }
+
+    .detail-row.show {
+        display: table-row;
+        animation: slideDown 0.3s ease-out;
+    }
 </style>
 
 <!-- Stats -->
@@ -331,6 +340,25 @@
                                         }}{% else %}-{% endif %}</dd>
                                 </div>
                             </div>
+
+                            <!-- İşlem Butonları -->
+                            <div class="row g-2 mt-4">
+                                <div class="col-auto">
+                                    <button type="button" class="btn btn-sm btn-warning" onclick="editFailure('{{ row[4] or '' }}')">
+                                        <i class="bi bi-pencil"></i> Düzenle
+                                    </button>
+                                </div>
+                                <div class="col-auto">
+                                    <button type="button" class="btn btn-sm btn-danger" onclick="createHBRFromFracas('{{ row[4] or '' }}', '{{ row[1] or '' }}', '{{ row[9] or '' }}', '{{ row[10] or '' }}')">
+                                        <i class="bi bi-file-earmark-check"></i> HBR Oluştur
+                                    </button>
+                                </div>
+                                <div class="col-auto">
+                                    <a href="{{ url_for('fracas.index') }}" class="btn btn-sm btn-outline-secondary">
+                                        <i class="bi bi-arrow-left"></i> Geri
+                                    </a>
+                                </div>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -403,8 +431,10 @@
 <script>
     // Toggle detail row with chevron animation
     function toggleRow(idx) {
+        console.log('toggleRow(' + idx + ') called');
         const detailRow = document.getElementById('details-' + idx);
         const chevron = document.getElementById('chevron-' + idx);
+        console.log('detailRow found:', !!detailRow);
         if (detailRow) {
             detailRow.classList.toggle('show');
             if (chevron) {
@@ -564,6 +594,74 @@
     
     if (filterArizaTanimi) filterArizaTanimi.addEventListener('input', applyFilters);
     if (filterYapılanIslem) filterYapılanIslem.addEventListener('input', applyFilters);
+
+    // FRACAS ID'den failure edit sayfasına git
+    async function editFailure(fracasId) {
+        console.log('[editFailure] çağrıldı - fracasId:', fracasId);
+        
+        if (!fracasId || fracasId.trim() === '') {
+            alert('⚠️ Arıza ID bulunamadı. Lütfen daha sonra tekrar deneyin.');
+            return;
+        }
+        
+        try {
+            // API'den failure record'unu bul
+            const url = `/api/failure-by-fracas-id?fracas_id=${encodeURIComponent(fracasId)}`;
+            console.log('[editFailure] API çağrısı:', url);
+            
+            const response = await fetch(url);
+            console.log('[editFailure] Response status:', response.status);
+            
+            const data = await response.json();
+            console.log('[editFailure] Response data:', data);
+            
+            if (data.found && data.id) {
+                // Failure kaydı bulundu - edit sayfasına yönlendir
+                const redirectUrl = `/failure/${data.id}/duzenle`;
+                console.log('[editFailure] Yönlendirme:', redirectUrl);
+                window.location.href = redirectUrl;
+            } else {
+                alert(`⚠️ Arıza yönetim sisteminde henüz kaydedilmemiş. Lütfen önce "Yeni Arıza Bildir" ile kaydedin:\nFRAC ID: ${fracasId}`);
+            }
+        } catch (error) {
+            console.error('[editFailure] Hata:', error);
+            alert('❌ Hata oluştu. Lütfen tekrar deneyin.\n\nHata: ' + error.message);
+        }
+    }
+
+    // FRACAS verilerinden HBR oluştur
+    async function createHBRFromFracas(fracasId, aracNo, arizaTanimi, arizaSinifi) {
+        if (!fracasId || fracasId.trim() === '') {
+            alert('⚠️ Arıza ID bulunamadı.');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/create-hbr-from-fracas', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    fracas_id: fracasId,
+                    arac_no: aracNo,
+                    ariza_tanimi: arizaTanimi,
+                    ariza_sinifi: arizaSinifi
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert(`✅ HBR başarıyla oluşturuldu!\nDosya: ${data.file_name}`);
+            } else {
+                alert(`⚠️ HBR oluşturulamadı: ${data.error}`);
+            }
+        } catch (error) {
+            console.error('Hata:', error);
+            alert('❌ Hata oluştu. Lütfen tekrar deneyin.');
+        }
+    }
 </script>
 
 <!-- Fixed Download Button -->

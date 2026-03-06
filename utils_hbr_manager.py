@@ -92,20 +92,31 @@ class HBRManager:
             
             # Template dosyasını bul
             template_path = os.path.join(app_root, 'data', project_name, 'FR_010_R06_SSH HBR.xlsx')
-            if not os.path.exists(template_path):
-                # Alternatif: belgrad'dan al
-                template_path = os.path.join(app_root, 'data', 'belgrad', 'FR_010_R06_SSH HBR.xlsx')
             
             if not os.path.exists(template_path):
-                logger.error(f"HBR template bulunamadı: {template_path}")
+                logger.debug(f"[HBR] Template bulunamadı (1): {template_path}")
+                
+                # Alternatif 2: logs/{project_name}/HBR/'de kontrol et
+                logs_template = os.path.join(app_root, 'logs', project_name, 'HBR', 'FR_010_R06_SSH HBR.xlsx')
+                if os.path.exists(logs_template):
+                    template_path = logs_template
+                    logger.debug(f"[HBR] Template bulundu (logs): {template_path}")
+                else:
+                    # Alternatif 3: belgrad'dan al (fallback)
+                    template_path = os.path.join(app_root, 'data', 'belgrad', 'FR_010_R06_SSH HBR.xlsx')
+                    logger.debug(f"[HBR] Belgrad fallback deniliyor: {template_path}")
+            
+            if not os.path.exists(template_path):
+                logger.error(f"[HBR] ❌ Template bulunamadı (tüm yerlerde arandı): {template_path}")
                 return None
+            
+            logger.info(f"[HBR] ✓ Template dosyası kullanılacak: {template_path}")
             
             # NCR numarası oluştur (project_code kullan)
             ncr_number = HBRManager.create_ncr_number(project_code, counter)
             
-            # Dosya adı: {PROJECT_CODE}-NCR-001_TARİH_KOD
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"{ncr_number}_{timestamp}.xlsx"
+            # Dosya adı: {PROJECT_CODE}-NCR-001
+            filename = f"{ncr_number}.xlsx"
             output_path = os.path.join(hbr_dir, filename)
             
             logger.info(f"[HBR] Dosya oluşturuluyor: {filename} (Proje: {project_name} → {project_code})")

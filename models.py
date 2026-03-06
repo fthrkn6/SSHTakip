@@ -376,9 +376,20 @@ class Failure(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    # FRACAS ve arıza yönetimi alanları
+    fracas_id = db.Column(db.String(100))      # Excel FRACAS ID'si
+    tedarikci = db.Column(db.String(200))      # Tedarikçi adı
+    malzeme_no = db.Column(db.String(100))     # Malzeme numarası
+    tamir_suresi = db.Column(db.Integer)       # Tamir süresi (dakika)
+    
+    # Düzenleme takibi
+    last_updated_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    last_updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
     reporter = db.relationship('User', foreign_keys=[reported_by], backref='reported_failures')
     assignee = db.relationship('User', foreign_keys=[assigned_to], backref='assigned_failures')
     resolver = db.relationship('User', foreign_keys=[resolved_by], backref='resolved_failures')
+    editor = db.relationship('User', foreign_keys=[last_updated_by], backref='edited_failures')
     
     def get_severity_badge(self):
         badges = {

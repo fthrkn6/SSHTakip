@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, jsonify, session, current_app
+from flask import Blueprint, render_template, jsonify, session, current_app, request
 from flask_login import login_required, current_user
 from models import db, Equipment, WorkOrder, KPISnapshot, Failure, ServiceLog, ServiceStatus
 from sqlalchemy import func, desc
@@ -453,7 +453,8 @@ def calculate_fleet_mttr():
 def index():
     """Ana dashboard - Genel bakış"""
     
-    current_project = session.get('current_project', 'belgrad')
+    # Query parametresinden override edebilmek için (debug)
+    current_project = request.args.get('project') or session.get('current_project', 'belgrad')
     
     # Ekipman durumu özeti
     equipment_stats = db.session.query(

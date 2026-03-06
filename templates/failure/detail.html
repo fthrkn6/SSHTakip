@@ -82,6 +82,10 @@
                 <h5><i class="bi bi-lightning"></i> Hızlı İşlemler</h5>
             </div>
             <div class="card-body d-grid gap-2">
+                <a href="{{ url_for('failure.edit', id=ariza.id) }}" 
+                   class="btn btn-warning">
+                    <i class="bi bi-pencil"></i> Düzenle
+                </a>
                 <a href="{{ url_for('workorder.add', equipment_id=ariza.equipment_id) }}" 
                    class="btn btn-primary">
                     <i class="bi bi-plus"></i> İş Emri Oluştur

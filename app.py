@@ -57,11 +57,12 @@ ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'dwg', 'jpg', 'png', 
 PROJECTS = [
     {'code': 'belgrad', 'name': 'Belgrad', 'country': 'Sırbistan', 'flag': '🇷🇸'},
     {'code': 'iasi', 'name': 'Iași', 'country': 'Romanya', 'flag': '🇷🇴'},
-    {'code': 'timisoara', 'name': 'Timișoara', 'country': 'Romanya', 'flag': '🇹🇷'},
+    {'code': 'timisoara', 'name': 'Timișoara', 'country': 'Romanya', 'flag': '�🇴'},
     {'code': 'kayseri', 'name': 'Kayseri', 'country': 'Türkiye', 'flag': '🇹🇷'},
     {'code': 'kocaeli', 'name': 'Kocaeli', 'country': 'Türkiye', 'flag': '🇹🇷'},
     {'code': 'gebze', 'name': 'Gebze', 'country': 'Türkiye', 'flag': '🇹🇷'},
     {'code': 'samsun', 'name': 'Samsun', 'country': 'Türkiye', 'flag': '🇹🇷'},
+    {'code': 'istanbul', 'name': 'İstanbul', 'country': 'Türkiye', 'flag': '🇹🇷'},
 ]
 
 # Sistem üzerindeki tüm sayfalar - Yetkilendirme için
@@ -349,7 +350,10 @@ def create_app():
                         print(f"[LOGIN] User {username} logged in successfully")
                         
                         # Set project from form selection or default to belgrad
-                        selected_project = request.form.get('project', 'belgrad')
+                        selected_project = request.form.get('project', '')
+                        print(f"[LOGIN] Form project value: '{selected_project}'")
+                        print(f"[LOGIN] Available projects: {[p['code'] for p in PROJECTS]}")
+                        
                         if selected_project and selected_project in [p['code'] for p in PROJECTS]:
                             project = next((p for p in PROJECTS if p['code'] == selected_project), None)
                             if project:
@@ -358,6 +362,7 @@ def create_app():
                                 session['project_name'] = f"{project['flag']} {project['name']}"
                                 print(f"[LOGIN] Project set to: {selected_project}")
                         else:
+                            print(f"[LOGIN] Project '{selected_project}' not valid, using default 'belgrad'")
                             session['current_project'] = 'belgrad'
                             session['project_code'] = 'belgrad'
                             session['project_name'] = '🇷🇸 Belgrad'
@@ -1418,6 +1423,7 @@ def create_app():
             import numpy as np
             
             project = session.get('current_project', 'belgrad')
+            print(f"\n[DEBUG] ariza_listesi_veriler() çağrıldı - Proje: {project}")
             
             # Birincil konum: logs/{project}/ariza_listesi/Fracas_{PROJECT}.xlsx
             ariza_listesi_dir = os.path.join(app.root_path, 'logs', project, 'ariza_listesi')
@@ -1660,6 +1666,131 @@ def create_app():
             projects.sort(key=lambda x: x['code'])
             
             return jsonify(projects)
+
+        @app.route('/api/failure-by-fracas-id', methods=['GET'])
+        @login_required
+        def get_failure_by_fracas_id():
+            """FRACAS ID'den Failure record'unu bul"""
+            try:
+                from models import Failure
+                
+                fracas_id = request.args.get('fracas_id', '')
+                project = session.get('current_project', 'belgrad')
+                
+                if not fracas_id:
+                    return jsonify({'error': 'FRACAS ID required'}), 400
+                
+                # Database'de failure kaydını ara (fracas_id field'ından)
+                failure = Failure.query.filter_by(
+                    fracas_id=fracas_id,
+                    project_code=project
+                ).first()
+                
+                if failure:
+                    return jsonify({
+                        'id': failure.id,
+                        'failure_code': failure.failure_code,
+                        'found': True
+                    })
+                else:
+                    return jsonify({
+                        'found': False,
+                        'fracas_id': fracas_id
+                    })
+            except Exception as e:
+                logger.error(f"[API] failure-by-fracas-id hatası: {e}")
+                return jsonify({
+                    'error': str(e),
+                    'found': False
+                }), 500
+
+        @app.route('/api/create-hbr-from-fracas', methods=['POST'])
+        @login_required
+        def create_hbr_from_fracas():
+            """FRACAS verilerinden HBR oluştur"""
+            try:
+                import shutil
+                from openpyxl import load_workbook
+                
+                data = request.get_json()
+                fracas_id = data.get('fracas_id', '')
+                arac_no = data.get('arac_no', '')
+                ariza_tanimi = data.get('ariza_tanimi', '')
+                ariza_sinifi = data.get('ariza_sinifi', '')
+                
+                if not fracas_id:
+                    return jsonify({'success': False, 'error': 'FRACAS ID required'}), 400
+                
+                project = session.get('current_project', 'belgrad')
+                
+                # HBR klasörü oluştur
+                hbr_dir = os.path.join(app.root_path, 'logs', project, 'HBR')
+                os.makedirs(hbr_dir, exist_ok=True)
+                
+                # HBR template dosyasını bul
+                template_paths = [
+                    os.path.join(app.root_path, 'data', project, 'FR_010_R06_SSH HBR.xlsx'),
+                    os.path.join(app.root_path, 'logs', project, 'FR_010_R06_SSH HBR.xlsx'),
+                    os.path.join(app.root_path, 'data', 'belgrad', 'FR_010_R06_SSH HBR.xlsx'),
+                ]
+                
+                template_file = None
+                for path in template_paths:
+                    if os.path.exists(path):
+                        template_file = path
+                        break
+                
+                if not template_file:
+                    return jsonify({'success': False, 'error': 'HBR template dosyası bulunamadı'}), 400
+                
+                # HBR dosya adı oluştur
+                hbr_filename = f"{arac_no}-{fracas_id}.xlsx"
+                hbr_filepath = os.path.join(hbr_dir, hbr_filename)
+                
+                # Template'i kopyala
+                shutil.copy(template_file, hbr_filepath)
+                
+                try:
+                    # Excel dosyasını aç var data'ları doldur
+                    wb = load_workbook(hbr_filepath)
+                    ws = wb.active
+                    
+                    # Merged cell'leri skip et - sadece normal cell'lere yaz
+                    # B3: Araç No, B4: FRACAS ID, B5: Arıza Tanımı, B6: Arıza Sınıfı
+                    cells_to_fill = [
+                        ('B3', arac_no),
+                        ('B4', fracas_id),
+                        ('B5', str(ariza_tanimi)[:100]),
+                        ('B6', ariza_sinifi),
+                    ]
+                    
+                    for cell_addr, value in cells_to_fill:
+                        try:
+                            cell = ws[cell_addr]
+                            # Merged cell'ler skip et
+                            if not isinstance(cell, type(ws['A1'])) or cell.data_type != 'f':
+                                cell.value = value
+                        except:
+                            pass  # Merged cell veya write-protected ise skip
+                    
+                    wb.save(hbr_filepath)
+                    wb.close()
+                except Exception as excel_error:
+                    logger.warning(f"[HBR] Excel header doldurma hatası (template OK): {excel_error}")
+                    # Template copy edildi, header doldurma başarısız olsa da dosya OK
+                
+                return jsonify({
+                    'success': True,
+                    'file_name': hbr_filename,
+                    'message': 'HBR başarıyla oluşturuldu'
+                })
+            
+            except Exception as e:
+                logger.error(f"[API] HBR oluşturma hatası: {e}")
+                return jsonify({
+                    'success': False,
+                    'error': str(e)
+                }), 500
 
         @app.route('/api/parts-lookup', methods=['GET'])
         @login_required
