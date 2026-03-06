@@ -1792,6 +1792,92 @@ def create_app():
                     'error': str(e)
                 }), 500
 
+        @app.route('/api/edit-fracas-inline', methods=['POST'])
+        @login_required
+        def edit_fracas_inline():
+            """FRACAS Excel dosyasını doğrudan düzenle (Inline)"""
+            try:
+                from openpyxl import load_workbook
+                
+                data = request.get_json()
+                fracas_id = data.get('fracas_id', '')
+                arac_no = data.get('arac_no', '')
+                sistem = data.get('sistem', '')
+                hata_tarihi = data.get('hata_tarihi', '')
+                ariza_tanimi = data.get('ariza_tanimi', '')
+                ariza_sinifi = data.get('ariza_sinifi', '')
+                yapilan_islem = data.get('yapilan_islem', '')
+                
+                if not fracas_id:
+                    return jsonify({'success': False, 'error': 'FRACAS ID gereklidir'}), 400
+                
+                project = session.get('current_project', 'belgrad')
+                
+                # FRACAS dosya yolunu al
+                fracas_file = os.path.join(app.root_path, 'logs', project, 'ariza_listesi', f'Fracas_{project.upper()}.xlsx')
+                
+                if not os.path.exists(fracas_file):
+                    return jsonify({'success': False, 'error': f'FRACAS dosyası bulunamadı: {fracas_file}'}), 404
+                
+                logger.info(f"[EDIT-FRACAS] Dosya: {fracas_file}, FRACAS ID: {fracas_id}")
+                
+                # Excel dosyasını aç
+                wb = load_workbook(fracas_file)
+                ws = wb.active
+                
+                row_found = False
+                for row_num, row in enumerate(ws.iter_rows(min_row=2, max_row=ws.max_row), start=2):
+                    # Kolon E (indeks 4) = FRACAS ID
+                    cell_value = str(row[4].value or '').strip()
+                    
+                    if cell_value == fracas_id:
+                        logger.info(f"[EDIT-FRACAS] Satır bulundu: {row_num}")
+                        
+                        # Değerleri güncelle (indeksler 0-başlangıçlı)
+                        # B=1: Araç No, C=2: Sistem, D=3: Hata Tarihi
+                        # J=9: Arıza Tanımı, K=10: Arıza Sınıfı, M=12: Yapılan İşlem
+                        
+                        try:
+                            row[1].value = arac_no if arac_no else row[1].value          # B: Araç No
+                            row[2].value = sistem if sistem else row[2].value            # C: Sistem
+                            row[3].value = hata_tarihi if hata_tarihi else row[3].value  # D: Hata Tarihi
+                            row[9].value = ariza_tanimi if ariza_tanimi else row[9].value # J: Arıza Tanımı
+                            row[10].value = ariza_sinifi if ariza_sinifi else row[10].value # K: Arıza Sınıfı
+                            row[12].value = yapilan_islem if yapilan_islem else row[12].value # M: Yapılan İşlem
+                            
+                            row_found = True
+                            logger.info(f"[EDIT-FRACAS] Satır {row_num} güncellendi")
+                        except Exception as cell_error:
+                            logger.error(f"[EDIT-FRACAS] Cell yazma hatası satır {row_num}: {cell_error}")
+                        
+                        break
+                
+                if not row_found:
+                    wb.close()
+                    return jsonify({'success': False, 'error': f'FRACAS ID bulunamadı: {fracas_id}'}), 404
+                
+                # Dosyayı kaydet
+                try:
+                    wb.save(fracas_file)
+                    wb.close()
+                    logger.info(f"[EDIT-FRACAS] Dosya kaydedildi: {fracas_file}")
+                except Exception as save_error:
+                    logger.error(f"[EDIT-FRACAS] Dosya kaydetme hatası: {save_error}")
+                    return jsonify({'success': False, 'error': f'Dosya kaydetme hatası: {save_error}'}), 500
+                
+                return jsonify({
+                    'success': True,
+                    'message': 'FRACAS verisi başarıyla güncellendi',
+                    'fracas_id': fracas_id
+                })
+            
+            except Exception as e:
+                logger.error(f"[API] edit-fracas-inline hatası: {e}")
+                return jsonify({
+                    'success': False,
+                    'error': str(e)
+                }), 500
+
         @app.route('/api/parts-lookup', methods=['GET'])
         @login_required
         def parts_lookup():

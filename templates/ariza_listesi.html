@@ -344,8 +344,8 @@
                             <!-- İşlem Butonları -->
                             <div class="row g-2 mt-4">
                                 <div class="col-auto">
-                                    <button type="button" class="btn btn-sm btn-warning" onclick="editFailure('{{ row[4] or '' }}')">
-                                        <i class="bi bi-pencil"></i> Düzenle
+                                    <button type="button" class="btn btn-sm btn-warning" onclick="openInlineEditModal('{{ row[4] or '' }}', '{{ row[1] or '' }}', '{{ row[2] or '' }}', '{{ row[3] or '' }}', '{{ row[9] or '' }}', '{{ row[10] or '' }}', '{{ row[12] or '' }}')">
+                                        <i class="bi bi-pencil"></i> Inline Düzenle
                                     </button>
                                 </div>
                                 <div class="col-auto">
@@ -629,6 +629,77 @@
         }
     }
 
+    // Inline edit modal aç
+    function openInlineEditModal(fracasId, aracNo, sistem, hataTarihi, arizaTanimi, arizaSinifi, yapılanIslem) {
+        console.log('[openInlineEditModal] çağrıldı:', {fracasId, aracNo, sistem, hataTarihi, arizaTanimi, arizaSinifi});
+        
+        // Formu doldur
+        document.getElementById('editModalFracasId').value = fracasId;
+        document.getElementById('editModalAracNo').value = aracNo;
+        document.getElementById('editModalSistem').value = sistem;
+        document.getElementById('editModalHataTarihi').value = hataTarihi;
+        document.getElementById('editModalArizaTanimi').value = arizaTanimi;
+        document.getElementById('editModalArizaSinifi').value = arizaSinifi;
+        document.getElementById('editModalYapılanIslem').value = yapılanIslem;
+        
+        // Modal aç
+        const modal = new bootstrap.Modal(document.getElementById('inlineEditModal'));
+        modal.show();
+    }
+
+    // Inline edit - Excel'e kaydet
+    async function saveInlineEdit() {
+        const fracasId = document.getElementById('editModalFracasId').value;
+        const aracNo = document.getElementById('editModalAracNo').value;
+        const sistem = document.getElementById('editModalSistem').value;
+        const hataTarihi = document.getElementById('editModalHataTarihi').value;
+        const arizaTanimi = document.getElementById('editModalArizaTanimi').value;
+        const arizaSinifi = document.getElementById('editModalArizaSinifi').value;
+        const yapılanIslem = document.getElementById('editModalYapılanIslem').value;
+        
+        console.log('[saveInlineEdit] Kaydediliyor:', {fracasId, arizaTanimi, arizaSinifi});
+        
+        if (!fracasId) {
+            alert('⚠️ FRACAS ID boş olamaz!');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/edit-fracas-inline', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    fracas_id: fracasId,
+                    arac_no: aracNo,
+                    sistem: sistem,
+                    hata_tarihi: hataTarihi,
+                    ariza_tanimi: arizaTanimi,
+                    ariza_sinifi: arizaSinifi,
+                    yapilan_islem: yapılanIslem
+                })
+            });
+            
+            const data = await response.json();
+            console.log('[saveInlineEdit] Response:', data);
+            
+            if (data.success) {
+                alert(`✅ FRACAS Excel dosyası başarıyla güncellendi!\nFRACAS ID: ${fracasId}`);
+                // Modal kapat
+                const modal = bootstrap.Modal.getInstance(document.getElementById('inlineEditModal'));
+                modal.hide();
+                // Sayfayı refresh et
+                location.reload();
+            } else {
+                alert(`⚠️ Güncellenemedi: ${data.error || 'Bilinmeyen hata'}`);
+            }
+        } catch (error) {
+            console.error('[saveInlineEdit] Hata:', error);
+            alert('❌ Hata oluştu. Lütfen tekrar deneyin.\n\nHata: ' + error.message);
+        }
+    }
+
     // FRACAS verilerinden HBR oluştur
     async function createHBRFromFracas(fracasId, aracNo, arizaTanimi, arizaSinifi) {
         if (!fracasId || fracasId.trim() === '') {
@@ -663,6 +734,79 @@
         }
     }
 </script>
+
+<!-- Modal: Inline FRACAS Edit -->
+<div class="modal fade" id="inlineEditModal" tabindex="-1" aria-labelledby="inlineEditModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="inlineEditModalLabel">
+                    <i class="bi bi-pencil-square me-2"></i>FRACAS Verisini Düzenle
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="inlineEditForm">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">FRACAS ID</label>
+                        <input type="text" class="form-control" id="editModalFracasId" readonly style="background-color: #f5f5f5;">
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Araç No</label>
+                            <input type="text" class="form-control" id="editModalAracNo">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Sistem</label>
+                            <input type="text" class="form-control" id="editModalSistem">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Hata Tarihi</label>
+                        <input type="date" class="form-control" id="editModalHataTarihi">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Arıza Tanımı <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="editModalArizaTanimi" rows="3" required></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Arıza Sınıfı</label>
+                        <select class="form-select" id="editModalArizaSinifi">
+                            <option value="">Seç...</option>
+                            <option value="Elektrik">Elektrik</option>
+                            <option value="Mekanik">Mekanik</option>
+                            <option value="Yazılım">Yazılım</option>
+                            <option value="Diğer">Diğer</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Yapılan İşlem</label>
+                        <textarea class="form-control" id="editModalYapılanIslem" rows="2"></textarea>
+                    </div>
+                </form>
+                
+                <div class="alert alert-info small mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>Not:</strong> Bu modal FRACAS Excel dosyasını doğrudan güncelleyecektir. 
+                    Değişiklikler kaydedildikten sonra sayfa otomatik olarak yeniden yüklenecektir.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-2"></i>İptal
+                </button>
+                <button type="button" class="btn btn-warning" onclick="saveInlineEdit()">
+                    <i class="bi bi-check-circle me-2"></i>Değişiklikleri Kaydet
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Fixed Download Button -->
 <a href="{{ url_for('ariza_listesi_veriler_export') }}" class="btn btn-info btn-lg fixed-download-btn">
