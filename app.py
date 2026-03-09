@@ -188,9 +188,9 @@ def create_app():
         
         # Performance Optimization
         app.config['JSON_SORT_KEYS'] = False  # Smaller JSON responses
-        app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000  # 1 year cache for static files
-        app.config['JINJA_AUTO_RELOAD'] = False  # Disable auto reload in production
-        app.config['TEMPLATES_AUTO_RELOAD'] = False  # Disable auto reload in production
+        app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0  # No cache for HTML/templates
+        app.config['JINJA_AUTO_RELOAD'] = True  # Enable auto reload for templates
+        app.config['TEMPLATES_AUTO_RELOAD'] = True  # Enable auto reload for templates
         app.config['SESSION_COOKIE_HTTPONLY'] = True  # Security: prevent JavaScript access
         app.config['SESSION_COOKIE_SECURE'] = False  # Set to True if using HTTPS
         app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection
@@ -308,6 +308,16 @@ def create_app():
                     except Exception as e:
                         logger.error(f'Global sync hatası: {e}')
                 # Sync gerekli değilse hiçbir şey yapma (çok hızlı!)
+        
+        # Cache control headers - disable browser cache for HTML/templates
+        @app.after_request
+        def add_cache_headers(response):
+            """Add cache control headers to prevent browser caching of HTML/templates"""
+            if response.content_type and ('text/html' in response.content_type or 'application/json' in response.content_type):
+                response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, public, max-age=0'
+                response.headers['Pragma'] = 'no-cache'
+                response.headers['Expires'] = '0'
+            return response
         
         # Initialize reporting system
         with app.app_context():

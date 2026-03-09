@@ -13,7 +13,7 @@
     }
 
     .detail-row {
-        display: table-row;
+        display: none;
     }
 
     .detail-row.show {
@@ -344,7 +344,7 @@
                             <!-- İşlem Butonları -->
                             <div class="row g-2 mt-4">
                                 <div class="col-auto">
-                                    <button type="button" class="btn btn-sm btn-warning" onclick="openInlineEditModal('{{ row[4] or '' }}', '{{ row[1] or '' }}', '{{ row[2] or '' }}', '{{ row[3] or '' }}', '{{ row[9] or '' }}', '{{ row[10] or '' }}', '{{ row[12] or '' }}')">
+                                    <button type="button" class="btn btn-sm btn-warning" onclick="openInlineEditModal('{{ row[4] or '' }}', '{{ row[1] or '' }}', '{{ row[6] or '' }}', '{{ row[5] or '' }}', '{{ row[9] or '' }}', '{{ row[10] or '' }}', '{{ row[12] or '' }}', '{{ row[11] or '' }}', '{{ row[24] or '' }}', '{{ row[14] or '' }}', '{{ row[15] or '' }}', '{{ row[13] or '' }}', '{{ row[25] or '' }}', '{{ row[2] or '' }}', '{{ row[3] or '' }}', '{{ row[7] or '' }}', '{{ row[8] or '' }}')">
                                         <i class="bi bi-pencil"></i> Düzenle (Excel)
                                     </button>
                                 </div>
@@ -378,7 +378,7 @@
 
 <style>
     .detail-row {
-        display: table-row;
+        display: none;
     }
 
     .detail-row.show {
@@ -630,10 +630,10 @@
     }
 
     // Inline edit modal aç
-    function openInlineEditModal(fracasId, aracNo, sistem, hataTarihi, arizaTanimi, arizaSinifi, yapılanIslem) {
+    function openInlineEditModal(fracasId, aracNo, sistem, hataTarihi, arizaTanimi, arizaSinifi, yapılanIslem, arizaKaynagi, arizaTipi, garantiKapsami, arizaTespitYontemi, aksiyon, detayliBilgi, aracModul, kilometre, altSistem, tedarikci) {
         console.log('[openInlineEditModal] çağrıldı:', {fracasId, aracNo, sistem, hataTarihi, arizaTanimi, arizaSinifi});
         
-        // Formu doldur
+        // Formu doldur (17 parametre)
         document.getElementById('editModalFracasId').value = fracasId;
         document.getElementById('editModalAracNo').value = aracNo;
         document.getElementById('editModalSistem').value = sistem;
@@ -641,6 +641,16 @@
         document.getElementById('editModalArizaTanimi').value = arizaTanimi;
         document.getElementById('editModalArizaSinifi').value = arizaSinifi;
         document.getElementById('editModalYapılanIslem').value = yapılanIslem;
+        document.getElementById('editModalArizaKaynagi').value = arizaKaynagi || '';
+        document.getElementById('editModalArizaTipi').value = arizaTipi || '';
+        document.getElementById('editModalGarantiKapsami').value = garantiKapsami || '';
+        document.getElementById('editModalArizaTespitYontemi').value = arizaTespitYontemi || '';
+        document.getElementById('editModalAksiyon').value = aksiyon || '';
+        document.getElementById('editModalDetaylibilgi').value = detayliBilgi || '';
+        document.getElementById('editModalAracModul').value = aracModul || '';
+        document.getElementById('editModalKilometre').value = kilometre || '';
+        document.getElementById('editModalAltSistem').value = altSistem || '';
+        document.getElementById('editModalTedarikci').value = tedarikci || '';
         
         // Modal aç
         const modal = new bootstrap.Modal(document.getElementById('inlineEditModal'));
@@ -651,11 +661,21 @@
     async function saveInlineEdit() {
         const fracasId = document.getElementById('editModalFracasId').value;
         const aracNo = document.getElementById('editModalAracNo').value;
+        const aracModul = document.getElementById('editModalAracModul').value;
+        const kilometre = document.getElementById('editModalKilometre').value;
         const sistem = document.getElementById('editModalSistem').value;
+        const altSistem = document.getElementById('editModalAltSistem').value;
+        const tedarikci = document.getElementById('editModalTedarikci').value;
         const hataTarihi = document.getElementById('editModalHataTarihi').value;
         const arizaTanimi = document.getElementById('editModalArizaTanimi').value;
         const arizaSinifi = document.getElementById('editModalArizaSinifi').value;
         const yapılanIslem = document.getElementById('editModalYapılanIslem').value;
+        const arizaKaynagi = document.getElementById('editModalArizaKaynagi').value;
+        const arizaTipi = document.getElementById('editModalArizaTipi').value;
+        const garantiKapsami = document.getElementById('editModalGarantiKapsami').value;
+        const arizaTespitYontemi = document.getElementById('editModalArizaTespitYontemi').value;
+        const aksiyon = document.getElementById('editModalAksiyon').value;
+        const detayliBilgi = document.getElementById('editModalDetaylibilgi').value;
         
         console.log('[saveInlineEdit] Kaydediliyor:', {fracasId, arizaTanimi, arizaSinifi});
         
@@ -673,11 +693,21 @@
                 body: JSON.stringify({
                     fracas_id: fracasId,
                     arac_no: aracNo,
+                    arac_modul: aracModul,
+                    kilometre: kilometre,
                     sistem: sistem,
+                    alt_sistem: altSistem,
+                    tedarikci: tedarikci,
                     hata_tarihi: hataTarihi,
                     ariza_tanimi: arizaTanimi,
                     ariza_sinifi: arizaSinifi,
-                    yapilan_islem: yapılanIslem
+                    yapilan_islem: yapılanIslem,
+                    ariza_kaynagi: arizaKaynagi,
+                    ariza_tipi: arizaTipi,
+                    garanti_kapsami: garantiKapsami,
+                    ariza_tespit_yontemi: arizaTespitYontemi,
+                    aksiyon: aksiyon,
+                    detayli_bilgi: detayliBilgi
                 })
             });
             
@@ -737,70 +767,163 @@
 
 <!-- Modal: Inline FRACAS Edit -->
 <div class="modal fade" id="inlineEditModal" tabindex="-1" aria-labelledby="inlineEditModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header bg-warning text-dark">
-                <h5 class="modal-title" id="inlineEditModalLabel">
+    <div class="modal-dialog modal-xl" style="max-width: 900px;">
+        <div class="modal-content" style="border-radius: 16px;">
+            <!-- Modal Header -->
+            <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 16px 16px 0 0;">
+                <h5 class="modal-title text-white" id="inlineEditModalLabel" style="font-weight: 700; font-size: 1.1rem;">
                     <i class="bi bi-pencil-square me-2"></i>FRACAS Verisini Düzenle
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
+
+            <!-- Modal Body -->
+            <div class="modal-body" style="padding: 2rem;">
                 <form id="inlineEditForm">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">FRACAS ID</label>
-                        <input type="text" class="form-control" id="editModalFracasId" readonly style="background-color: #f5f5f5;">
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold">Araç No</label>
-                            <input type="text" class="form-control" id="editModalAracNo">
+                    <!-- Araç Bilgileri Section -->
+                    <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 1rem; overflow: hidden; border: 1px solid #e0e0e0;">
+                        <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 0.8rem 1rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-subway"></i>
+                            Araç Bilgileri
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold">Sistem</label>
-                            <input type="text" class="form-control" id="editModalSistem">
+                        <div style="padding: 1rem;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div>
+                                    <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">FRACAS ID</label>
+                                    <input type="text" class="form-control" id="editModalFracasId" readonly style="background-color: #f5f5f5; border: 1px solid #ddd;">
+                                </div>
+                                <div>
+                                    <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Araç No</label>
+                                    <input type="text" class="form-control" id="editModalAracNo" style="border: 1px solid #ddd;">
+                                </div>
+                                <div>
+                                    <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Araç Modül</label>
+                                    <input type="text" class="form-control" id="editModalAracModul" style="border: 1px solid #ddd;">
+                                </div>
+                                <div>
+                                    <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Kilometre</label>
+                                    <input type="number" class="form-control" id="editModalKilometre" style="border: 1px solid #ddd;">
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Hata Tarihi</label>
-                        <input type="date" class="form-control" id="editModalHataTarihi">
+
+                    <!-- Hata Zamanı Section -->
+                    <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 1rem; overflow: hidden; border: 1px solid #e0e0e0;">
+                        <div style="background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%); color: white; padding: 0.8rem 1rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-clock"></i>
+                            Hata Zamanı
+                        </div>
+                        <div style="padding: 1rem;">
+                            <div>
+                                <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Hata Tarihi</label>
+                                <input type="date" class="form-control" id="editModalHataTarihi" style="border: 1px solid #ddd;">
+                            </div>
+                        </div>
                     </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Arıza Tanımı <span class="text-danger">*</span></label>
-                        <textarea class="form-control" id="editModalArizaTanimi" rows="3" required></textarea>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Arıza Sınıfı</label>
-                        <select class="form-select" id="editModalArizaSinifi">
-                            <option value="">Seç...</option>
-                            <option value="Elektrik">Elektrik</option>
-                            <option value="Mekanik">Mekanik</option>
-                            <option value="Yazılım">Yazılım</option>
-                            <option value="Diğer">Diğer</option>
-                        </select>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Yapılan İşlem</label>
-                        <textarea class="form-control" id="editModalYapılanIslem" rows="2"></textarea>
+
+                    <!-- Arıza Detayları Section -->
+                    <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 1rem; overflow: hidden; border: 1px solid #e0e0e0;">
+                        <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 0.8rem 1rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Arıza Detayları
+                        </div>
+                        <div style="padding: 1rem;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                                <div>
+                                    <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Sistem</label>
+                                    <input type="text" class="form-control" id="editModalSistem" style="border: 1px solid #ddd;">
+                                </div>
+                                <div>
+                                    <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Arıza Sınıfı</label>
+                                    <select class="form-select" id="editModalArizaSinifi" style="border: 1px solid #ddd;">
+                                        <option value="">Seç...</option>
+                                        <option value="Elektrik">Elektrik</option>
+                                        <option value="Mekanik">Mekanik</option>
+                                        <option value="Yazılım">Yazılım</option>
+                                        <option value="Diğer">Diğer</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Alt Sistem</label>
+                                    <input type="text" class="form-control" id="editModalAltSistem" style="border: 1px solid #ddd;">
+                                </div>
+                                <div>
+                                    <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Tedarikçi</label>
+                                    <input type="text" class="form-control" id="editModalTedarikci" style="border: 1px solid #ddd;">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Arıza Tanımı <span style="color: #ef4444;">*</span></label>
+                                <textarea class="form-control" id="editModalArizaTanimi" rows="3" required style="border: 1px solid #ddd;"></textarea>
+                            </div>
+                            <div style="margin-top: 1rem;">
+                                <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Yapılan İşlem</label>
+                                <textarea class="form-control" id="editModalYapılanIslem" rows="2" style="border: 1px solid #ddd;"></textarea>
+                            </div>
+                            <div style="margin-top: 1rem;">
+                                <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Arıza Kaynağı</label>
+                                <input type="text" class="form-control" id="editModalArizaKaynagi" style="border: 1px solid #ddd;">
+                            </div>
+                            <div style="margin-top: 1rem;">
+                                <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Arıza Tipi</label>
+                                <input type="text" class="form-control" id="editModalArizaTipi" style="border: 1px solid #ddd;">
+                            </div>
+                            <div style="margin-top: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div>
+                                    <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Garanti Kapsamı</label>
+                                    <select class="form-select" id="editModalGarantiKapsami" style="border: 1px solid #ddd;">
+                                        <option value="">-- Seçin --</option>
+                                        <option value="Evet">✅ Garanti İçi</option>
+                                        <option value="Hayır">❌ Garanti Dışı</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Arıza Tespit Yöntemi</label>
+                                    <select class="form-select" id="editModalArizaTespitYontemi" style="border: 1px solid #ddd;">
+                                        <option value="">-- Seçin --</option>
+                                        <option value="Bozankaya">🏭 Bozankaya</option>
+                                        <option value="Müşteri">👤 Müşteri</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div style="margin-top: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div>
+                                    <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Aksiyon</label>
+                                    <select class="form-select" id="editModalAksiyon" style="border: 1px solid #ddd;">
+                                        <option value="">-- Seçin --</option>
+                                        <option value="Tamir">🔧 Tamir Edildi</option>
+                                        <option value="Değişim">🔄 Parça Değiştirildi</option>
+                                        <option value="Ayar">⚙️ Ayar Yapıldı</option>
+                                        <option value="Reset">🔃 Reset Atıldı</option>
+                                        <option value="Beklemede">⏳ Parça Bekleniyor</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Detaylı Bilgi</label>
+                                    <select class="form-select" id="editModalDetaylibilgi" style="border: 1px solid #ddd;">
+                                        <option value="">-- Seçin --</option>
+                                        <option value="Servise Engel">🛑 Servise Engel</option>
+                                        <option value="Servise Engel Değil">✅ Servise Engel Değil</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </form>
-                
-                <div class="alert alert-info small mb-0">
+
+                <div class="alert alert-info small" style="border-radius: 8px; margin-bottom: 0;">
                     <i class="bi bi-info-circle me-2"></i>
-                    <strong>Not:</strong> Bu modal FRACAS Excel dosyasını doğrudan güncelleyecektir. 
-                    Değişiklikler kaydedildikten sonra sayfa otomatik olarak yeniden yüklenecektir.
+                    <strong>Not:</strong> Veriler Excel dosyasına kaydolacaktır. Lütfen doğru verileri giriniz..
                 </div>
             </div>
-            <div class="modal-footer">
+
+            <!-- Modal Footer -->
+            <div class="modal-footer" style="border-top: 1px solid #e0e0e0; padding: 1rem;">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     <i class="bi bi-x-circle me-2"></i>İptal
                 </button>
-                <button type="button" class="btn btn-warning" onclick="saveInlineEdit()">
+                <button type="button" class="btn btn-primary" onclick="saveInlineEdit()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none;">
                     <i class="bi bi-check-circle me-2"></i>Değişiklikleri Kaydet
                 </button>
             </div>

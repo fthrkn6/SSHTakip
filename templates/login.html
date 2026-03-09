@@ -388,14 +388,25 @@
         }
 
         // Form submit sırasında kontrol et
-        document.querySelector('form').addEventListener('submit', function (e) {
-            const projectSelect = document.querySelector('select[name="project"]');
-            if (projectSelect.value === '') {
-                e.preventDefault();
-                projectSelect.classList.add('is-invalid');
-                alert('Lütfen bir proje seçiniz!');
-                return false;
-            }
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelector('form').addEventListener('submit', function (e) {
+                const projectSelect = document.querySelector('select[name="project"]');
+                console.log('Form submit - Project value:', projectSelect.value, 'Options:', projectSelect.options.length);
+                
+                if (projectSelect.value === '') {
+                    // Eğer boş seçildiyse, ilk geçerli projelet seç
+                    if (projectSelect.options.length > 1) {
+                        projectSelect.value = projectSelect.options[1].value;
+                        console.log('Empty project detected, auto-selected:', projectSelect.value);
+                    } else {
+                        e.preventDefault();
+                        projectSelect.classList.add('is-invalid');
+                        alert('Lütfen bir proje seçiniz!');
+                        return false;
+                    }
+                }
+                console.log('Final project value:', projectSelect.value);
+            });
         });
         
         // Projeleri dinamik yükle
@@ -422,7 +433,8 @@
                         {code: 'kayseri', name: 'Kayseri'},
                         {code: 'kocaeli', name: 'Kocaeli'},
                         {code: 'timisoara', name: 'Timisoara'},
-                        {code: 'samsun', name: 'Samsun'}
+                        {code: 'samsun', name: 'Samsun'},
+                        {code: 'istanbul', name: 'İstanbul'}
                     ];
                     fallbackProjects.forEach(project => {
                         const option = document.createElement('option');

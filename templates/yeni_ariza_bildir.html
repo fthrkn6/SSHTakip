@@ -1,6 +1,12 @@
 {% extends 'base.html' %}
 
-{% block title %}Yeni Arıza Bildir{% endblock %}
+{% block title %}
+{% if mode == 'edit' %}
+Arıza Düzenle
+{% else %}
+Yeni Arıza Bildir
+{% endif %}
+{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -262,6 +268,24 @@
 
 {% block content %}
 <div class="container-fluid py-2">
+    <!-- Sayfa Başlığı -->
+    <div class="page-header mb-4">
+        <h2>
+            {% if mode == 'edit' %}
+            <i class="fas fa-edit"></i> Arıza Düzenle
+            {% else %}
+            <i class="fas fa-plus-circle"></i> Yeni Arıza Bildir
+            {% endif %}
+        </h2>
+        <p>
+            {% if mode == 'edit' %}
+            Arıza bilgilerini güncelleyebilirsiniz. Değişiklikler FRACAS Excel dosyasına da yansıtılacaktır.
+            {% else %}
+            Lütfen arıza hakkında detaylı bilgi giriniz.
+            {% endif %}
+        </p>
+    </div>
+
     <form method="POST" enctype="multipart/form-data" id="arizaBildirimForm" data-project="{{ session.get('current_project', 'belgrad') }}">
         <div class="row">
             <!-- Sol Kolon -->
@@ -303,7 +327,7 @@
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Kilometre</label>
-                                <input type="number" class="form-control" name="arac_km" placeholder="Araç km">
+                                <input type="number" class="form-control" name="arac_km" placeholder="Araç km" required>
                             </div>
                         </div>
                     </div>
@@ -348,13 +372,13 @@
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Alt Sistem</label>
-                                <select class="form-select" id="altSistemSelect" name="alt_sistem">
+                                <select class="form-select" id="altSistemSelect" name="alt_sistem" required>
                                     <option value="">-- Önce Sistem Seçin --</option>
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Tedarikçi</label>
-                                <select class="form-select" id="tedarikciSelect" name="tedarikci">
+                                <select class="form-select" id="tedarikciSelect" name="tedarikci" required>
                                     <option value="">-- Seçin --</option>
                                 </select>
                             </div>
@@ -372,21 +396,21 @@
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Başlama Tarihi</label>
-                                <input type="date" class="form-control" name="tamir_baslama_tarih" id="tamirBasTarih">
+                                <input type="date" class="form-control" name="tamir_baslama_tarih" id="tamirBasTarih" required>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Başlama Saati</label>
-                                <input type="time" class="form-control" name="tamir_baslama_saati" id="tamirBasSaat">
+                                <input type="time" class="form-control" name="tamir_baslama_saati" id="tamirBasSaat" required>
                             </div>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Bitiş Tarihi</label>
-                                <input type="date" class="form-control" name="tamir_bitisi_tarih" id="tamirBitTarih">
+                                <input type="date" class="form-control" name="tamir_bitisi_tarih" id="tamirBitTarih" required>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Bitiş Saati</label>
-                                <input type="time" class="form-control" name="tamir_bitisi_saati" id="tamirBitSaat">
+                                <input type="time" class="form-control" name="tamir_bitisi_saati" id="tamirBitSaat" required>
                             </div>
                         </div>
                         <div class="row">
@@ -404,7 +428,7 @@
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Personel Sayısı</label>
-                                <input type="number" class="form-control" name="personel_sayisi" min="1" value="1">
+                                <input type="number" class="form-control" name="personel_sayisi" min="1" value="1" required>
                             </div>
                         </div>
                     </div>
@@ -434,7 +458,7 @@
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Arıza Kaynağı</label>
-                                <select class="form-select" name="ariza_kaynagi">
+                                <select class="form-select" name="ariza_kaynagi" required>
                                     <option value="">-- Seçin --</option>
                                     {% for kaynak in ariza_kaynaklari %}
                                     <option value="{{ kaynak }}">{{ kaynak }}</option>
@@ -443,7 +467,7 @@
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Arıza Tipi</label>
-                                <select class="form-select" name="ariza_tipi">
+                                <select class="form-select" name="ariza_tipi" required>
                                     <option value="">-- Seçin --</option>
                                     {% for tip in ariza_tipleri %}
                                     <option value="{{ tip }}">{{ tip }}</option>
@@ -454,7 +478,7 @@
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Garanti Kapsamı</label>
-                                <select class="form-select" name="garanti_kapsami">
+                                <select class="form-select" name="garanti_kapsami" required>
                                     <option value="">-- Seçin --</option>
                                     <option value="Evet">✅ Garanti İçi</option>
                                     <option value="Hayır">❌ Garanti Dışı</option>
@@ -462,7 +486,7 @@
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Arıza Tespit Yöntemi</label>
-                                <select class="form-select" name="ariza_tespit_yontemi">
+                                <select class="form-select" name="ariza_tespit_yontemi" required>
                                     <option value="">-- Seçin --</option>
                                     <option value="Bozankaya">🏭 Bozankaya</option>
                                     <option value="Müşteri">👤 Müşteri</option>
@@ -487,11 +511,11 @@
                         <div class="mb-3">
                             <label class="form-label">İşlem Açıklaması</label>
                             <textarea class="form-control" name="yapilan_islem" rows="2"
-                                placeholder="Yapılan işlemleri açıklayın..."></textarea>
+                                placeholder="Yapılan işlemleri açıklayın..." required></textarea>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Aksiyon</label>
-                            <select class="form-select" name="aksiyon">
+                            <select class="form-select" name="aksiyon" required>
                                 <option value="">-- Seçin --</option>
                                 <option value="Tamir">🔧 Tamir Edildi</option>
                                 <option value="Değişim">🔄 Parça Değiştirildi</option>
@@ -502,7 +526,7 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Detaylı Bilgi</label>
-                            <select class="form-select" name="detayli_bilgi">
+                            <select class="form-select" name="detayli_bilgi" required>
                                 <option value="">-- Seçin --</option>
                                 <option value="Servise Engel">🛑 Servise Engel</option>
                                 <option value="Servise Engel Değil">✅ Servise Engel Değil</option>
@@ -579,7 +603,7 @@
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Saat <small class="text-muted">(Tamir Bitiş'ten
                                         Otomatik)</small></label>
-                                <input type="time" class="form-control" name="servise_verilis_saati" id="serviseSaat">
+                                <input type="time" class="form-control" name="servise_verilis_saati" id="serviseSaat" required>
                             </div>
                         </div>
                     </div>
@@ -621,12 +645,21 @@
 
         <!-- Butonlar -->
         <div style="display: flex; justify-content: center; gap: 1rem; padding: 1rem 0; flex-wrap: wrap;">
+            {% if mode == 'edit' %}
+            <a href="{{ url_for('failure.detail', id=ariza.id) }}" class="btn-back">
+                <i class="fas fa-arrow-left"></i>İptal
+            </a>
+            <button type="submit" class="btn-submit">
+                <i class="fas fa-check"></i>Güncelle
+            </button>
+            {% else %}
             <a href="{{ url_for('fracas.index') }}" class="btn-back">
                 <i class="fas fa-arrow-left"></i>Geri Dön
             </a>
             <button type="submit" class="btn-submit">
                 <i class="fas fa-save"></i>Kaydet
             </button>
+            {% endif %}
         </div>
     </form>
 </div>
@@ -948,6 +981,52 @@
                 console.log('╔════════════════════════════════════════╗');
                 console.log('║ 📋 FORM SUBMIT ETKİNLİĞİ TETİKLENDİ  ║');
                 console.log('╚════════════════════════════════════════╝');
+                
+                // TÜML ZORUNLU ALANLAR (HBR fotoğrafı, parça kodu/adı/seri/adet HARIÇ)
+                const requiredFields = {
+                    // Temel 6 (ilk istendiler)
+                    'arac_numarasi': 'Araç No',
+                    'hata_tarih': 'Tarih',
+                    'hata_saat': 'Saat',
+                    'sistem': 'Sistem',
+                    'ariza_sinifi': 'Arıza Sınıfı',
+                    'ariza_tanimi': 'Arıza Tanımı',
+                    // Ek zorunlu alanlar
+                    'arac_module': 'Araç Modül',
+                    'arac_km': 'Kilometre',
+                    'tamir_baslama_tarih': 'Tamir Başlama Tarihi',
+                    'tamir_baslama_saati': 'Tamir Başlama Saati',
+                    'tamir_bitisi_tarih': 'Tamir Bitiş Tarihi',
+                    'tamir_bitisi_saati': 'Tamir Bitiş Saati',
+                    'personel_sayisi': 'Personel Sayısı',
+                    'alt_sistem': 'Alt Sistem',
+                    'tedarikci': 'Tedarikçi',
+                    'ariza_kaynagi': 'Arıza Kaynağı',
+                    'ariza_tipi': 'Arıza Tipi',
+                    'garanti_kapsami': 'Garanti Kapsamı',
+                    'ariza_tespit_yontemi': 'Arıza Tespit Yöntemi',
+                    'yapilan_islem': 'İşlem Açıklaması',
+                    'aksiyon': 'Aksiyon',
+                    'detayli_bilgi': 'Detaylı Bilgi',
+                    'iscilik_maliyeti': 'İşçilik Ücreti',
+                    'servise_verilis_saati': 'Servise Veriliş Saati'
+                    // HARIÇ TUTULANLAR: parca_kodu, parca_adi, parca_seri_no, adet, create_hbr, hbr_fotografi
+                };
+                
+                let missingFields = [];
+                for (let fieldName in requiredFields) {
+                    const field = document.querySelector(`[name="${fieldName}"]`);
+                    if (!field || !field.value || field.value.trim() === '') {
+                        missingFields.push(requiredFields[fieldName]);
+                    }
+                }
+                
+                if (missingFields.length > 0) {
+                    e.preventDefault();
+                    alert('❌ Zorunlu alanları doldurunuz:\n\n• ' + missingFields.join('\n• '));
+                    return false;
+                }
+                
                 console.log('   HBR Checkbox Durumu:', hbrCheckbox.checked);
                 console.log('   Fotoğraf Dosya Adı:', hbrFotografInput.value);
                 console.log('   Fotoğraf Zorunlu mu?:', hbrFotografInput.required);
