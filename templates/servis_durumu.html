@@ -549,54 +549,94 @@
     </div>
 </div>
 
-<!-- 7 Günlük Tablo -->
+<!-- Sekmeler -->
 <div class="card shadow-sm">
     <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-calendar-week me-2"></i>Haftalık Servis Durumu</h5>
+        <ul class="nav nav-tabs card-header-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="tab-durumu" data-bs-toggle="tab" 
+                    data-bs-target="#content-durumu" type="button" role="tab" aria-controls="content-durumu" aria-selected="true">
+                    <i class="bi bi-calendar-week me-2"></i>Haftalık Servis Durumu
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-analiz" data-bs-toggle="tab" 
+                    data-bs-target="#content-analiz" type="button" role="tab" aria-controls="content-analiz" aria-selected="false">
+                    <i class="bi bi-graph-up me-2"></i>Alt Sistem Analizi (Aylık)
+                </button>
+            </li>
+        </ul>
     </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-bordered status-table mb-0">
-                <thead>
-                    <tr>
-                        <th class="date-header tram-id-cell">Araç</th>{% for date in dates %}<th class="date-header">{{
-                            date[-2:] }}/{{ date[5:7] }}</th>{% endfor %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for tram_id in tram_ids %}<tr class="tram-row">
-                        <td class="tram-id-cell"><strong>{{ tram_id }}</strong></td>
-                        {% for date in dates %}{%- set si = status_matrix.get(tram_id, {}).get(date) %}
-                        {%- if si and si[0] == 'Servis Dışı' %}{%- set aciklama_text = si[3].replace(' (Dünden
-                        kopyalandı)', '').strip() if si[3] else '' %}{%- set tooltip_text = (si[1] or '') + ((' / ' +
-                        si[2]) if si[2] else '') + ((' - ' + aciklama_text) if aciklama_text else '') %}{%- endif %}
-                        {%- if si and si[0] == 'Servis' %}<td class="status-cell status-service"><i
-                                class="bi bi-check-lg" style="font-size: 1rem; color: white; font-weight: bold;"></i>
-                        </td>
-                        {%- elif si and si[0] == 'Servis Dışı' %}<td class="status-cell status-out"
-                            title="{{ tooltip_text if si else '' }}" data-bs-toggle="tooltip"><i class="bi bi-x-lg"
-                                style="font-size: 1rem; color: white; font-weight: bold;"></i></td>
-                        {%- elif si and si[0] == 'İşletme Kaynaklı Servis Dışı' %}<td class="status-cell"
-                            style="background-color: #ff9800 !important; border: 1px solid #e68900;"><i
-                                class="bi bi-exclamation-triangle-fill"
-                                style="font-size: 1rem; color: white; font-weight: bold;"></i></td>
-                        {%- else %}<td class="status-cell status-empty">-</td>
-                        {%- endif %}
-                        {%- endfor %}
-                    </tr>{% endfor %}
-                </tbody>
-            </table>
+
+    <!-- Tab 1: Haftalık Servis Durumu -->
+    <div class="tab-content" id="tabContent">
+        <div class="tab-pane fade show active" id="content-durumu" role="tabpanel" aria-labelledby="tab-durumu">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bordered status-table mb-0">
+                        <thead>
+                            <tr>
+                                <th class="date-header tram-id-cell">Araç</th>{% for date in dates %}<th class="date-header">{{
+                                    date[-2:] }}/{{ date[5:7] }}</th>{% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tram_id in tram_ids %}<tr class="tram-row">
+                                <td class="tram-id-cell"><strong>{{ tram_id }}</strong></td>
+                                {% for date in dates %}{%- set si = status_matrix.get(tram_id, {}).get(date) %}
+                                {%- if si and si[0] == 'Servis Dışı' %}{%- set aciklama_text = si[3].replace(' (Dünden
+                                kopyalandı)', '').strip() if si[3] else '' %}{%- set tooltip_text = (si[1] or '') + ((' / ' +
+                                si[2]) if si[2] else '') + ((' - ' + aciklama_text) if aciklama_text else '') %}{%- endif %}
+                                {%- if si and si[0] == 'Servis' %}<td class="status-cell status-service"><i
+                                        class="bi bi-check-lg" style="font-size: 1rem; color: white; font-weight: bold;"></i>
+                                </td>
+                                {%- elif si and si[0] == 'Servis Dışı' %}<td class="status-cell status-out"
+                                    title="{{ tooltip_text if si else '' }}" data-bs-toggle="tooltip"><i class="bi bi-x-lg"
+                                        style="font-size: 1rem; color: white; font-weight: bold;"></i></td>
+                                {%- elif si and si[0] == 'İşletme Kaynaklı Servis Dışı' %}<td class="status-cell"
+                                    style="background-color: #ff9800 !important; border: 1px solid #e68900;"><i
+                                        class="bi bi-exclamation-triangle-fill"
+                                        style="font-size: 1rem; color: white; font-weight: bold;"></i></td>
+                                {%- else %}<td class="status-cell status-empty">-</td>
+                                {%- endif %}
+                                {%- endfor %}
+                            </tr>{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer" style="padding: 0.75rem;">
+                <div class="row text-center">
+                    <div class="col-3"><span class="badge bg-success" style="padding: 4px 8px;"><i
+                                class="bi bi-check-lg me-1"></i>Servis</span></div>
+                    <div class="col-3"><span class="badge bg-danger" style="padding: 4px 8px;"><i
+                                class="bi bi-x-lg me-1"></i>Servis Dışı</span></div>
+                    <div class="col-3"><span class="badge" style="background: #ff9800; padding: 4px 8px; color: white;"><i
+                                class="bi bi-exclamation-triangle-fill me-1"></i>İşletme Kaynaklı</span></div>
+                    <div class="col-3"><span class="badge bg-secondary" style="padding: 4px 8px;">- Veri Yok</span></div>
+                </div>
+            </div>
         </div>
-    </div>
-    <div class="card-footer" style="padding: 0.75rem;">
-        <div class="row text-center">
-            <div class="col-3"><span class="badge bg-success" style="padding: 4px 8px;"><i
-                        class="bi bi-check-lg me-1"></i>Servis</span></div>
-            <div class="col-3"><span class="badge bg-danger" style="padding: 4px 8px;"><i
-                        class="bi bi-x-lg me-1"></i>Servis Dışı</span></div>
-            <div class="col-3"><span class="badge" style="background: #ff9800; padding: 4px 8px; color: white;"><i
-                        class="bi bi-exclamation-triangle-fill me-1"></i>İşletme Kaynaklı</span></div>
-            <div class="col-3"><span class="badge bg-secondary" style="padding: 4px 8px;">- Veri Yok</span></div>
+
+        <!-- Tab 2: Alt Sistem Analizi -->
+        <div class="tab-pane fade" id="content-analiz" role="tabpanel" aria-labelledby="tab-analiz">
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="analiz_ay" class="form-label">Ay Seçiniz</label>
+                        <input type="month" id="analiz_ay" class="form-control" value="">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="button" class="btn btn-primary w-100" onclick="yuklemeAltSistemAnalizi()">
+                            <i class="bi bi-search me-2"></i>Analizi Yükle
+                        </button>
+                    </div>
+                </div>
+                <div id="analiz-tablo-container">
+                    <p class="text-muted text-center py-5">Ay seçip analizi yüklemek için yukarıdaki formu kullanın</p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -1110,6 +1150,94 @@
         // Her 30 saniyede bir yenile
         setInterval(loadStatusData, 30000);
     });
+
+    // ==================== ALT SİSTEM ANALİZİ ====================
+    function yuklemeAltSistemAnalizi() {
+        const ayInput = document.getElementById('analiz_ay').value;
+        
+        if (!ayInput) {
+            alert('❌ Lütfen bir ay seçiniz (YYYY-AA formatında)');
+            return;
+        }
+
+        // YYYY-AA formatını parse et
+        const [yil, ay] = ayInput.split('-').map(Number);
+        
+        // Loading göster
+        const container = document.getElementById('analiz-tablo-container');
+        container.innerHTML = '<div class="text-center py-5"><span class="spinner-border me-2"></span>Veriler yükleniyor...</div>';
+
+        // API'ye sor
+        fetch(`/servis/analiz/alt-sistem?yil=${yil}&ay=${ay}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.analysis) {
+                    renderAltSistemTablosu(data.analysis, yil, ay);
+                } else {
+                    container.innerHTML = `<div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>Bu ay için veri bulunamadı</div>`;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                container.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>Hata: ${error.message}</div>`;
+            });
+    }
+
+    function renderAltSistemTablosu(analysis, yil, ay) {
+        const container = document.getElementById('analiz-tablo-container');
+        
+        if (!analysis || Object.keys(analysis).length === 0) {
+            container.innerHTML = '<div class="alert alert-info">Bu ay için alt sistem servis dışı kaydı bulunamadı</div>';
+            return;
+        }
+
+        let html = `
+            <div class="table-responsive">
+                <table class="table table-striped table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Tramvay ID</th>
+                            <th>Tramvay Adı</th>
+                            <th>Alt Sistem</th>
+                            <th>Servis Dışı Gün Sayısı</th>
+                            <th>Tarihler</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        // Analysis verilerini tabloya çevir
+        Object.values(analysis).forEach(item => {
+            if (item && item.tram_id) {
+                const dates_txt = Array.isArray(item.dates) ? item.dates.join(', ') : '-';
+                html += `
+                    <tr>
+                        <td><strong>${item.tram_id}</strong></td>
+                        <td>${item.tram_name}</td>
+                        <td><span class="badge bg-warning">${item.alt_sistem}</span></td>
+                        <td style="text-align: center;">
+                            <span class="badge bg-danger" style="font-size: 14px; padding: 6px 10px;">
+                                ${item.days_count || 0}
+                            </span>
+                        </td>
+                        <td><small>${dates_txt}</small></td>
+                    </tr>
+                `;
+            }
+        });
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+            <div class="alert alert-success mt-3">
+                <i class="bi bi-check-circle me-2"></i>
+                <strong>${Object.keys(analysis).length}</strong> alt sistem arızası ${yil}-${String(ay).padStart(2, '0')} ayında kaydedilmiştir.
+            </div>
+        `;
+
+        container.innerHTML = html;
+    }
 </script>
 
 <!-- Accordion - Araçların Güncel Durumu (Sonra) -->

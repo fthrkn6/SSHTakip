@@ -17,6 +17,7 @@ from utils_availability import (
 )
 from utils_service_status import AvailabilityAnalyzer, ExcelReportGenerator as EnhancedExcelGenerator
 from utils_daily_service_logger import log_service_status as log_service_to_file
+from utils_service_status_excel_logger import log_service_status_to_excel
 import os
 import json
 import logging
@@ -340,6 +341,10 @@ def log_service_status():
         # Proje kodunu al
         project_code = session.get('current_project', 'belgrad')
         
+        # Tramvay adını al
+        equipment = Equipment.query.filter_by(equipment_code=str(tram_id), project_code=project_code).first()
+        tram_name = equipment.name if equipment else f'Tramvay {tram_id}'
+        
         # **YENİ LOGGER: Günlük log klasörüne kaydet**
         log_service_to_file(
             tram_id=tram_id,
@@ -348,6 +353,19 @@ def log_service_status():
             alt_sistem=alt_sistem or '',
             aciklama=reason or '',
             user=current_user.username if current_user else 'system',
+            project_code=project_code
+        )
+        
+        # **EXCEL LOGGER: Excel dosyasına kaydet**
+        log_service_status_to_excel(
+            tram_id=tram_id,
+            tram_name=tram_name,
+            status=new_status,
+            sistem=sistem or '',
+            alt_sistem=alt_sistem or '',
+            aciklama=reason or '',
+            user=current_user.username if current_user else 'system',
+            action='GÜNCELLE',
             project_code=project_code
         )
         
@@ -1042,3 +1060,30 @@ def test_export(report_type):
     except Exception as e:
         logger.error(f"Error in test export: {str(e)}")
         return jsonify({'error': f'Hata: {str(e)}'}), 400
+
+
+@bp.route('/analiz/alt-sistem', methods=['GET'])
+@login_required
+def analiz_alt_sistem():
+    """Aylık alt sistem analizi - servis dışı günleri say"""
+    try:
+        yil = request.args.get('yil', type=int)
+        ay = request.args.get('ay', type=int)
+        project_code = session.get('current_project', 'belgrad')
+        
+        if not yil or not ay:
+            return jsonify({'success': False, 'error': 'Yıl ve ay parametreleri gerekli'}), 400
+        
+        # Excel logger'ı kullanarak aylık analizi çek
+        from utils_service_status_excel_logger import ServiceStatusExcelLogger
+        logger_obj = ServiceStatusExcelLogger(project_code)
+        analysis = logger_obj.get_monthly_analysis(yil, ay)
+        
+        return jsonify({
+            'success': True,
+            'analysis': analysis
+        })
+    
+    except Exception as e:
+        logger.error(f"Error in alt sistem analysis: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 400
