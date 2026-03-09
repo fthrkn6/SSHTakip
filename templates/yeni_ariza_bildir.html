@@ -326,7 +326,7 @@ Yeni Arıza Bildir
                                     birden fazla seçin</small>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Kilometre</label>
+                                <label class="form-label">Kilometre <span class="required-mark">*</span></label>
                                 <input type="number" class="form-control" name="arac_km" placeholder="Araç km" required>
                             </div>
                         </div>
@@ -371,13 +371,13 @@ Yeni Arıza Bildir
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Alt Sistem</label>
+                                <label class="form-label">Alt Sistem <span class="required-mark">*</span></label>
                                 <select class="form-select" id="altSistemSelect" name="alt_sistem" required>
                                     <option value="">-- Önce Sistem Seçin --</option>
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Tedarikçi</label>
+                                <label class="form-label">Tedarikçi <span class="required-mark">*</span></label>
                                 <select class="form-select" id="tedarikciSelect" name="tedarikci" required>
                                     <option value="">-- Seçin --</option>
                                 </select>
@@ -395,21 +395,21 @@ Yeni Arıza Bildir
                     <div class="form-card-body">
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Başlama Tarihi</label>
+                                <label class="form-label">Başlama Tarihi <span class="required-mark">*</span></label>
                                 <input type="date" class="form-control" name="tamir_baslama_tarih" id="tamirBasTarih" required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Başlama Saati</label>
+                                <label class="form-label">Başlama Saati <span class="required-mark">*</span></label>
                                 <input type="time" class="form-control" name="tamir_baslama_saati" id="tamirBasSaat" required>
                             </div>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Bitiş Tarihi</label>
+                                <label class="form-label">Bitiş Tarihi <span class="required-mark">*</span></label>
                                 <input type="date" class="form-control" name="tamir_bitisi_tarih" id="tamirBitTarih" required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Bitiş Saati</label>
+                                <label class="form-label">Bitiş Saati <span class="required-mark">*</span></label>
                                 <input type="time" class="form-control" name="tamir_bitisi_saati" id="tamirBitSaat" required>
                             </div>
                         </div>
@@ -427,7 +427,7 @@ Yeni Arıza Bildir
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Personel Sayısı</label>
+                                <label class="form-label">Personel Sayısı <span class="required-mark">*</span></label>
                                 <input type="number" class="form-control" name="personel_sayisi" min="1" value="1" required>
                             </div>
                         </div>
@@ -457,7 +457,7 @@ Yeni Arıza Bildir
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Arıza Kaynağı</label>
+                                <label class="form-label">Arıza Kaynağı <span class="required-mark">*</span></label>
                                 <select class="form-select" name="ariza_kaynagi" required>
                                     <option value="">-- Seçin --</option>
                                     {% for kaynak in ariza_kaynaklari %}
@@ -466,7 +466,7 @@ Yeni Arıza Bildir
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Arıza Tipi</label>
+                                <label class="form-label">Arıza Tipi <span class="required-mark">*</span></label>
                                 <select class="form-select" name="ariza_tipi" required>
                                     <option value="">-- Seçin --</option>
                                     {% for tip in ariza_tipleri %}
@@ -477,7 +477,7 @@ Yeni Arıza Bildir
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Garanti Kapsamı</label>
+                                <label class="form-label">Garanti Kapsamı <span class="required-mark">*</span></label>
                                 <select class="form-select" name="garanti_kapsami" required>
                                     <option value="">-- Seçin --</option>
                                     <option value="Evet">✅ Garanti İçi</option>
@@ -485,7 +485,7 @@ Yeni Arıza Bildir
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Arıza Tespit Yöntemi</label>
+                                <label class="form-label">Arıza Tespit Yöntemi <span class="required-mark">*</span></label>
                                 <select class="form-select" name="ariza_tespit_yontemi" required>
                                     <option value="">-- Seçin --</option>
                                     <option value="Bozankaya">🏭 Bozankaya</option>
@@ -509,12 +509,12 @@ Yeni Arıza Bildir
                     </div>
                     <div class="form-card-body">
                         <div class="mb-3">
-                            <label class="form-label">İşlem Açıklaması</label>
+                            <label class="form-label">İşlem Açıklaması <span class="required-mark">*</span></label>
                             <textarea class="form-control" name="yapilan_islem" rows="2"
                                 placeholder="Yapılan işlemleri açıklayın..." required></textarea>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Aksiyon</label>
+                            <label class="form-label">Aksiyon <span class="required-mark">*</span></label>
                             <select class="form-select" name="aksiyon" required>
                                 <option value="">-- Seçin --</option>
                                 <option value="Tamir">🔧 Tamir Edildi</option>
@@ -525,7 +525,7 @@ Yeni Arıza Bildir
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Detaylı Bilgi</label>
+                            <label class="form-label">Detaylı Bilgi <span class="required-mark">*</span></label>
                             <select class="form-select" name="detayli_bilgi" required>
                                 <option value="">-- Seçin --</option>
                                 <option value="Servise Engel">🛑 Servise Engel</option>
@@ -601,7 +601,7 @@ Yeni Arıza Bildir
                                     readonly>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Saat <small class="text-muted">(Tamir Bitiş'ten
+                                <label class="form-label">Saat <span class="required-mark">*</span> <small class="text-muted">(Tamir Bitiş'ten
                                         Otomatik)</small></label>
                                 <input type="time" class="form-control" name="servise_verilis_saati" id="serviseSaat" required>
                             </div>
