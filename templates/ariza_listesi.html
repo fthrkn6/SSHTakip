@@ -649,8 +649,39 @@
         document.getElementById('editModalDetaylibilgi').value = detayliBilgi || '';
         document.getElementById('editModalAracModul').value = aracModul || '';
         document.getElementById('editModalKilometre').value = kilometre || '';
-        document.getElementById('editModalAltSistem').value = altSistem || '';
-        document.getElementById('editModalTedarikci').value = tedarikci || '';
+        
+        // Sistem seçiliyse Alt Sistem ve Tedarikçi'yi doldur
+        if (sistem && modal_sistem_detay[sistem]) {
+            var data = modal_sistem_detay[sistem];
+            var altSistemSelect = document.getElementById('editModalAltSistem');
+            var tedarikciSelect = document.getElementById('editModalTedarikci');
+            
+            altSistemSelect.innerHTML = '<option value="">-- Seçin --</option>';
+            tedarikciSelect.innerHTML = '<option value="">-- Seçin --</option>';
+            
+            // Alt Sistem'leri popüle et
+            (data.alt_sistemler || []).forEach(function (alt) {
+                var opt = document.createElement('option');
+                opt.value = alt;
+                opt.textContent = alt;
+                altSistemSelect.appendChild(opt);
+            });
+            
+            // Tedarikçi'leri popüle et
+            (data.tedarikciler || []).forEach(function (ted) {
+                var opt = document.createElement('option');
+                opt.value = ted;
+                opt.textContent = ted;
+                tedarikciSelect.appendChild(opt);
+            });
+            
+            // Seçili değerleri set et
+            altSistemSelect.value = altSistem || '';
+            tedarikciSelect.value = tedarikci || '';
+        } else {
+            document.getElementById('editModalAltSistem').innerHTML = '<option value="">-- Önce Sistem Seçin --</option>';
+            document.getElementById('editModalTedarikci').innerHTML = '<option value="">-- Seçin --</option>';
+        }
         
         // Modal aç
         const modal = new bootstrap.Modal(document.getElementById('inlineEditModal'));
@@ -766,6 +797,18 @@
 </script>
 
 <!-- Modal: Inline FRACAS Edit -->
+<script type="text/javascript">
+    // Modal için dinamik dropdown verileri
+    var modal_sistem_detay = {{ sistem_detay | tojson | safe }};
+    var modal_modules = {{ modules | tojson | safe }};
+    var modal_ariza_siniflari = {{ ariza_siniflari | tojson | safe }};
+    var modal_ariza_kaynaklari = {{ ariza_kaynaklari | tojson | safe }};
+    var modal_ariza_tipleri = {{ ariza_tipleri | tojson | safe }};
+    var modal_sistemler = {{ sistemler | tojson | safe }};
+    console.log('[MODAL-DATA] sistem_detay:', modal_sistem_detay);
+    console.log('[MODAL-DATA] modules:', modal_modules);
+</script>
+
 <div class="modal fade" id="inlineEditModal" tabindex="-1" aria-labelledby="inlineEditModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl" style="max-width: 900px;">
         <div class="modal-content" style="border-radius: 16px;">
@@ -832,25 +875,33 @@
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
                                 <div>
                                     <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Sistem</label>
-                                    <input type="text" class="form-control" id="editModalSistem" style="border: 1px solid #ddd;">
+                                    <select class="form-select" id="editModalSistem" style="border: 1px solid #ddd;">
+                                        <option value="">-- Seçin --</option>
+                                        {% for sistem in sistemler %}
+                                        <option value="{{ sistem }}">{{ sistem }}</option>
+                                        {% endfor %}
+                                    </select>
                                 </div>
                                 <div>
                                     <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Arıza Sınıfı</label>
                                     <select class="form-select" id="editModalArizaSinifi" style="border: 1px solid #ddd;">
-                                        <option value="">Seç...</option>
-                                        <option value="Elektrik">Elektrik</option>
-                                        <option value="Mekanik">Mekanik</option>
-                                        <option value="Yazılım">Yazılım</option>
-                                        <option value="Diğer">Diğer</option>
+                                        <option value="">--Seçin--</option>
+                                        {% for sinif in ariza_siniflari %}
+                                        <option value="{{ sinif }}">{{ sinif }}</option>
+                                        {% endfor %}
                                     </select>
                                 </div>
                                 <div>
                                     <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Alt Sistem</label>
-                                    <input type="text" class="form-control" id="editModalAltSistem" style="border: 1px solid #ddd;">
+                                    <select class="form-select" id="editModalAltSistem" style="border: 1px solid #ddd;">
+                                        <option value="">-- Önce Sistem Seçin --</option>
+                                    </select>
                                 </div>
                                 <div>
                                     <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Tedarikçi</label>
-                                    <input type="text" class="form-control" id="editModalTedarikci" style="border: 1px solid #ddd;">
+                                    <select class="form-select" id="editModalTedarikci" style="border: 1px solid #ddd;">
+                                        <option value="">-- Seçin --</option>
+                                    </select>
                                 </div>
                             </div>
                             <div>
@@ -863,11 +914,21 @@
                             </div>
                             <div style="margin-top: 1rem;">
                                 <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Arıza Kaynağı</label>
-                                <input type="text" class="form-control" id="editModalArizaKaynagi" style="border: 1px solid #ddd;">
+                                <select class="form-select" id="editModalArizaKaynagi" style="border: 1px solid #ddd;">
+                                    <option value="">-- Seçin --</option>
+                                    {% for kaynak in ariza_kaynaklari %}
+                                    <option value="{{ kaynak }}">{{ kaynak }}</option>
+                                    {% endfor %}
+                                </select>
                             </div>
                             <div style="margin-top: 1rem;">
                                 <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Arıza Tipi</label>
-                                <input type="text" class="form-control" id="editModalArizaTipi" style="border: 1px solid #ddd;">
+                                <select class="form-select" id="editModalArizaTipi" style="border: 1px solid #ddd;">
+                                    <option value="">-- Seçin --</option>
+                                    {% for tip in ariza_tipleri %}
+                                    <option value="{{ tip }}">{{ tip }}</option>
+                                    {% endfor %}
+                                </select>
                             </div>
                             <div style="margin-top: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                                 <div>
@@ -930,6 +991,44 @@
         </div>
     </div>
 </div>
+
+<script type="text/javascript">
+    // Modal Sistem dropdown için cascading event listener
+    document.addEventListener('DOMContentLoaded', function() {
+        var sistemSelect = document.getElementById('editModalSistem');
+        if (sistemSelect) {
+            sistemSelect.addEventListener('change', function() {
+                var sistem = this.value;
+                var altSistemSelect = document.getElementById('editModalAltSistem');
+                var tedarikciSelect = document.getElementById('editModalTedarikci');
+                
+                altSistemSelect.innerHTML = '<option value="">-- Seçin --</option>';
+                tedarikciSelect.innerHTML = '<option value="">-- Seçin --</option>';
+                
+                if (sistem && modal_sistem_detay[sistem]) {
+                    var data = modal_sistem_detay[sistem];
+                    console.log('[Modal-Cascading] Seçilen sistem:', sistem, data);
+                    
+                    // Alt Sistem'leri popüle et
+                    (data.alt_sistemler || []).forEach(function(alt) {
+                        var opt = document.createElement('option');
+                        opt.value = alt;
+                        opt.textContent = alt;
+                        altSistemSelect.appendChild(opt);
+                    });
+                    
+                    // Tedarikçi'leri popüle et
+                    (data.tedarikciler || []).forEach(function(ted) {
+                        var opt = document.createElement('option');
+                        opt.value = ted;
+                        opt.textContent = ted;
+                        tedarikciSelect.appendChild(opt);
+                    });
+                }
+            });
+        }
+    });
+</script>
 
 <!-- Fixed Download Button -->
 <a href="{{ url_for('ariza_listesi_veriler_export') }}" class="btn btn-info btn-lg fixed-download-btn">

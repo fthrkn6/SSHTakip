@@ -1431,9 +1431,119 @@ def create_app():
             """Arıza Listesi sayfası - logs/{project}/ariza_listesi/Fracas_*.xlsx'den FRACAS verilerini oku ve göster"""
             import pandas as pd
             import numpy as np
+            from openpyxl import load_workbook
             
             project = session.get('current_project', 'belgrad')
             print(f"\n[DEBUG] ariza_listesi_veriler() çağrıldı - Proje: {project}")
+            
+            # Dropdown data (yeni_ariza_bildir ile aynı)
+            data_dir = os.path.join(app.root_path, 'data', project)
+            sistemler = {}
+            modules = []
+            ariza_siniflari = ['Kritik', 'Yüksek', 'Orta', 'Düşük']
+            ariza_kaynaklari = ['Fabrika Hatası', 'Kullanıcı Hatası', 'Yıpranma', 'Bilinmiyor']
+            ariza_tipleri = []
+            
+            # Veriler.xlsx'den sistemleri yükle (Sayfa1)
+            veriler_path = None
+            if os.path.exists(data_dir):
+                for file in os.listdir(data_dir):
+                    if 'veriler' in file.lower() and file.endswith('.xlsx'):
+                        veriler_path = os.path.join(data_dir, file)
+                        break
+            
+            if veriler_path and os.path.exists(veriler_path):
+                try:
+                    wb = load_workbook(veriler_path)
+                    ws = wb['Sayfa1']
+                    
+                    # Sistem renk tanımları
+                    KIRMIZI = 'FFFF0000'
+                    SARI = 'FFFFFF00'
+                    MAVI = 'FF0070C0'
+                    
+                    # Sütun sütun tarama
+                    for col in range(1, ws.max_column + 1):
+                        sistem_adi = None
+                        
+                        for row in range(1, ws.max_row + 1):
+                            cell = ws.cell(row=row, column=col)
+                            value = cell.value
+                            fill = cell.fill
+                            
+                            color_hex = None
+                            if fill and fill.start_color:
+                                color_hex = str(fill.start_color.rgb) if fill.start_color.rgb else None
+                            
+                            # Kırmızı = Sistem
+                            if color_hex == KIRMIZI and value:
+                                sistem_adi = str(value).strip()
+                                if sistem_adi not in sistemler:
+                                    sistemler[sistem_adi] = {
+                                        'tedarikciler': [],
+                                        'alt_sistemler': []
+                                    }
+                            
+                            # Sarı = Tedarikçi
+                            elif color_hex == SARI and value and sistem_adi:
+                                sistemler[sistem_adi]['tedarikciler'].append(str(value).strip())
+                            
+                            # Mavi = Alt Sistem
+                            elif color_hex == MAVI and value and sistem_adi:
+                                sistemler[sistem_adi]['alt_sistemler'].append(str(value).strip())
+                    
+                    wb.close()
+                except Exception as e:
+                    print(f"[WARNING] Sistem verileri okunamadı: {e}")
+            
+            # Sayfa2'den modules, ariza_siniflari, ariza_kaynaklari, ariza_tipleri oku
+            if veriler_path and os.path.exists(veriler_path):
+                try:
+                    def normalize_col(col_name):
+                        """Türkçe karakterleri normalize et"""
+                        replacements = {
+                            'ı': 'i', 'ş': 's', 'ç': 'c', 'ğ': 'g', 'ü': 'u', 'ö': 'o',
+                            'I': 'I', 'Ş': 'S', 'Ç': 'C', 'Ğ': 'G', 'Ü': 'U', 'Ö': 'O'
+                        }
+                        result = col_name.strip().lower()
+                        for tr, en in replacements.items():
+                            result = result.replace(tr, en)
+                        return result
+                    
+                    df_trams = pd.read_excel(veriler_path, sheet_name='Sayfa2', header=0)
+                    
+                    # Modül sütununu bul
+                    for col in df_trams.columns:
+                        col_norm = normalize_col(col)
+                        if col_norm == 'module':
+                            modules = [str(m).strip() for m in df_trams[col].dropna().unique().tolist() if str(m).strip()]
+                            break
+                    
+                    # Arıza Sınıfı sütununu bul
+                    for col in df_trams.columns:
+                        col_norm = normalize_col(col)
+                        if 'ariza' in col_norm and 'sinif' in col_norm:
+                            ariza_siniflari = [str(s).strip() for s in df_trams[col].dropna().unique().tolist() if str(s).strip()]
+                            break
+                    
+                    # Arıza Kaynağı sütununu bul
+                    for col in df_trams.columns:
+                        col_norm = normalize_col(col)
+                        if 'ariza' in col_norm and 'kaynag' in col_norm:
+                            ariza_kaynaklari = [str(k).strip() for k in df_trams[col].dropna().unique().tolist() if str(k).strip()]
+                            break
+                    
+                    # Arıza Tipi sütununu bul
+                    for col in df_trams.columns:
+                        col_norm = normalize_col(col)
+                        if 'ariza' in col_norm and 'tip' in col_norm:
+                            ariza_tipleri = [str(t).strip() for t in df_trams[col].dropna().unique().tolist() if str(t).strip()]
+                            ariza_tipleri = sorted(list(set(ariza_tipleri)))
+                            break
+                except Exception as e:
+                    print(f"[WARNING] Sayfa2 yükleme hatası: {e}")
+            
+            sistem_detay = {k: {'tedarikciler': list(set(v['tedarikciler'])), 'alt_sistemler': list(set(v['alt_sistemler']))} for k, v in sistemler.items()}
             
             # Birincil konum: logs/{project}/ariza_listesi/Fracas_{PROJECT}.xlsx
             ariza_listesi_dir = os.path.join(app.root_path, 'logs', project, 'ariza_listesi')
@@ -1574,7 +1684,13 @@ def create_app():
                                  column_names=column_names,
                                  row_count=row_count,
                                  file_date=file_date,
-                                 enumerate=enumerate)
+                                 enumerate=enumerate,
+                                 sistem_detay=sistem_detay,
+                                 modules=modules,
+                                 sistemler=list(sistemler.keys()),
+                                 ariza_siniflari=ariza_siniflari,
+                                 ariza_kaynaklari=ariza_kaynaklari,
+                                 ariza_tipleri=ariza_tipleri)
 
         @app.route('/ariza-listesi-veriler/process', methods=['POST'])
         @login_required
