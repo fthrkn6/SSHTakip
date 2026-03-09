@@ -647,7 +647,18 @@
         document.getElementById('editModalArizaTespitYontemi').value = arizaTespitYontemi || '';
         document.getElementById('editModalAksiyon').value = aksiyon || '';
         document.getElementById('editModalDetaylibilgi').value = detayliBilgi || '';
-        document.getElementById('editModalAracModul').value = aracModul || '';
+        
+        // Araç Modülü - multiple select (virgülle ayrılmış değerler)
+        var aracModulSelect = document.getElementById('editModalAracModul');
+        if (aracModul) {
+            var moduls = aracModul.split(',').map(m => m.trim());
+            Array.from(aracModulSelect.options).forEach(opt => {
+                opt.selected = moduls.includes(opt.value);
+            });
+        } else {
+            Array.from(aracModulSelect.options).forEach(opt => opt.selected = false);
+        }
+        
         document.getElementById('editModalKilometre').value = kilometre || '';
         
         // Sistem seçiliyse Alt Sistem ve Tedarikçi'yi doldur
@@ -692,7 +703,13 @@
     async function saveInlineEdit() {
         const fracasId = document.getElementById('editModalFracasId').value;
         const aracNo = document.getElementById('editModalAracNo').value;
-        const aracModul = document.getElementById('editModalAracModul').value;
+        
+        // Araç Modülü - multiple select'ten tüm seçili değerleri al
+        const aracModulSelect = document.getElementById('editModalAracModul');
+        const aracModul = Array.from(aracModulSelect.selectedOptions)
+            .map(opt => opt.value)
+            .join(', ');
+        
         const kilometre = document.getElementById('editModalKilometre').value;
         const sistem = document.getElementById('editModalSistem').value;
         const altSistem = document.getElementById('editModalAltSistem').value;
@@ -841,7 +858,12 @@
                                 </div>
                                 <div>
                                     <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Araç Modül</label>
-                                    <input type="text" class="form-control" id="editModalAracModul" style="border: 1px solid #ddd;">
+                                    <select class="form-select" id="editModalAracModul" multiple size="5" style="border: 1px solid #ddd;">
+                                        {% for mod in modules %}
+                                        <option value="{{ mod }}">{{ mod }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <small class="text-muted d-block mt-2" style="font-size: 0.8rem;">💡 Ctrl (Windows) veya Cmd (Mac) basılı tutarak birden fazla seçin</small>
                                 </div>
                                 <div>
                                     <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Kilometre</label>
