@@ -1933,6 +1933,20 @@ def create_app():
                 ariza_tanimi = data.get('ariza_tanimi', '')
                 ariza_sinifi = data.get('ariza_sinifi', '')
                 yapilan_islem = data.get('yapilan_islem', '')
+                ariza_kaynagi = data.get('ariza_kaynagi', '')
+                ariza_tipi = data.get('ariza_tipi', '')
+                garanti_kapsami = data.get('garanti_kapsami', '')
+                tedarikci = data.get('tedarikci', '')
+                alt_sistem = data.get('alt_sistem', '')
+                arac_modul = data.get('arac_modul', '')
+                kilometre = data.get('kilometre', '')
+                ariza_tespit_yontemi = data.get('ariza_tespit_yontemi', '')
+                aksiyon = data.get('aksiyon', '')
+                detayli_bilgi = data.get('detayli_bilgi', '')
+                tamir_baslama_tarih = data.get('tamir_baslama_tarih', '')
+                tamir_baslama_saati = data.get('tamir_baslama_saati', '')
+                tamir_bitisi_tarih = data.get('tamir_bitisi_tarih', '')
+                tamir_bitisi_saati = data.get('tamir_bitisi_saati', '')
                 
                 if not fracas_id:
                     return jsonify({'success': False, 'error': 'FRACAS ID gereklidir'}), 400
@@ -1967,12 +1981,26 @@ def create_app():
                             row[1].value = arac_no if arac_no else row[1].value          # B: Araç No
                             row[2].value = sistem if sistem else row[2].value            # C: Sistem
                             row[3].value = hata_tarihi if hata_tarihi else row[3].value  # D: Hata Tarihi
+                            row[6].value = arac_modul if arac_modul else row[6].value    # G: Araç Modülü
+                            row[7].value = kilometre if kilometre else row[7].value      # H: Kilometre
+                            row[8].value = alt_sistem if alt_sistem else row[8].value    # I: Alt Sistem
                             row[9].value = ariza_tanimi if ariza_tanimi else row[9].value # J: Arıza Tanımı
                             row[10].value = ariza_sinifi if ariza_sinifi else row[10].value # K: Arıza Sınıfı
+                            row[11].value = ariza_kaynagi if ariza_kaynagi else row[11].value # L: Arıza Kaynağı
                             row[12].value = yapilan_islem if yapilan_islem else row[12].value # M: Yapılan İşlem
+                            row[13].value = ariza_tipi if ariza_tipi else row[13].value # N: Arıza Tipi
+                            row[14].value = garanti_kapsami if garanti_kapsami else row[14].value # O: Garanti Kapsamı
+                            row[15].value = ariza_tespit_yontemi if ariza_tespit_yontemi else row[15].value # P: Arıza Tespit Yöntemi
+                            row[16].value = aksiyon if aksiyon else row[16].value        # Q: Aksiyon
+                            row[17].value = detayli_bilgi if detayli_bilgi else row[17].value # R: Detaylı Bilgi
+                            row[18].value = tedarikci if tedarikci else row[18].value    # S: Tedarikçi
+                            row[19].value = tamir_baslama_tarih if tamir_baslama_tarih else row[19].value # T: Tamir Başlama Tarihi
+                            row[20].value = tamir_baslama_saati if tamir_baslama_saati else row[20].value # U: Tamir Başlama Saati
+                            row[21].value = tamir_bitisi_tarih if tamir_bitisi_tarih else row[21].value # V: Tamir Bitiş Tarihi
+                            row[22].value = tamir_bitisi_saati if tamir_bitisi_saati else row[22].value # W: Tamir Bitiş Saati
                             
                             row_found = True
-                            logger.info(f"[EDIT-FRACAS] Satır {row_num} güncellendi")
+                            logger.info(f"[EDIT-FRACAS] Satır {row_num} güncellendi - Tamir zamanları: {tamir_baslama_tarih} {tamir_baslama_saati}")
                         except Exception as cell_error:
                             logger.error(f"[EDIT-FRACAS] Cell yazma hatası satır {row_num}: {cell_error}")
                         
