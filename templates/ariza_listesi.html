@@ -344,7 +344,7 @@
                             <!-- İşlem Butonları -->
                             <div class="row g-2 mt-4">
                                 <div class="col-auto">
-                                    <button type="button" class="btn btn-sm btn-warning" onclick="openInlineEditModal('{{ row[4] or '' }}', '{{ row[1] or '' }}', '{{ row[6] or '' }}', '{{ row[5] or '' }}', '{{ row[9] or '' }}', '{{ row[10] or '' }}', '{{ row[12] or '' }}', '{{ row[11] or '' }}', '{{ row[24] or '' }}', '{{ row[14] or '' }}', '{{ row[15] or '' }}', '{{ row[13] or '' }}', '{{ row[25] or '' }}', '{{ row[2] or '' }}', '{{ row[3] or '' }}', '{{ row[7] or '' }}', '{{ row[8] or '' }}')">
+                                    <button type="button" class="btn btn-sm btn-warning" onclick="openInlineEditModal('{{ row[4] or '' }}', '{{ row[1] or '' }}', '{{ row[6] or '' }}', '{{ row[5] or '' }}', '{{ row[9] or '' }}', '{{ row[10] or '' }}', '{{ row[12] or '' }}', '{{ row[11] or '' }}', '{{ row[24] or '' }}', '{{ row[14] or '' }}', '{{ row[15] or '' }}', '{{ row[13] or '' }}', '{{ row[25] or '' }}', '{{ row[2] or '' }}', '{{ row[3] or '' }}', '{{ row[7] or '' }}', '{{ row[8] or '' }}', '{{ row[17] or '' }}', '{{ row[18] or '' }}', '{{ row[19] or '' }}', '{{ row[20] or '' }}')">
                                         <i class="bi bi-pencil"></i> Düzenle (Excel)
                                     </button>
                                 </div>
@@ -630,10 +630,10 @@
     }
 
     // Inline edit modal aç
-    function openInlineEditModal(fracasId, aracNo, sistem, hataTarihi, arizaTanimi, arizaSinifi, yapılanIslem, arizaKaynagi, arizaTipi, garantiKapsami, arizaTespitYontemi, aksiyon, detayliBilgi, aracModul, kilometre, altSistem, tedarikci) {
-        console.log('[openInlineEditModal] çağrıldı:', {fracasId, aracNo, sistem, hataTarihi, arizaTanimi, arizaSinifi});
+    function openInlineEditModal(fracasId, aracNo, sistem, hataTarihi, arizaTanimi, arizaSinifi, yapılanIslem, arizaKaynagi, arizaTipi, garantiKapsami, arizaTespitYontemi, aksiyon, detayliBilgi, aracModul, kilometre, altSistem, tedarikci, tamirBasTarih, tamirBasSaat, tamirBitTarih, tamirBitSaat) {
+        console.log('[openInlineEditModal] çağrıldı:', {fracasId, aracNo, sistem, hataTarihi, arizaTanimi, arizaSinifi, tamirBasTarih});
         
-        // Formu doldur (17 parametre)
+        // Formu doldur (21 parametre)
         document.getElementById('editModalFracasId').value = fracasId;
         document.getElementById('editModalAracNo').value = aracNo;
         document.getElementById('editModalSistem').value = sistem;
@@ -647,6 +647,12 @@
         document.getElementById('editModalArizaTespitYontemi').value = arizaTespitYontemi || '';
         document.getElementById('editModalAksiyon').value = aksiyon || '';
         document.getElementById('editModalDetaylibilgi').value = detayliBilgi || '';
+        
+        // Tamir zamanı alanlarını doldur
+        document.getElementById('editModalTamirBasTarih').value = tamirBasTarih || '';
+        document.getElementById('editModalTamirBasSaat').value = tamirBasSaat || '';
+        document.getElementById('editModalTamirBitTarih').value = tamirBitTarih || '';
+        document.getElementById('editModalTamirBitSaat').value = tamirBitSaat || '';
         
         // Araç Modülü - multiple select (virgülle ayrılmış değerler)
         var aracModulSelect = document.getElementById('editModalAracModul');
@@ -725,6 +731,12 @@
         const aksiyon = document.getElementById('editModalAksiyon').value;
         const detayliBilgi = document.getElementById('editModalDetaylibilgi').value;
         
+        // Tamir zamanları
+        const tamirBasTarih = document.getElementById('editModalTamirBasTarih').value;
+        const tamirBasSaat = document.getElementById('editModalTamirBasSaat').value;
+        const tamirBitTarih = document.getElementById('editModalTamirBitTarih').value;
+        const tamirBitSaat = document.getElementById('editModalTamirBitSaat').value;
+        
         console.log('[saveInlineEdit] Kaydediliyor:', {fracasId, arizaTanimi, arizaSinifi});
         
         if (!fracasId) {
@@ -755,7 +767,11 @@
                     garanti_kapsami: garantiKapsami,
                     ariza_tespit_yontemi: arizaTespitYontemi,
                     aksiyon: aksiyon,
-                    detayli_bilgi: detayliBilgi
+                    detayli_bilgi: detayliBilgi,
+                    tamir_baslama_tarih: tamirBasTarih,
+                    tamir_baslama_saati: tamirBasSaat,
+                    tamir_bitisi_tarih: tamirBitTarih,
+                    tamir_bitisi_saati: tamirBitSaat
                 })
             });
             
@@ -877,12 +893,40 @@
                     <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 1rem; overflow: hidden; border: 1px solid #e0e0e0;">
                         <div style="background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%); color: white; padding: 0.8rem 1rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
                             <i class="fas fa-clock"></i>
-                            Hata Zamanı
+                            Arıza Zamanı
                         </div>
                         <div style="padding: 1rem;">
                             <div>
                                 <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Hata Tarihi</label>
                                 <input type="date" class="form-control" id="editModalHataTarihi" style="border: 1px solid #ddd;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tamir Zamanı Section -->
+                    <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 1rem; overflow: hidden; border: 1px solid #e0e0e0;">
+                        <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 0.8rem 1rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-wrench"></i>
+                            Tamir Zamanı
+                        </div>
+                        <div style="padding: 1rem;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                                <div>
+                                    <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Tamir Başlama Tarihi</label>
+                                    <input type="date" class="form-control" id="editModalTamirBasTarih" style="border: 1px solid #ddd;">
+                                </div>
+                                <div>
+                                    <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Tamir Başlama Saati</label>
+                                    <input type="time" class="form-control" id="editModalTamirBasSaat" style="border: 1px solid #ddd;">
+                                </div>
+                                <div>
+                                    <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Tamir Bitişi Tarihi</label>
+                                    <input type="date" class="form-control" id="editModalTamirBitTarih" style="border: 1px solid #ddd;">
+                                </div>
+                                <div>
+                                    <label class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Tamir Bitişi Saati</label>
+                                    <input type="time" class="form-control" id="editModalTamirBitSaat" style="border: 1px solid #ddd;">
+                                </div>
                             </div>
                         </div>
                     </div>
