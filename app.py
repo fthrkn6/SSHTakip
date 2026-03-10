@@ -1978,26 +1978,38 @@ def create_app():
                         # J=9: Arıza Tanımı, K=10: Arıza Sınıfı, M=12: Yapılan İşlem
                         
                         try:
-                            row[1].value = arac_no if arac_no else row[1].value          # B: Araç No
-                            row[2].value = sistem if sistem else row[2].value            # C: Sistem
-                            row[3].value = hata_tarihi if hata_tarihi else row[3].value  # D: Hata Tarihi
-                            row[6].value = arac_modul if arac_modul else row[6].value    # G: Araç Modülü
-                            row[7].value = kilometre if kilometre else row[7].value      # H: Kilometre
-                            row[8].value = alt_sistem if alt_sistem else row[8].value    # I: Alt Sistem
-                            row[9].value = ariza_tanimi if ariza_tanimi else row[9].value # J: Arıza Tanımı
-                            row[10].value = ariza_sinifi if ariza_sinifi else row[10].value # K: Arıza Sınıfı
-                            row[11].value = ariza_kaynagi if ariza_kaynagi else row[11].value # L: Arıza Kaynağı
-                            row[12].value = yapilan_islem if yapilan_islem else row[12].value # M: Yapılan İşlem
-                            row[13].value = ariza_tipi if ariza_tipi else row[13].value # N: Arıza Tipi
-                            row[14].value = garanti_kapsami if garanti_kapsami else row[14].value # O: Garanti Kapsamı
+                            # Araç Bilgileri (B, C, D)
+                            row[1].value = arac_no if arac_no else row[1].value                    # B: Araç No
+                            row[2].value = arac_modul if arac_modul else row[2].value              # C: Araç Modülü
+                            row[3].value = kilometre if kilometre else row[3].value                # D: Kilometre
+                            
+                            # Arıza Zamanı (F)
+                            if hata_tarihi:
+                                row[5].value = hata_tarihi                                          # F: Hata Tarihİ
+                            
+                            # Sistem Bilgileri (G, H, I)
+                            row[6].value = sistem if sistem else row[6].value                      # G: Sistem
+                            row[7].value = alt_sistem if alt_sistem else row[7].value              # H: Alt Sistem
+                            row[8].value = tedarikci if tedarikci else row[8].value                # I: Tedarikçi
+                            
+                            # Arıza Detayları (J, K, L, M, N, O, P)
+                            row[9].value = ariza_tanimi if ariza_tanimi else row[9].value          # J: Arıza Tanımı
+                            row[10].value = ariza_sinifi if ariza_sinifi else row[10].value        # K: Arıza Sınıfı
+                            row[11].value = ariza_kaynagi if ariza_kaynagi else row[11].value      # L: Arıza Kaynağı
+                            row[12].value = yapilan_islem if yapilan_islem else row[12].value      # M: Yapılan İşlem
+                            row[13].value = aksiyon if aksiyon else row[13].value                  # N: Aksiyon
+                            row[14].value = garanti_kapsami if garanti_kapsami else row[14].value  # O: Garanti Kapsamı
                             row[15].value = ariza_tespit_yontemi if ariza_tespit_yontemi else row[15].value # P: Arıza Tespit Yöntemi
-                            row[16].value = aksiyon if aksiyon else row[16].value        # Q: Aksiyon
-                            row[17].value = detayli_bilgi if detayli_bilgi else row[17].value # R: Detaylı Bilgi
-                            row[18].value = tedarikci if tedarikci else row[18].value    # S: Tedarikçi
-                            row[19].value = tamir_baslama_tarih if tamir_baslama_tarih else row[19].value # T: Tamir Başlama Tarihi
-                            row[20].value = tamir_baslama_saati if tamir_baslama_saati else row[20].value # U: Tamir Başlama Saati
-                            row[21].value = tamir_bitisi_tarih if tamir_bitisi_tarih else row[21].value # V: Tamir Bitiş Tarihi
-                            row[22].value = tamir_bitisi_saati if tamir_bitisi_saati else row[22].value # W: Tamir Bitiş Saati
+                            
+                            # Tamir Zamanları (R, S, T, U)
+                            row[17].value = tamir_baslama_tarih if tamir_baslama_tarih else row[17].value # R: Tamir Başlama Tarihi
+                            row[18].value = tamir_baslama_saati if tamir_baslama_saati else row[18].value # S: Tamir Başlama Saati
+                            row[19].value = tamir_bitisi_tarih if tamir_bitisi_tarih else row[19].value   # T: Tamir Bitiş Tarihi
+                            row[20].value = tamir_bitisi_saati if tamir_bitisi_saati else row[20].value   # U: Tamir Bitiş Saati
+                            
+                            # Diğer Arıza Bilgileri (Y, Z)
+                            row[24].value = ariza_tipi if ariza_tipi else row[24].value            # Y: Arıza Tipi
+                            row[25].value = detayli_bilgi if detayli_bilgi else row[25].value      # Z: Detaylı Bilgi
                             
                             row_found = True
                             logger.info(f"[EDIT-FRACAS] Satır {row_num} güncellendi - Tamir zamanları: {tamir_baslama_tarih} {tamir_baslama_saati}")
