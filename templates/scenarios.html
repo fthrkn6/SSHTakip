@@ -1,14 +1,14 @@
 {% extends 'base.html' %}
 
-{% block title %}Senaryo Analizi - Veriler{% endblock %}
+{% block title %}Proje Analizi - Veriler{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h1 class="page-title">Senaryo Analizi
+        <h1 class="page-title">Proje Analizi
             <span class="badge bg-secondary fs-6">logs/reports/scenarios/</span>
         </h1>
-        <p class="page-subtitle">Akıllı senaryo analizi - Yüksek arıza, yüksek KM tramvaylarını tanımla</p>
+        <p class="page-subtitle">Akıllı senaryo analizi - Durum raporları, availability analizi ve kök neden analizi</p>
     </div>
     <div>
         <a href="{{ url_for('reports.recent_reports') }}" class="btn btn-info">
@@ -17,108 +17,536 @@
     </div>
 </div>
 
-<!-- Scenario Cards -->
-<div class="row g-4 mb-4">
-    <!-- Scenario 1: High Failure Trams -->
-    <div class="col-lg-6">
-        <div class="card h-100 shadow-sm">
-            <div class="card-body">
-                <div class="d-flex align-items-start mb-3">
-                    <div class="rounded-circle"
-                        style="width: 50px; height: 50px; background: linear-gradient(135deg, #FF6B6B 0%, #FF8E8E 100%); display: flex; align-items: center; justify-content: center;">
-                        <i class="bi bi-exclamation-triangle text-white fs-4"></i>
-                    </div>
-                    <div class="ms-3">
-                        <h5 class="card-title mb-1">Yüksek Arıza Oranı</h5>
-                        <p class="text-muted small mb-2">Son 30 gün içinde 5+ arıza olan tramvaylar</p>
-                    </div>
+<!-- ============= YENİ: DURUM TABLOSU (Filtreli Availability) ============= -->
+<div class="card mt-5 shadow-sm">
+    <div class="card-header bg-primary text-white">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-table"></i> Projenin Periyotlar Bazındaki Durumları</h5>
+            <div>
+                <div class="btn-group btn-group-sm period-buttons" role="group">
+                    <input type="radio" class="btn-check" name="period" id="period-haftalik" value="haftalik" checked>
+                    <label class="btn btn-period" for="period-haftalik"><span class="icon">📊</span> Haftalık</label>
+
+                    <input type="radio" class="btn-check" name="period" id="period-aylik" value="aylik">
+                    <label class="btn btn-period" for="period-aylik"><span class="icon">📈</span> Aylık</label>
+
+                    <input type="radio" class="btn-check" name="period" id="period-ucaylik" value="ucaylik">
+                    <label class="btn btn-period" for="period-ucaylik"><span class="icon">📉</span> 3 Aylık</label>
+
+                    <input type="radio" class="btn-check" name="period" id="period-altiylik" value="altiylik">
+                    <label class="btn btn-period" for="period-altiylik"><span class="icon">🔷</span> 6 Aylık</label>
+
+                    <input type="radio" class="btn-check" name="period" id="period-yillik" value="yillik">
+                    <label class="btn btn-period" for="period-yillik"><span class="icon">📅</span> 1 Yıllık</label>
+
+                    <input type="radio" class="btn-check" name="period" id="period-toplam" value="toplam">
+                    <label class="btn btn-period" for="period-toplam"><span class="icon">🎯</span> TOPLAM</label>
                 </div>
-                <div class="stat-box mb-3"
-                    style="background: #FFF5F5; padding: 15px; border-radius: 8px; border-left: 4px solid #FF6B6B;">
-                    <h3 class="mb-1">{{ high_failure_count }}</h3>
-                    <p class="text-muted mb-0 small">Araç / {{ total_trams }} Toplam</p>
-                </div>
-                <p class="small text-muted mb-3">
-                    Bu senaryo, bakım ve arıza yönetim planında iyileştirmeye ihtiyaç duyan tramvayları tespit eder.
-                </p>
-                <button class="btn btn-outline-danger btn-sm w-100"
-                    onclick="generateScenarioReport('high-failure', 'Yüksek Arıza Oranı')">
-                    <i class="bi bi-download me-2"></i>Rapor İndir
-                </button>
             </div>
         </div>
     </div>
+    <div class="card-body">
+        <!-- Durum Tablosu -->
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered" id="statusTable">
+                <thead class="table-light">
+                    <tr>
+                        <th style="min-width: 120px;">Araç</th>
+                        <th style="min-width: 100px;">Emre Amadelik (%)</th>
+                        <th style="min-width: 100px;">Availability (%)</th>
+                        <th style="min-width: 100px;">Durum</th>
+                    </tr>
+                </thead>
+                <tbody id="statusTableBody">
+                    <tr class="text-center text-muted">
+                        <td colspan="4"><i class="bi bi-hourglass-split"></i> Veriler yükleniyor...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
 
-    <!-- Scenario 2: High KM Trams -->
-    <div class="col-lg-6">
-        <div class="card h-100 shadow-sm">
-            <div class="card-body">
-                <div class="d-flex align-items-start mb-3">
-                    <div class="rounded-circle"
-                        style="width: 50px; height: 50px; background: linear-gradient(135deg, #FFD700 0%, #FFC700 100%); display: flex; align-items: center; justify-content: center;">
-                        <i class="bi bi-speedometer2 text-dark fs-4"></i>
-                    </div>
-                    <div class="ms-3">
-                        <h5 class="card-title mb-1">Yüksek KM Tramvaylar</h5>
-                        <p class="text-muted small mb-2">75. persentilden üstü KM'ye sahip araçlar</p>
-                    </div>
-                </div>
-                <div class="stat-box mb-3"
-                    style="background: #FFFAF0; padding: 15px; border-radius: 8px; border-left: 4px solid #FFD700;">
-                    <h3 class="mb-1">{{ high_km_count }}</h3>
-                    <p class="text-muted mb-0 small">Araç / {{ total_trams }} Toplam</p>
-                </div>
-                <p class="small text-muted mb-3">
-                    Planlı bakım ve değiştirme aşamaları için acil dikkat gerektirebilecek tramvaylar.
-                </p>
-                <button class="btn btn-outline-warning btn-sm w-100"
-                    onclick="generateScenarioReport('high-km', 'Yüksek KM Tramvaylar')">
-                    <i class="bi bi-download me-2"></i>Rapor İndir
-                </button>
-            </div>
+        <!-- Grafik -->
+        <div class="mt-4">
+            <h6 class="text-primary mb-3">📈 Availability Tablosu</h6>
+            <canvas id="availabilityChart" height="80"></canvas>
+        </div>
+
+        <div class="alert alert-info mt-3" role="alert">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong>Bilgi:</strong> 
+            <span id="dateRangeInfo">Günlük durum verilerini gösteriyorum</span> - 
+            TOPLAM seçilirse tüm zamanların ortalaması gösterilir.
         </div>
     </div>
 </div>
 
-<!-- Scenario Details -->
-<div class="card mt-4">
-    <div class="card-header bg-light">
-        <h5 class="mb-0">
-            <i class="bi bi-lightbulb"></i> Senaryo Tanımları
-        </h5>
+<!-- ============= AVAILABILITY TREND GRAFIĞI ============= -->
+<div class="card mt-5 shadow-sm" style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);">
+    <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-graph-up-arrow"></i> Availability Trend</h5>
+            <div>
+                <div class="btn-group btn-group-sm period-buttons" role="group">
+                    <input type="radio" class="btn-check" name="trend-period" id="trend-period-haftalik" value="haftalik" checked>
+                    <label class="btn btn-period" for="trend-period-haftalik"><span class="icon">📊</span> Haftalık</label>
+
+                    <input type="radio" class="btn-check" name="trend-period" id="trend-period-aylik" value="aylik">
+                    <label class="btn btn-period" for="trend-period-aylik"><span class="icon">📈</span> Aylık</label>
+
+                    <input type="radio" class="btn-check" name="trend-period" id="trend-period-ucaylik" value="ucaylik">
+                    <label class="btn btn-period" for="trend-period-ucaylik"><span class="icon">📉</span> 3 Aylık</label>
+
+                    <input type="radio" class="btn-check" name="trend-period" id="trend-period-altiylik" value="altiylik">
+                    <label class="btn btn-period" for="trend-period-altiylik"><span class="icon">🔷</span> 6 Aylık</label>
+
+                    <input type="radio" class="btn-check" name="trend-period" id="trend-period-yillik" value="yillik">
+                    <label class="btn btn-period" for="trend-period-yillik"><span class="icon">📅</span> 1 Yıllık</label>
+
+                    <input type="radio" class="btn-check" name="trend-period" id="trend-period-toplam" value="toplam">
+                    <label class="btn btn-period" for="trend-period-toplam"><span class="icon">🎯</span> TOPLAM</label>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- İstatistik Kartları -->
+        <div class="row mb-4 g-3" id="trendStatsContainer">
+            <div class="col-md-3">
+                <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; text-align: center;">
+                    <div class="text-muted small mb-1">En Yüksek</div>
+                    <div class="stat-value" style="font-size: 28px; font-weight: bold;" id="maxStat">-</div>
+                    <small class="trend-indicator" id="maxTrend"></small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 20px; border-radius: 10px; text-align: center;">
+                    <div class="text-muted small mb-1">En Düşük</div>
+                    <div class="stat-value" style="font-size: 28px; font-weight: bold;" id="minStat">-</div>
+                    <small class="trend-indicator" id="minTrend"></small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 20px; border-radius: 10px; text-align: center;">
+                    <div class="text-muted small mb-1">Ortalama</div>
+                    <div class="stat-value" style="font-size: 28px; font-weight: bold;" id="avgStat">-</div>
+                    <small class="trend-indicator" id="avgTrend"></small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white; padding: 20px; border-radius: 10px; text-align: center;">
+                    <div class="text-muted small mb-1">Değişim</div>
+                    <div class="stat-value" style="font-size: 28px; font-weight: bold;" id="changeStat">-</div>
+                    <small id="changeTrend"></small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trend Grafik -->
+        <div style="height: 450px; max-height: 450px; overflow: hidden; position: relative;">
+            <canvas id="trendChart"></canvas>
+        </div>
+    
+<!-- ============= YENİ: ROOT CAUSE ANALYSIS (RCA) ============= -->
+<div class="card mt-5 shadow-sm">
+    <div class="card-header bg-danger text-white">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-graph-up"></i> Kök Neden Analizi (RCA)</h5>
+            <div>
+                <div class="btn-group btn-group-sm" role="group">
+                    <input type="radio" class="btn-check" name="rca-period" id="rca-period-haftalik" value="haftalik" checked>
+                    <label class="btn btn-outline-light" for="rca-period-haftalik">Haftalık</label>
+
+                    <input type="radio" class="btn-check" name="rca-period" id="rca-period-aylik" value="aylik">
+                    <label class="btn btn-outline-light" for="rca-period-aylik">Aylık</label>
+
+                    <input type="radio" class="btn-check" name="rca-period" id="rca-period-ucaylik" value="ucaylik">
+                    <label class="btn btn-outline-light" for="rca-period-ucaylik">3 Aylık</label>
+
+                    <input type="radio" class="btn-check" name="rca-period" id="rca-period-altiylik" value="altiylik">
+                    <label class="btn btn-outline-light" for="rca-period-altiylik">6 Aylık</label>
+
+                    <input type="radio" class="btn-check" name="rca-period" id="rca-period-yillik" value="yillik">
+                    <label class="btn btn-outline-light" for="rca-period-yillik">1 Yıllık</label>
+
+                    <input type="radio" class="btn-check" name="rca-period" id="rca-period-toplam" value="toplam">
+                    <label class="btn btn-outline-light" for="rca-period-toplam">TOPLAM</label>
+                </div>
+            </div>
+        </div>
     </div>
     <div class="card-body">
         <div class="row">
-            <div class="col-lg-6 mb-3">
-                <h6 class="text-primary mb-2">📊 Yüksek Arıza Oranı Senaryosu</h6>
-                <ul class="small text-muted ps-3">
-                    <li>Kriter: Son 30 gün içinde 5 veya daha fazla arıza</li>
-                    <li>Hedef: Bakım döngüsünü iyileştir</li>
-                    <li>Aksiyon: Detaylı durum kontrolü ve plan revizyon</li>
-                    <li>Riskler: Operasyonel kesintiler, maliyet artışı</li>
-                </ul>
+            <!-- Sistem Arızaları (Bar Chart) -->
+            <div class="col-lg-6">
+                <h6 class="text-danger mb-3">🔧 Sistem Bazında Arıza Sayıları</h6>
+                <div style="height: 350px; max-height: 350px; overflow: hidden;">
+                    <canvas id="systemChart"></canvas>
+                </div>
             </div>
-            <div class="col-lg-6 mb-3">
-                <h6 class="text-warning mb-2">📈 Yüksek KM Tramvaylar Senaryosu</h6>
-                <ul class="small text-muted ps-3">
-                    <li>Kriter: 75. persentil üstü kilometraj</li>
-                    <li>Hedef: Yaşlı filosu tanımla ve plan yap</li>
-                    <li>Aksiyon: Yenileme programı oluştur</li>
-                    <li>Riskler: Pahalı onarımlar, arıza artışı</li>
-                </ul>
+
+            <!-- Alt Sistem Arızaları (Pie Chart) -->
+            <div class="col-lg-6">
+                <h6 class="text-danger mb-3">⚙️ Alt Sistem Bazında Arıza Dağılımı</h6>
+                <div style="height: 350px; max-height: 350px; overflow: hidden;">
+                    <canvas id="subsystemChart"></canvas>
+                </div>
             </div>
+        </div>
+
+        <div class="alert alert-warning mt-3" role="alert">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            <strong>RCA Verisi:</strong> Servis durumu sayfasında "Servis Dışı" veya "İşletme Kaynaklı" seçilip sistem/alt sistem girildiğinde otomatik kaydedilir.
         </div>
     </div>
 </div>
+
 
 <!-- Alert Section -->
 <div class="alert alert-info mt-4" role="alert">
     <i class="bi bi-info-circle me-2"></i>
-    <strong>Bilgi:</strong> Senaryo raporları Excel formatında indirilir ve logs/reports/scenarios/ klasöründe saklanır.
+    <strong>Bilgi:</strong> Analiz raporları Excel formatında indirilir ve logs/reports/scenarios/ klasöründe saklanır.
     Sistem 90 gün eski raporları otomatik olarak temizler.
 </div>
 
+<!-- Chart.js JS -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script>
+    Chart.register(ChartDataLabels);
+    let availabilityChart = null;
+    let systemChart = null;
+    let subsystemChart = null;
+    let trendChart = null;
+
+    // ============ DURUM TABLOSU ============
+    function loadStatusData(period) {
+        fetch(`/reports/scenarios/data?period=${period}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    updateStatusTable(data.data, data.period);
+                    updateAvailabilityChart(data.data, data.period);
+                    document.getElementById('dateRangeInfo').textContent = data.date_range;
+                    loadTrendData(period);  // ✨ Trend grafik yükle
+                } else {
+                    showAlert(`Hata: ${data.error}`, 'danger');
+                }
+            })
+            .catch(err => showAlert(`İstek hatası: ${err.message}`, 'danger'));
+    }
+
+    function updateStatusTable(data, period) {
+        const tbody = document.getElementById('statusTableBody');
+        
+        if (!data || Object.keys(data).length === 0) {
+            tbody.innerHTML = '<tr class="text-center text-muted"><td colspan="4">Veri bulunamadı</td></tr>';
+            return;
+        }
+
+        let rows = '';
+        for (const [araç, availability] of Object.entries(data)) {
+            const statusClass = availability >= 95 ? 'success' : availability >= 80 ? 'warning' : 'danger';
+            const statusText = availability >= 95 ? '✓ Normal' : availability >= 80 ? '⚠ Dikkat' : '✗ Kritik';
+            
+            rows += `
+                <tr>
+                    <td><strong>${araç}</strong></td>
+                    <td class="text-center">${availability}%</td>
+                    <td class="text-center"><strong>${availability}%</strong></td>
+                    <td class="text-center">
+                        <span class="badge bg-${statusClass}">${statusText}</span>
+                    </td>
+                </tr>
+            `;
+        }
+        tbody.innerHTML = rows;
+    }
+
+    function updateAvailabilityChart(data, period) {
+        if (!availabilityChart) {
+            const ctx = document.getElementById('availabilityChart').getContext('2d');
+            availabilityChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    },
+                    plugins: {
+                        legend: { display: true }
+                    }
+                }
+            });
+        }
+
+        availabilityChart.data.labels = Object.keys(data);
+        availabilityChart.data.datasets = [{
+            label: 'Availability (%)',
+            data: Object.values(data),
+            backgroundColor: '#4472C4',
+            borderColor: '#2E5090',
+            borderWidth: 1
+        }];
+        availabilityChart.update();
+    }
+
+    // ============ RCA ANALIZ ============
+    function loadRCAStats(period) {
+        fetch(`/reports/scenarios/rca-stats?period=${period}&stat_type=ikisi`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    updateSystemChart(data.system_stats);
+                    updateSubsystemChart(data.subsystem_stats);
+                } else {
+                    showAlert(`Hata: ${data.error}`, 'danger');
+                }
+            })
+            .catch(err => showAlert(`İstek hatası: ${err.message}`, 'danger'));
+    }
+
+    function updateSystemChart(stats) {
+        if (!systemChart) {
+            const ctx = document.getElementById('systemChart').getContext('2d');
+            systemChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: [], datasets: [] },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { beginAtZero: true },
+                        y: { ticks: { font: { size: 11 } } }
+                    }
+                }
+            });
+        }
+
+        systemChart.data.labels = Object.keys(stats);
+        systemChart.data.datasets = [{
+            label: 'Arıza Sayısı',
+            data: Object.values(stats),
+            backgroundColor: '#FF6B6B',
+            borderColor: '#FF0000',
+            borderWidth: 1
+        }];
+        systemChart.update();
+    }
+
+    function updateSubsystemChart(stats) {
+        if (!subsystemChart) {
+            const ctx = document.getElementById('subsystemChart').getContext('2d');
+            subsystemChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { 
+                        legend: { position: 'bottom', labels: { font: { size: 11 } } }
+                    }
+                }
+            });
+        }
+
+        const colors = ['#FF6B6B', '#FFC700', '#4472C4', '#70AD47', '#FFC7CE', '#BDD7EE', '#C5E0B4'];
+        subsystemChart.data.labels = Object.keys(stats);
+        subsystemChart.data.datasets = [{
+            data: Object.values(stats),
+            backgroundColor: colors.slice(0, Object.keys(stats).length)
+        }];
+        subsystemChart.update();
+    }
+
+    // ============ AVAILABILITY TREND ============
+    function loadTrendData(period) {
+        fetch(`/reports/scenarios/availability-trend?period=${period}`)
+            .then(r => {
+                if (r.status === 401 || r.status === 403) {
+                    console.warn('Trend: Authentication required');
+                    return null;
+                }
+                if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+                return r.json().catch(() => null);
+            })
+            .then(data => {
+                if (!data) {
+                    console.log('Trend: No data returned');
+                    return;
+                }
+                if (data.success) {
+                    updateTrendChart(data.data.dates, data.data.averages, data.granularity);
+                } else {
+                    showAlert(`Trend Hata: ${data.error}`, 'danger');
+                }
+            })
+            .catch(err => {
+                console.error('Trend error:', err);
+                // showAlert(`Trend İstek hatası: ${err.message}`, 'danger');
+            });
+    }
+
+    function updateTrendChart(dates, averages, granularity) {
+        // İstatistik kartlarını güncelle
+        if (averages && averages.length > 0) {
+            const max = Math.max(...averages);
+            const min = Math.min(...averages);
+            const avg = Math.round(averages.reduce((a, b) => a + b) / averages.length);
+            const change = averages.length > 1 ? averages[averages.length - 1] - averages[0] : 0;
+            
+            document.getElementById('maxStat').textContent = max + '%';
+            document.getElementById('minStat').textContent = min + '%';
+            document.getElementById('avgStat').textContent = avg + '%';
+            document.getElementById('changeStat').textContent = (change >= 0 ? '+' : '') + change + '%';
+            
+            // Trend göstergesi
+            document.getElementById('maxTrend').innerHTML = '(' + (max >= 90 ? '✓ İyi' : max >= 80 ? '⚠ Orta' : '✗ Düşük') + ')';
+            document.getElementById('minTrend').innerHTML = '(' + (min >= 90 ? '✓ İyi' : min >= 80 ? '⚠ Orta' : '✗ Düşük') + ')';
+            document.getElementById('avgTrend').innerHTML = '(' + (avg >= 90 ? '✓ İyi' : avg >= 80 ? '⚠ Orta' : '✗ Düşük') + ')';
+            document.getElementById('changeTrend').innerHTML = change >= 0 ? '📈 <span style="color: #43e97b;">Artan</span>' : '📉 <span style="color: #f5576c;">Düşen</span>';
+        }
+        
+        // Etiketler - Granülarity'ye göre format
+        let labels = dates;
+        if (granularity === 'daily') {
+            // Günleri göster (Pazartesi, Salı, vb)
+            const dayNames = ['Paz', 'Cts', 'Sal', 'Çar', 'Per', 'Cum', 'Cts'];
+            labels = dates.map(dateStr => {
+                const d = new Date(dateStr);
+                return dayNames[d.getDay()] + ' ' + dateStr.split('-')[2];
+            });
+        } else if (granularity === 'weekly') {
+            // Haftaları göster (Hafta 1, 2, 3, 4)
+            labels = dates.map((w, idx) => `Hafta ${idx + 1}`);
+        } else if (granularity === 'monthly') {
+            // Ayları göster
+            labels = dates.map(dateStr => dateStr);
+        }
+
+        if (!trendChart) {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 800,
+                        easing: 'easeInOutQuart'
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 105,
+                            padding: 20,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                callback: function(value) { return value + '%'; },
+                                padding: 10
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false,
+                                drawBorder: false
+                            }
+                        }
+                    },
+                    plugins: {
+                        datalabels: {
+                            display: true,
+                            align: 'top',
+                            anchor: 'end',
+                            offset: 8,
+                            font: {
+                                size: 11,
+                                weight: 'bold',
+                                color: '#667eea'
+                            },
+                            formatter: (value) => value + '%',
+                            backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                            borderRadius: 4,
+                            padding: 4
+                        },
+                        legend: { 
+                            display: true, 
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20,
+                                font: { size: 12, weight: 'bold' }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 12,
+                            titleFont: { size: 12, weight: 'bold' },
+                            bodyFont: { size: 11 },
+                            borderColor: '#667eea',
+                            borderWidth: 1,
+                            displayColors: true,
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Availability: ' + context.parsed.y + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        trendChart.data.labels = labels;
+        trendChart.data.datasets = [{
+            label: '📊 Ortalama Availability',
+            data: averages,
+            borderColor: '#667eea',
+            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.4,
+            pointRadius: 6,
+            pointHoverRadius: 8,
+            pointBackgroundColor: '#667eea',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointHoverBackgroundColor: '#764ba2',
+            segment: {
+                borderColor: ctx => ctx.p0DataIndex === 0 ? '#667eea' : '#667eea'
+            }
+        }];
+        trendChart.update();
+    }
+
+    // ============ EVENT LİSTENER'LAR ============
+    document.querySelectorAll('input[name="period"]').forEach(radio => {
+        radio.addEventListener('change', (e) => loadStatusData(e.target.value));
+    });
+
+    document.querySelectorAll('input[name="trend-period"]').forEach(radio => {
+        radio.addEventListener('change', (e) => loadTrendData(e.target.value));
+    });
+
+    document.querySelectorAll('input[name="rca-period"]').forEach(radio => {
+        radio.addEventListener('change', (e) => loadRCAStats(e.target.value));
+    });
+
+    // ============ İŞLEV FONKSİYONLARI ============
     function generateScenarioReport(scenarioType, scenarioName) {
         const button = event.target.closest('button');
         const originalText = button.innerHTML;
@@ -151,36 +579,176 @@
     function showAlert(message, type) {
         const alertDiv = document.createElement('div');
         alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.role = 'alert';
         alertDiv.innerHTML = `${message} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
-        document.querySelector('.alert-info').parentElement.insertBefore(alertDiv, document.querySelector('.alert-info'));
+        
+        // İlk alert div'in parentElement'ine ekle
+        const container = document.querySelector('.card:first-of-type').parentElement;
+        container.insertBefore(alertDiv, container.firstChild);
 
-        setTimeout(() => alertDiv.remove(), 3000);
+        setTimeout(() => alertDiv.remove(), 4000);
     }
+
+    // ============ İLK YÜKLEME ============
+    document.addEventListener('DOMContentLoaded', () => {
+        loadStatusData('haftalik');
+        loadRCAStats('haftalik');
+        loadTrendData('haftalik');  // ✨ Trend grafik ilk yükleme
+    });
 </script>
 
 <style>
-    .stat-box {
-        text-align: center;
+    /* ============ MODERN BUTTON STYLING ============ */
+    .period-buttons {
+        gap: 8px;
     }
 
-    .stat-box h3 {
+    .btn-period {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         color: #333;
-        font-weight: bold;
-        margin-bottom: 8px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
     }
 
+    .btn-period .icon {
+        font-size: 1.1rem;
+        transition: transform 0.3s;
+    }
+
+    .btn-period:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        border-color: #667eea;
+    }
+
+    .btn-check:checked + .btn-period {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-color: #667eea;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-check:checked + .btn-period .icon {
+        transform: scale(1.2) rotate(5deg);
+    }
+
+    /* ============ STAT CARDS ============ */
+    .stat-card {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        border-radius: 10px !important;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.2);
+        transition: left 0.3s;
+    }
+
+    .stat-card:hover::before {
+        left: 100%;
+    }
+
+    .stat-value {
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        letter-spacing: -1px;
+    }
+
+    .trend-indicator {
+        display: inline-block;
+        margin-top: 4px;
+        opacity: 0.9;
+        font-weight: 500;
+    }
+
+    /* ============ CARD STYLING ============ */
     .card {
-        transition: transform 0.2s, box-shadow 0.2s;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: none;
+        border-top: 4px solid #667eea;
     }
 
     .card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12) !important;
     }
 
-    button:disabled {
-        opacity: 0.7;
-        cursor: not-allowed;
+    .card-body {
+        padding: 2rem;
+    }
+
+    /* ============ TABLE STYLING ============ */
+    .table-hover tbody tr:hover {
+        background-color: rgba(102, 126, 234, 0.05) !important;
+        box-shadow: inset 0 0 10px rgba(102, 126, 234, 0.1);
+    }
+
+    .table-bordered td, .table-bordered th {
+        border-color: #e9ecef;
+    }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 768px) {
+        .btn-period {
+            padding: 0.4rem 0.7rem;
+            font-size: 0.9rem;
+        }
+
+        .btn-period .icon {
+            font-size: 1rem;
+        }
+
+        .stat-card {
+            padding: 15px !important;
+        }
+
+        .stat-value {
+            font-size: 24px !important;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        .table {
+            font-size: 0.9rem;
+        }
+    }
+
+    /* ============ ANIMATIONS ============ */
+    @keyframes fadeInSlideUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .card {
+        animation: fadeInSlideUp 0.4s ease-out;
+    }
+
     }
 </style>
 {% endblock %}

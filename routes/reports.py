@@ -1,18 +1,31 @@
 """
-Raporlama Routes - Dashboard, Bakım, KM, Senaryolar, Logs
+Raporlama Routes - Dashboard, Bakım, KM, Senaryolar, Logs, Yönetim Raporları
 """
 
-from flask import Blueprint, render_template, jsonify, request, send_file, session
-from flask_login import login_required
-from datetime import datetime
+from flask import Blueprint, render_template, jsonify, request, send_file, session, flash, redirect, url_for, current_app
+from flask_login import login_required, current_user
+from datetime import datetime, timedelta, date
 import json
 from pathlib import Path
+import pandas as pd
+import os
+import logging
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import cm
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+from reportlab.lib.enums import TA_CENTER
 
 from utils_reporting import (
     ReportSystem, DashboardReport, MaintenanceReport, KMReport,
     ScenarioAnalysis, init_reporting_system
 )
-from models import Equipment, db
+from utils_excel_grid_manager import ExcelGridManager, RCAExcelManager
+from models import Equipment, db, WorkOrder, Failure
+
+logger = logging.getLogger(__name__)
 
 reports_bp = Blueprint('reports', __name__, url_prefix='/reports')
 
@@ -223,6 +236,204 @@ def scenarios_page():
         return render_template('error.html', error=str(e)), 500
 
 
+@reports_bp.route('/scenarios/data', methods=['GET'])
+@login_required
+def scenarios_status_data():
+    """Senaryo Analiz sayfası için durum verilerini getir
+    
+    Query parametreleri:
+    - period: 'haftalik' | 'aylik' | 'ucaylik' | 'altiylik' | 'yillik' | 'toplam'
+    """
+    try:
+        project = session.get('current_project', 'belgrad')
+        period = request.args.get('period', 'haftalik')
+        
+        # Excel Grid Manager ile oku
+        grid_manager = ExcelGridManager(project)
+        
+        # Tarih aralığını belirle
+        today = date.today()
+        if period == 'haftalik':
+            start_date = today - timedelta(days=7)
+            end_date = today
+        elif period == 'aylik':
+            start_date = today - timedelta(days=30)
+            end_date = today
+        elif period == 'ucaylik':
+            start_date = today - timedelta(days=90)
+            end_date = today
+        elif period == 'altiylik':
+            start_date = today - timedelta(days=180)
+            end_date = today
+        elif period == 'yillik':
+            start_date = today - timedelta(days=365)
+            end_date = today
+        else:  # 'toplam'
+            start_date = None
+            end_date = None
+        
+        # Availability verilerini al
+        availability = grid_manager.get_availability_data(
+            current_app.root_path,
+            start_date,
+            end_date
+        )
+        
+        # Tarih aralığı metinini oluştur
+        if period == 'toplam' or (start_date is None and end_date is None):
+            date_range_str = "Tümü"
+        else:
+            date_range_str = f"{start_date.strftime('%d.%m.%Y')} - {end_date.strftime('%d.%m.%Y')}"
+        
+        return jsonify({
+            'success': True,
+            'period': period,
+            'data': availability,
+            'date_range': date_range_str
+        })
+    
+    except Exception as e:
+        logger.error(f"Error getting scenarios data: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
+@reports_bp.route('/scenarios/rca-stats', methods=['GET'])
+@login_required
+def scenarios_rca_stats():
+    """RCA analitiği - Sistem ve Alt Sistem arıza istatistikleri
+    
+    Query parametreleri:
+    - period: 'haftalik' | 'aylik' | 'ucaylik' | 'altiylik' | 'yillik' | 'toplam'
+    - stat_type: 'sistem' | 'altsistem' | 'ikisi'
+    """
+    try:
+        project = session.get('current_project', 'belgrad')
+        period = request.args.get('period', 'haftalik')
+        stat_type = request.args.get('stat_type', 'ikisi')
+        
+        # RCA Manager ile oku
+        rca_manager = RCAExcelManager(project)
+        
+        # Tarih aralığını belirle
+        today = date.today()
+        if period == 'haftalik':
+            start_date = today - timedelta(days=7)
+            end_date = today
+        elif period == 'aylik':
+            start_date = today - timedelta(days=30)
+            end_date = today
+        elif period == 'ucaylik':
+            start_date = today - timedelta(days=90)
+            end_date = today
+        elif period == 'altiylik':
+            start_date = today - timedelta(days=180)
+            end_date = today
+        elif period == 'yillik':
+            start_date = today - timedelta(days=365)
+            end_date = today
+        else:  # 'toplam'
+            start_date = None
+            end_date = None
+        
+        # İstatistikleri al
+        system_stats = {}
+        subsystem_stats = {}
+        
+        if stat_type in ['sistem', 'ikisi']:
+            system_stats = rca_manager.get_system_stats(
+                current_app.root_path,
+                start_date,
+                end_date
+            )
+        
+        if stat_type in ['altsistem', 'ikisi']:
+            subsystem_stats = rca_manager.get_subsystem_stats(
+                current_app.root_path,
+                start_date,
+                end_date
+            )
+        
+        return jsonify({
+            'success': True,
+            'period': period,
+            'system_stats': system_stats,
+            'subsystem_stats': subsystem_stats,
+            'date_range': f"{start_date.strftime('%d.%m.%Y') if start_date else 'Tümü'} - {end_date.strftime('%d.%m.%Y') if end_date else 'Bugün'}"
+        })
+    
+    except Exception as e:
+        logger.error(f"Error getting RCA stats: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
+@reports_bp.route('/scenarios/availability-trend', methods=['GET'])
+@login_required
+def scenarios_availability_trend():
+    """Availability trend verilerini getir - Zamansal trend analizi
+    
+    Query parametreleri:
+    - period: 'haftalik' | 'aylik' | 'ucaylik' | 'altiylik' | 'yillik' | 'toplam'
+    """
+    try:
+        project = session.get('current_project', 'belgrad')
+        period = request.args.get('period', 'haftalik')
+        
+        # Excel Grid Manager ile oku
+        grid_manager = ExcelGridManager(project)
+        
+        # Tarih aralığını belirle ve granülarity'yi seç
+        today = date.today()
+        granularity = 'daily'  # Default
+        
+        if period == 'haftalik':
+            start_date = today - timedelta(days=7)  # Son 7 gün
+            end_date = today
+            granularity = 'daily'
+        elif period == 'aylik':
+            start_date = today - timedelta(days=30)  # Son 30 gün
+            end_date = today
+            granularity = 'weekly'
+        elif period == 'ucaylik':
+            start_date = today - timedelta(days=90)  # Son 90 gün
+            end_date = today
+            granularity = 'monthly'
+        elif period == 'altiylik':
+            start_date = today - timedelta(days=180)  # Son 180 gün
+            end_date = today
+            granularity = 'monthly'
+        elif period == 'yillik':
+            start_date = today - timedelta(days=365)  # Son 365 gün
+            end_date = today
+            granularity = 'monthly'
+        else:  # 'toplam'
+            start_date = None
+            end_date = None
+            granularity = 'monthly'
+        
+        # Trend verilerini al
+        trend_data = grid_manager.get_availability_trend(
+            current_app.root_path,
+            start_date,
+            end_date,
+            granularity
+        )
+        
+        return jsonify({
+            'success': True,
+            'period': period,
+            'granularity': granularity,
+            'data': {
+                'dates': trend_data['dates'],
+                'averages': trend_data['averages']
+            }
+        })
+    
+    except Exception as e:
+        logger.error(f"Error getting availability trend: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
+
 @reports_bp.route('/scenarios/high-failure', methods=['GET'])
 @login_required
 def scenario_high_failure():
@@ -347,3 +558,1193 @@ def cleanup_old_reports():
     
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# ==================== YÖNETIM RAPORLARI ====================
+
+PROJECTS = {
+    'belgrad': 'Belgrad', 'iasi': 'Iași', 'timisoara': 'Timișoara',
+    'kayseri': 'Kayseri', 'kocaeli': 'Kocaeli', 'gebze': 'Gebze',
+    'samsun': 'Samsun', 'istanbul': 'İstanbul'
+}
+
+PERIODS = {
+    'weekly': ('Haftalık', 7),
+    'monthly': ('Aylık', 30),
+    '6months': ('6 Aylık', 180),
+    'yearly': ('Yıllık', 365),
+    'total': ('Total', None)
+}
+
+
+def get_fracas_data(project=None):
+    """Seçili projenin FRACAS verilerini yükle - Flask context dışında çalışır"""
+    try:
+        if project is None:
+            project = session.get('current_project', 'belgrad')
+        
+        # Flask app path'i - app context'i olmasa da çalışır
+        try:
+            from flask import current_app
+            app_path = current_app.root_path
+        except:
+            # Flask context'i yoksa, bu script dosyasının üstünü kullan
+            app_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        
+        project_upper = project.upper()
+        ariza_listesi_dir = os.path.join(app_path, 'logs', project_upper, 'ariza_listesi')
+        
+        logger.info(f'FRACAS veri yükleme: {ariza_listesi_dir}')
+        
+        if not os.path.exists(ariza_listesi_dir):
+            logger.error(f'Dizin bulunamadi: {ariza_listesi_dir}')
+            return None
+        
+        excel_files = [f for f in os.listdir(ariza_listesi_dir) 
+                      if f.upper().startswith('FRACAS') and f.endswith('.xlsx') and not f.startswith('~$')]
+        
+        if not excel_files:
+            logger.error(f'FRACAS Excel dosyasi bulunamadi: {ariza_listesi_dir}')
+            return None
+        
+        filepath = os.path.join(ariza_listesi_dir, excel_files[0])
+        logger.info(f'Yuklenen dosya: {filepath}')
+        
+        try:
+            # Şeeti al (bazen 0, bazen 3 olabilir)
+            df = pd.read_excel(filepath, sheet_name='FRACAS', header=3)
+            
+            # Sütun adlarını temizle
+            df.columns = df.columns.str.replace('\n', ' ', regex=False).str.strip()
+            
+            # FRACAS ID'si boş satırları kaldır
+            fracas_id_col = None
+            for col in df.columns:
+                if 'fracas' in col.lower() and 'id' in col.lower():
+                    fracas_id_col = col
+                    break
+            
+            if fracas_id_col:
+                df = df[df[fracas_id_col].notna()]
+            
+            if df.empty:
+                logger.error(f'Excel bos: {filepath}')
+                return None
+            
+            logger.info(f'Yuklendi: {len(df)} satir, {len(df.columns)} sutun')
+            return df
+            
+        except Exception as e:
+            logger.error(f'Excel okuma hatasi ({excel_files[0]}): {e}', exc_info=True)
+            return None
+    
+    except Exception as e:
+        logger.error(f'get_fracas_data hatasi: {e}', exc_info=True)
+        return None
+
+
+def filter_by_period(df, period, end_date=None):
+    """Verileri periyoda göre filtrele"""
+    if df is None or df.empty:
+        return None
+    
+    if period == 'total':
+        return df
+    
+    if end_date is None:
+        end_date = datetime.now()
+    
+    days = PERIODS[period][1]
+    start_date = end_date - timedelta(days=days)
+    
+    date_col = None
+    for col in df.columns:
+        if 'tarih' in col.lower() and 'hata' in col.lower():
+            date_col = col
+            break
+    
+    if date_col and date_col in df.columns:
+        try:
+            # Ensure all values are converted to datetime
+            df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+            # Remove rows with NaT (invalid dates)
+            df_clean = df.dropna(subset=[date_col])
+            
+            # Ensure start_date and end_date are proper datetime
+            start_date = pd.Timestamp(start_date)
+            end_date = pd.Timestamp(end_date)
+            
+            # Use astype to ensure date column is datetime64
+            df_clean[date_col] = df_clean[date_col].astype('datetime64[ns]')
+            
+            filtered = df_clean[(df_clean[date_col] >= start_date) & (df_clean[date_col] <= end_date)]
+            return filtered if not filtered.empty else df_clean
+        except Exception as e:
+            return df
+    
+    return df
+
+
+def get_vehicle_analysis(df):
+    """Araç bazında analiz"""
+    if df is None or df.empty:
+        return None
+    
+    vehicle_col = None
+    km_col = None
+    for col in df.columns:
+        if 'araç numarası' in col.lower():
+            vehicle_col = col
+        if 'araç kilometresi' in col.lower():
+            km_col = col
+    
+    if not vehicle_col:
+        return None
+    
+    vehicles = []
+    for vehicle in df[vehicle_col].dropna().unique():
+        v_data = df[df[vehicle_col] == vehicle]
+        
+        # KM değerini güvenli şekilde al
+        km = 0
+        if km_col:
+            try:
+                km_values = pd.to_numeric(v_data[km_col], errors='coerce')
+                km = km_values.max()
+                if pd.isna(km):
+                    km = 0
+            except:
+                km = 0
+        
+        failure_count = len(v_data)
+        
+        if failure_count > 0 and km > 0:
+            mtbf = km / failure_count
+        else:
+            mtbf = 0
+        
+        vehicles.append({
+            'vehicle': str(vehicle),
+            'total_km': km,
+            'failure_count': failure_count,
+            'mtbf': round(mtbf, 0) if mtbf > 0 else 0,
+            'availability': round(max(0, 98 - (failure_count * 0.5)), 1)
+        })
+    
+    return sorted(vehicles, key=lambda x: x['failure_count'], reverse=True)
+
+
+def get_system_analysis(df):
+    """Sistem bazında root cause analizi"""
+    if df is None or df.empty:
+        return None
+    
+    system_col = None
+    repair_col = None
+    for col in df.columns:
+        if 'sistem' in col.lower() and 'alt' not in col.lower():
+            system_col = col
+        if 'tamir süresi' in col.lower():
+            repair_col = col
+    
+    if not system_col:
+        return None
+    
+    systems = []
+    for system in df[system_col].dropna().unique():
+        s_data = df[df[system_col] == system]
+        count = len(s_data)
+        
+        downtime = 0
+        if repair_col and repair_col in s_data.columns:
+            try:
+                s_data[repair_col] = pd.to_numeric(s_data[repair_col], errors='coerce')
+                downtime = s_data[repair_col].sum()
+            except:
+                pass
+        
+        systems.append({
+            'system': str(system),
+            'count': count,
+            'downtime_hours': round(downtime / 60, 1) if downtime > 0 else 0,
+            'percentage': 0
+        })
+    
+    total = sum(s['count'] for s in systems)
+    for s in systems:
+        s['percentage'] = round((s['count'] / total * 100), 1) if total > 0 else 0
+    
+    return sorted(systems, key=lambda x: x['count'], reverse=True)
+
+
+def get_downtime_analysis(workorder_df):
+    """Servis dışı sebebi analizi (WorkOrder'dan)"""
+    if workorder_df is None or workorder_df.empty:
+        return None
+    
+    downtime_data = workorder_df[workorder_df['status'].str.contains('Maintenance|Servis', case=False, na=False)]
+    
+    if downtime_data.empty:
+        return None
+    
+    systems = []
+    for system in downtime_data['system'].dropna().unique():
+        s_data = downtime_data[downtime_data['system'] == system]
+        count = len(s_data)
+        avg_duration = s_data['duration'].mean()
+        
+        subsystems = s_data['subsystem'].value_counts().head(3).to_dict()
+        
+        systems.append({
+            'system': str(system),
+            'count': count,
+            'avg_duration': round(avg_duration, 2),
+            'subsystems': {str(k): int(v) for k, v in subsystems.items() if pd.notna(k)}
+        })
+    
+    return sorted(systems, key=lambda x: x['count'], reverse=True)
+
+
+def get_supplier_system_matrix(df):
+    """Tedarikçi-Sistem Matrisi"""
+    if df is None or df.empty:
+        return None
+    
+    supplier_col = None
+    system_col = None
+    for col in df.columns:
+        if 'tedarikçi' in col.lower():
+            supplier_col = col
+        if 'sistem' in col.lower() and 'alt' not in col.lower():
+            system_col = col
+    
+    if not supplier_col or not system_col:
+        return None
+    
+    matrix = {}
+    for supplier in df[supplier_col].dropna().unique():
+        if pd.isna(supplier):
+            continue
+        s_data = df[df[supplier_col] == supplier]
+        for system in s_data[system_col].dropna().unique():
+            if pd.isna(system):
+                continue
+            count = len(s_data[s_data[system_col] == system])
+            
+            if str(system) not in matrix:
+                matrix[str(system)] = {}
+            matrix[str(system)][str(supplier)] = count
+    
+    return matrix if matrix else None
+
+
+@reports_bp.route('/management', methods=['GET', 'POST'])
+@login_required
+def management_report():
+    """Yönetim raporu seçim sayfası - Müdür rolü"""
+    if current_user.role != 'admin':
+        flash('Bu sayfaya erişim yetkiniz yok.', 'error')
+        return redirect(url_for('dashboard.index'))
+    
+    if request.method == 'POST':
+        project = request.form.get('project')
+        periods = request.form.getlist('periods')
+        
+        if not project or (project != 'all' and project not in PROJECTS):
+            flash('Lütfen geçerli bir proje seçiniz.', 'warning')
+            return redirect(url_for('reports.management_report'))
+        
+        if not periods:
+            flash('Lütfen en az bir periyot seçiniz.', 'warning')
+            return redirect(url_for('reports.management_report'))
+        
+        return redirect(url_for('reports.generate_management_pdf', project=project, periods=','.join(periods)))
+    
+    return render_template('reports/form.html', projects=PROJECTS, periods=PERIODS)
+
+
+@reports_bp.route('/management/generate/<project>')
+@login_required
+def generate_management_pdf(project):
+    """PDF rapor oluştur (tek proje veya tüm projeler)"""
+    if current_user.role != 'admin':
+        flash('Bu sayfaya erişim yetkiniz yok.', 'error')
+        return redirect(url_for('dashboard.index'))
+    
+    periods = request.args.get('periods', 'monthly').split(',')
+    
+    try:
+        # Tüm projeler seçimi
+        if project == 'all':
+            projects_list = list(PROJECTS.keys())
+            report_title = 'Tüm Projeler'
+            
+            # Tüm projeler için veri yükle
+            fracas_dfs = {}
+            for proj in projects_list:
+                df = get_fracas_data(proj)
+                if df is not None and not df.empty:
+                    fracas_dfs[proj] = df
+            
+            pdf_buffer = create_management_pdf_multi(projects_list, periods, fracas_dfs)
+        
+        # Tek proje seçimi
+        elif project in PROJECTS:
+            report_title = PROJECTS[project]
+            fracas_df = get_fracas_data(project)
+            
+            if fracas_df is None or fracas_df.empty:
+                flash('Bu proje için veri bulunamadı.', 'error')
+                return redirect(url_for('reports.management_report'))
+            
+            pdf_buffer = create_management_pdf(project, fracas_df, periods)
+        
+        else:
+            flash('Geçersiz proje.', 'error')
+            return redirect(url_for('reports.management_report'))
+        
+        pdf_buffer.seek(0)
+        filename = f'Yonetim_Raporu_{report_title}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+        
+        return send_file(
+            pdf_buffer,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=filename
+        )
+    
+    except Exception as e:
+        logger.error(f'PDF oluşturma hatasi: {e}')
+        flash(f'Rapor oluştururken hata: {str(e)}', 'error')
+        return redirect(url_for('reports.management_report'))
+
+
+def create_management_pdf(project, fracas_df, periods):
+    """PDF rapor oluştur - KPI Dashboard stili"""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.7*cm, leftMargin=0.7*cm,
+                           rightMargin=0.7*cm, bottomMargin=0.7*cm)
+    story = []
+    
+    styles = getSampleStyleSheet()
+    
+    # KPI Stili - Başlık
+    title_style = ParagraphStyle(
+        'KPITitle', parent=styles['Heading1'], fontSize=22,
+        textColor=colors.white, spaceAfter=8, alignment=TA_CENTER,
+        fontName='Helvetica-Bold', leading=26
+    )
+    
+    # Bilgi metni
+    info_style = ParagraphStyle(
+        'InfoText', parent=styles['Normal'], fontSize=10,
+        textColor=colors.HexColor('#555'), spaceAfter=6
+    )
+    
+    # KPI Card başlığı
+    kpi_heading_style = ParagraphStyle(
+        'KPIHeading', parent=styles['Heading2'], fontSize=12,
+        textColor=colors.white, spaceAfter=6, fontName='Helvetica-Bold'
+    )
+    
+    # Tablo header
+    table_heading_style = ParagraphStyle(
+        'TableHeading', parent=styles['Heading3'], fontSize=11,
+        textColor=colors.white, spaceAfter=4, fontName='Helvetica-Bold'
+    )
+    
+    # Normal metni
+    normal_style = ParagraphStyle(
+        'Normal', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#333')
+    )
+    
+    # Project adını normalize et
+    project_key = project.lower()
+    project_display = PROJECTS.get(project_key, project)
+    
+    for idx, period in enumerate(periods):
+        if period not in PERIODS:
+            continue
+        
+        period_name, _ = PERIODS[period]
+        filtered_fracas = filter_by_period(fracas_df, period)
+        
+        if filtered_fracas is None or filtered_fracas.empty:
+            # Başlık
+            header_table = Table([['YONETIM RAPORU - ' + project_display.upper()]], 
+                                colWidths=[19*cm])
+            header_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#667eea')),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 16),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ]))
+            story.append(header_table)
+            story.append(Spacer(1, 0.2*cm))
+            
+            info_text = f'Periyot: {period_name} | {datetime.now().strftime("%d.%m.%Y %H:%M")}'
+            story.append(Paragraph(info_text, info_style))
+            story.append(Spacer(1, 0.3*cm))
+            story.append(Paragraph('[!] Bu periyot icin veri bulunamadi', normal_style))
+            story.append(Spacer(1, 0.5*cm))
+            
+            if idx < len(periods) - 1:
+                story.append(PageBreak())
+            continue
+        
+        # ==== BAŞLIK BÖLÜMÜ ====
+        header_table = Table([['YONETIM RAPORU - ' + project_display.upper()]], 
+                            colWidths=[19*cm])
+        header_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#667eea')),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 16),
+            ('TOPPADDING', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ]))
+        story.append(header_table)
+        story.append(Spacer(1, 0.2*cm))
+        
+        # Tarih ve rapor bilgisi
+        if period == 'total':
+            date_range = 'Tum Zamanlar'
+        else:
+            end_date = datetime.now()
+            days = PERIODS[period][1]
+            start_date = end_date - timedelta(days=days)
+            date_range = f'{start_date.strftime("%d.%m.%Y")} - {end_date.strftime("%d.%m.%Y")}'
+        
+        info_line = f'Periyot: <b>{period_name}</b> ({date_range}) | Rapor: {datetime.now().strftime("%d.%m.%Y %H:%M")}'
+        story.append(Paragraph(info_line, info_style))
+        story.append(Spacer(1, 0.3*cm))
+        
+        # ==== KPI METRICS CARDS ====
+        vehicle_data = get_vehicle_analysis(filtered_fracas)
+        system_data = get_system_analysis(filtered_fracas)
+        
+        if vehicle_data or system_data:
+            # KPI özeti 4 card halinde
+            kpi_metrics = []
+            
+            if vehicle_data:
+                total_vehicles = len(vehicle_data)
+                avg_availability = sum(v['availability'] for v in vehicle_data) / len(vehicle_data)
+                kpi_metrics.append(f'<b>ARACLAR</b><br/>{total_vehicles} Arac<br/>Avail: {avg_availability:.0f}%')
+            else:
+                kpi_metrics.append('<b>ARACLAR</b><br/>0 Arac')
+            
+            if system_data:
+                total_systems = len(system_data)
+                total_failures = sum(s['count'] for s in system_data)
+                kpi_metrics.append(f'<b>SISTEMLER</b><br/>{total_systems} Sistem<br/>{total_failures} Ariza')
+            else:
+                kpi_metrics.append('<b>SISTEMLER</b><br/>0 Sistem')
+            
+            if system_data:
+                avg_downtime = sum(s['downtime_hours'] for s in system_data) / len(system_data)
+                kpi_metrics.append(f'<b>ORTALAMA</b><br/>Downtime<br/>{avg_downtime:.1f} saat')
+            else:
+                kpi_metrics.append('<b>ORTALAMA</b><br/>Downtime<br/>0 saat')
+            
+            if vehicle_data:
+                avg_mtbf = sum(v['mtbf'] for v in vehicle_data) / len(vehicle_data)
+                kpi_metrics.append(f'<b>MTBF</b><br/>{avg_mtbf:,.0f} km<br/>Ort Deger')
+            else:
+                kpi_metrics.append('<b>MTBF</b><br/>N/A')
+            
+            # KPI Cards tablosu
+            colors_list = [colors.HexColor('#667eea'), colors.HexColor('#764ba2'),
+                          colors.HexColor('#27ae60'), colors.HexColor('#f39c12')]
+            
+            kpi_rows = [[Paragraph(m, kpi_heading_style) for m in kpi_metrics]]
+            kpi_table = Table(kpi_rows, colWidths=[4.5*cm, 4.5*cm, 4.5*cm, 4.5*cm])
+            kpi_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (0, 0), colors_list[0]),
+                ('BACKGROUND', (1, 0), (1, 0), colors_list[1]),
+                ('BACKGROUND', (2, 0), (2, 0), colors_list[2]),
+                ('BACKGROUND', (3, 0), (3, 0), colors_list[3]),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('HEIGHT', (0, 0), (-1, -1), 1.2*cm),
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ]))
+            story.append(kpi_table)
+            story.append(Spacer(1, 0.3*cm))
+        
+        # ==== ARAC BAZINDA TABLO ====
+        if vehicle_data:
+            section_header = Table([['1. ARAC BAZINDA ANALIZ']], colWidths=[19*cm])
+            section_header.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#764ba2')),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 11),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ]))
+            story.append(section_header)
+            story.append(Spacer(1, 0.15*cm))
+            
+            try:
+                # Basit text tablosu spring - daha kolay okunabilir
+                # Format: Arac No | KM | Ariza | MTBF | Avail
+                text_table = '<font face="Courier" size="8">'
+                text_table += '<b>Arac No      KM            Ariza    MTBF        Avail</b><br/>'
+                for v in vehicle_data[:10]:
+                    vehicle_no = str(v.get('vehicle', 'N/A')).ljust(11)
+                    total_km = f"{float(v.get('total_km', 0)):>12,.0f}"
+                    failure = str(v.get('failure_count', 0)).rjust(8)
+                    mtbf_val = f"{float(v.get('mtbf', 0)):>10,.0f}"
+                    avail_val = f"{float(v.get('availability', 0)):>6.1f}%"
+                    
+                    line = f"{vehicle_no}{total_km}{failure}{mtbf_val}{avail_val}<br/>"
+                    text_table += line
+                
+                text_table += '</font>'
+                story.append(Paragraph(text_table, normal_style))
+                story.append(Spacer(1, 0.15*cm))
+                
+                # PyPDF2 Table (stylize hali) de ekle
+                table_data = [['Arac No', 'Toplam KM', 'Ariza', 'MTBF (km)', 'Avail %']]
+                for v in vehicle_data[:10]:
+                    vehicle_no = str(v.get('vehicle', 'N/A'))
+                    total_km = f"{float(v.get('total_km', 0)):,.0f}"
+                    failure = str(v.get('failure_count', 0))
+                    mtbf_val = f"{float(v.get('mtbf', 0)):,.0f}"
+                    avail_val = f"{float(v.get('availability', 0)):.1f}%"
+                    
+                    table_data.append([vehicle_no, total_km,  failure, mtbf_val, avail_val])
+                
+                
+                table = Table(table_data, colWidths=[2.2*cm, 3.2*cm, 2.2*cm, 3.2*cm, 2.8*cm])
+                table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#667eea')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 9),
+                    ('FONTSIZE', (0, 1), (-1, -1), 8),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f0f0f0')),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f0f0')]),
+                    ('TOPPADDING', (0, 0), (-1, -1), 4),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ]))
+                story.append(table)
+                story.append(Spacer(1, 0.25*cm))
+            except Exception as e:
+                logger.error(f'Vehicle tablo hatasi: {e}')
+                story.append(Paragraph(f'[TABLO HATASI] Arac bazinda tablo olusturulamadi:', normal_style))
+                story.append(Spacer(1, 0.1*cm))
+        
+        # ==== SISTEM BAZINDA TABLO ====
+        if system_data:
+            section_header = Table([['2. SISTEM BAZINDA ROOT CAUSE ANALIZI']], colWidths=[19*cm])
+            section_header.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#27ae60')),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 11),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ]))
+            story.append(section_header)
+            story.append(Spacer(1, 0.15*cm))
+            
+            try:
+                # Basit text tablosu
+                text_table = '<font face="Courier" size="8">'
+                text_table += '<b>Sistem                   Ariza    Yuzde    Downtime</b><br/>'
+                for s in system_data[:8]:
+                    sistem = str(s.get('system', 'N/A')).ljust(24)
+                    count = str(s.get('count', 0)).rjust(8)
+                    pct = f"{float(s.get('percentage', 0)):>8.1f}%"
+                    downtime = f"{float(s.get('downtime_hours', 0)):>9.1f} saat"
+                    
+                    line = f"{sistem}{count}{pct}{downtime}<br/>"
+                    text_table += line
+                
+                text_table += '</font>'
+                story.append(Paragraph(text_table, normal_style))
+                story.append(Spacer(1, 0.15*cm))
+                
+                # Styled table da ekle (görsel uyumun için)
+                table_data = [['Sistem', 'Ariza Sayisi', 'Yuzde', 'Downtime (saat)']]
+                for s in system_data[:8]:
+                    sistem = str(s.get('system', 'N/A'))
+                    count = str(s.get('count', 0))
+                    pct = f"{float(s.get('percentage', 0)):.1f}%"
+                    downtime = f"{float(s.get('downtime_hours', 0)):.1f}"
+                    
+                    table_data.append([sistem, count, pct, downtime])
+                
+                
+                table = Table(table_data, colWidths=[5*cm, 3*cm, 3*cm, 3.5*cm])
+                table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#667eea')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 9),
+                    ('FONTSIZE', (0, 1), (-1, -1), 8),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#e8f8f5')),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#e8f8f5')]),
+                    ('TOPPADDING', (0, 0), (-1, -1), 4),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ]))
+                story.append(table)
+                story.append(Spacer(1, 0.25*cm))
+            except Exception as e:
+                logger.error(f'Sistem tablo hatasi: {e}')
+                story.append(Paragraph(f'[TABLO HATASI] Sistem bazinda tablo olusturulamadi:', normal_style))
+                story.append(Spacer(1, 0.1*cm))
+        
+        # ==== TEDARIKCI-SISTEM MATRISI ====
+        matrix_data = get_supplier_system_matrix(filtered_fracas)
+        if matrix_data:
+            section_header = Table([['3. TEDARIKCI-SISTEM MATRISI']], colWidths=[19*cm])
+            section_header.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f39c12')),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 11),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ]))
+            story.append(section_header)
+            story.append(Spacer(1, 0.15*cm))
+            
+            try:
+                # Basit text matrisi
+                text_table = '<font face="Courier" size="8">'
+                text_table += '<b>Sistem ve Tedarikçi Iliskisi:</b><br/>'
+                for system, suppliers in sorted(matrix_data.items())[:6]:
+                    supplier_str = ', '.join([f'{supp}({cnt})' for supp, cnt in suppliers.items()])
+                    line = f"{str(system)}: {supplier_str}<br/>"
+                    text_table += line
+                
+                text_table += '</font>'
+                story.append(Paragraph(text_table, normal_style))
+                story.append(Spacer(1, 0.15*cm))
+                
+                # Styled table da ekle
+                all_suppliers = set()
+                for sys_suppliers in matrix_data.values():
+                    all_suppliers.update(sys_suppliers.keys())
+                all_suppliers = sorted(list(all_suppliers))[:4]
+                
+                table_data = [['Sistem'] + all_suppliers]
+                for system, suppliers in sorted(matrix_data.items())[:6]:
+                    row = [str(system)]
+                    for supplier in all_suppliers:
+                        row.append(str(suppliers.get(supplier, 0)))
+                    table_data.append(row)
+                
+                col_width = 15.5*cm / (len(all_suppliers) + 1) if (len(all_suppliers) + 1) > 0 else 3.875*cm
+                table = Table(table_data, colWidths=[col_width] * (len(all_suppliers) + 1))
+                table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#667eea')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 8),
+                    ('FONTSIZE', (0, 1), (-1, -1), 7),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#fff8e1')),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#fff8e1')]),
+                    ('TOPPADDING', (0, 0), (-1, -1), 4),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ]))
+                story.append(table)
+            except Exception as e:
+                logger.error(f'Matrix tablo hatasi: {e}')
+                story.append(Paragraph(f'[TABLO HATASI] Tedarikci-Sistem matrisi olusturulamadi:', normal_style))
+        
+        # Sayfa sonu
+        if idx < len(periods) - 1:
+            story.append(PageBreak())
+    
+    doc.build(story)
+    return buffer
+
+
+def create_management_pdf_multi(all_projects, periods, loaded_data):
+    """Tüm projeler için kapsamlı PDF rapor oluştur - KPI Dashboard stili"""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.7*cm, leftMargin=0.7*cm,
+                           rightMargin=0.7*cm, bottomMargin=0.7*cm)
+    story = []
+    
+    styles = getSampleStyleSheet()
+    
+    # Ayni stil set'leri
+    info_style = ParagraphStyle(
+        'InfoText', parent=styles['Normal'], fontSize=10,
+        textColor=colors.HexColor('#555'), spaceAfter=6
+    )
+    
+    kpi_heading_style = ParagraphStyle(
+        'KPIHeading', parent=styles['Heading2'], fontSize=12,
+        textColor=colors.white, spaceAfter=6, fontName='Helvetica-Bold'
+    )
+    
+    normal_style = ParagraphStyle(
+        'Normal', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#333')
+    )
+    
+    # Tüm 8 proje için işle
+    for proj_idx, project in enumerate(all_projects):
+        if project not in loaded_data:
+            continue
+        
+        project_key = project.lower()
+        project_display = PROJECTS.get(project_key, project)
+        fracas_df = loaded_data[project]
+        
+        # Periyodlar döngüsü
+        for period_idx, period in enumerate(periods):
+            if period not in PERIODS:
+                continue
+            
+            period_name, _ = PERIODS[period]
+            filtered_fracas = filter_by_period(fracas_df, period)
+            
+            # Başlık
+            header_table = Table([['YONETIM RAPORU - ' + project_display.upper()]], 
+                                colWidths=[19*cm])
+            header_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#667eea')),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 16),
+                ('TOPPADDING', (0, 0), (-1, -1), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+            ]))
+            story.append(header_table)
+            story.append(Spacer(1, 0.2*cm))
+            
+            # Bilgi satırı
+            if period == 'total':
+                date_range = 'Tum Zamanlar'
+            else:
+                end_date = datetime.now()
+                days = PERIODS[period][1]
+                start_date = end_date - timedelta(days=days)
+                date_range = f'{start_date.strftime("%d.%m.%Y")} - {end_date.strftime("%d.%m.%Y")}'
+            
+            info_line = f'Periyot: <b>{period_name}</b> ({date_range}) | Rapor: {datetime.now().strftime("%d.%m.%Y %H:%M")}'
+            story.append(Paragraph(info_line, info_style))
+            story.append(Spacer(1, 0.3*cm))
+            
+            # Veri kontrol
+            if filtered_fracas is None or filtered_fracas.empty:
+                story.append(Paragraph('[!] Bu periyot icin veri bulunamadi', normal_style))
+                story.append(Spacer(1, 0.5*cm))
+            else:
+                # KPI Metrics
+                vehicle_data = get_vehicle_analysis(filtered_fracas)
+                system_data = get_system_analysis(filtered_fracas)
+                
+                if vehicle_data or system_data:
+                    kpi_metrics = []
+                    
+                    if vehicle_data:
+                        total_vehicles = len(vehicle_data)
+                        avg_availability = sum(v['availability'] for v in vehicle_data) / len(vehicle_data)
+                        kpi_metrics.append(f'<b>ARACLAR</b><br/>{total_vehicles} Arac<br/>Avail: {avg_availability:.0f}%')
+                    else:
+                        kpi_metrics.append('<b>ARACLAR</b><br/>0 Arac')
+                    
+                    if system_data:
+                        total_systems = len(system_data)
+                        total_failures = sum(s['count'] for s in system_data)
+                        kpi_metrics.append(f'<b>SISTEMLER</b><br/>{total_systems} Sistem<br/>{total_failures} Ariza')
+                    else:
+                        kpi_metrics.append('<b>SISTEMLER</b><br/>0 Sistem')
+                    
+                    if system_data:
+                        avg_downtime = sum(s['downtime_hours'] for s in system_data) / len(system_data)
+                        kpi_metrics.append(f'<b>ORTALAMA</b><br/>Downtime<br/>{avg_downtime:.1f} saat')
+                    else:
+                        kpi_metrics.append('<b>ORTALAMA</b><br/>Downtime<br/>0 saat')
+                    
+                    if vehicle_data:
+                        avg_mtbf = sum(v['mtbf'] for v in vehicle_data) / len(vehicle_data)
+                        kpi_metrics.append(f'<b>MTBF</b><br/>{avg_mtbf:,.0f} km<br/>Ort Deger')
+                    else:
+                        kpi_metrics.append('<b>MTBF</b><br/>N/A')
+                    
+                    colors_list = [colors.HexColor('#667eea'), colors.HexColor('#764ba2'),
+                                  colors.HexColor('#27ae60'), colors.HexColor('#f39c12')]
+                    
+                    kpi_rows = [[Paragraph(m, kpi_heading_style) for m in kpi_metrics]]
+                    kpi_table = Table(kpi_rows, colWidths=[4.5*cm, 4.5*cm, 4.5*cm, 4.5*cm])
+                    kpi_table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (0, 0), colors_list[0]),
+                        ('BACKGROUND', (1, 0), (1, 0), colors_list[1]),
+                        ('BACKGROUND', (2, 0), (2, 0), colors_list[2]),
+                        ('BACKGROUND', (3, 0), (3, 0), colors_list[3]),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                        ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
+                        ('TOPPADDING', (0, 0), (-1, -1), 6),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                        ('HEIGHT', (0, 0), (-1, -1), 1.2*cm),
+                        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, -1), 9),
+                    ]))
+                    story.append(kpi_table)
+                    story.append(Spacer(1, 0.3*cm))
+                
+                # Arac tablosu
+                if vehicle_data:
+                    section_header = Table([['1. ARAC BAZINDA ANALIZ']], colWidths=[19*cm])
+                    section_header.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#764ba2')),
+                        ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
+                        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, -1), 11),
+                        ('TOPPADDING', (0, 0), (-1, -1), 6),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                    ]))
+                    story.append(section_header)
+                    story.append(Spacer(1, 0.15*cm))
+                    
+                    table_data = [['Arac No', 'Toplam KM', 'Ariza', 'MTBF (km)', 'Avail %']]
+                    for v in vehicle_data[:8]:
+                        table_data.append([
+                            str(v['vehicle']), f"{v['total_km']:,.0f}",
+                            str(v['failure_count']), f"{v['mtbf']:,.0f}",
+                            f"{v['availability']:.1f}%"
+                        ])
+                    
+                    table = Table(table_data, colWidths=[2.2*cm, 3.2*cm, 2.2*cm, 3.2*cm, 2.8*cm])
+                    table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#667eea')),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, 0), 9),
+                        ('FONTSIZE', (0, 1), (-1, -1), 8),
+                        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f0f0f0')),
+                        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
+                        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f0f0')]),
+                        ('TOPPADDING', (0, 0), (-1, -1), 4),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                    ]))
+                    story.append(table)
+                    story.append(Spacer(1, 0.2*cm))
+                
+                # Sistem tablosu
+                if system_data:
+                    section_header = Table([['2. SISTEM BAZINDA ROOT CAUSE ANALIZI']], colWidths=[19*cm])
+                    section_header.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#27ae60')),
+                        ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
+                        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, -1), 11),
+                        ('TOPPADDING', (0, 0), (-1, -1), 6),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                    ]))
+                    story.append(section_header)
+                    story.append(Spacer(1, 0.15*cm))
+                    
+                    table_data = [['Sistem', 'Ariza Sayisi', 'Yuzde', 'Downtime (saat)']]
+                    for s in system_data[:6]:
+                        table_data.append([
+                            str(s['system']), str(s['count']),
+                            f"{s['percentage']:.1f}%", f"{s['downtime_hours']:.1f}"
+                        ])
+                    
+                    table = Table(table_data, colWidths=[5*cm, 3*cm, 3*cm, 3.5*cm])
+                    table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#667eea')),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, 0), 9),
+                        ('FONTSIZE', (0, 1), (-1, -1), 8),
+                        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#e8f8f5')),
+                        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
+                        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#e8f8f5')]),
+                        ('TOPPADDING', (0, 0), (-1, -1), 4),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                    ]))
+                    story.append(table)
+                    story.append(Spacer(1, 0.2*cm))
+                
+                # Matrix tablosu
+                matrix_data = get_supplier_system_matrix(filtered_fracas)
+                if matrix_data:
+                    section_header = Table([['3. TEDARIKCI-SISTEM MATRISI']], colWidths=[19*cm])
+                    section_header.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f39c12')),
+                        ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
+                        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, -1), 11),
+                        ('TOPPADDING', (0, 0), (-1, -1), 6),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                    ]))
+                    story.append(section_header)
+                    story.append(Spacer(1, 0.15*cm))
+                    
+                    all_suppliers = set()
+                    for sys_suppliers in matrix_data.values():
+                        all_suppliers.update(sys_suppliers.keys())
+                    all_suppliers = sorted(list(all_suppliers))[:3]
+                    
+                    table_data = [['Sistem'] + all_suppliers]
+                    for system, suppliers in sorted(matrix_data.items())[:4]:
+                        row = [system]
+                        for supplier in all_suppliers:
+                            row.append(str(suppliers.get(supplier, 0)))
+                        table_data.append(row)
+                    
+                    col_width = 15.5*cm / (len(all_suppliers) + 1)
+                    table = Table(table_data, colWidths=[col_width] * (len(all_suppliers) + 1))
+                    table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#667eea')),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, 0), 8),
+                        ('FONTSIZE', (0, 1), (-1, -1), 7),
+                        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#fff8e1')),
+                        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#ddd')),
+                        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#fff8e1')]),
+                        ('TOPPADDING', (0, 0), (-1, -1), 4),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                    ]))
+                    story.append(table)
+            
+            # Sayfa sonu
+            is_last_project = (proj_idx == len(all_projects) - 1)
+            is_last_period = (period_idx == len(periods) - 1)
+            if not (is_last_project and is_last_period):
+                story.append(PageBreak())
+                table_data = [['Arac No', 'Toplam KM', 'Ariza Sayisi', 'MTBF (km)', 'Availability %']]
+                for v in vehicle_data[:10]:
+                    table_data.append([v['vehicle'], f"{v['total_km']:,.0f}", str(v['failure_count']),
+                                     f"{v['mtbf']:,.0f}", f"{v['availability']:.1f}%"])
+                
+                table = Table(table_data, colWidths=[1.5*cm, 2*cm, 2*cm, 2*cm, 2*cm])
+                table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#667eea')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 10),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+                    ('FONTSIZE', (0, 1), (-1, -1), 9),
+                ]))
+                story.append(table)
+                story.append(Spacer(1, 0.3*cm))
+            
+            # 2. SISTEM BAZINDA
+            if system_data:
+                story.append(Paragraph('2. SISTEM BAZINDA ROOT CAUSE ANALIZI', heading_style))
+                table_data = [['Sistem', 'Ariza Sayisi', 'Yuzde', 'Downtime (saat)']]
+                for s in system_data[:10]:
+                    table_data.append([s['system'], str(s['count']), f"{s['percentage']:.1f}%", f"{s['downtime_hours']:.1f}"])
+                
+                table = Table(table_data, colWidths=[3*cm, 2.5*cm, 2*cm, 2.5*cm])
+                table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#764ba2')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.lightblue),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+                ]))
+                story.append(table)
+                story.append(Spacer(1, 0.3*cm))
+            
+            # 3. TEDARIKCI-SISTEM MATRISI
+            matrix_data = get_supplier_system_matrix(filtered_fracas)
+            if matrix_data:
+                story.append(Paragraph('3. TEDARIKCI-SISTEM MATRISI', heading_style))
+                
+                all_suppliers = set()
+                for systems in matrix_data.values():
+                    all_suppliers.update(systems.keys())
+                all_suppliers = sorted(list(all_suppliers))[:5]
+                
+                table_data = [['Sistem'] + all_suppliers]
+                for system, suppliers in sorted(matrix_data.items())[:8]:
+                    row = [system]
+                    for supplier in all_suppliers:
+                        row.append(str(suppliers.get(supplier, 0)))
+                    table_data.append(row)
+                
+                col_width = 9*cm / (len(all_suppliers) + 1)
+                table = Table(table_data, colWidths=[2.5*cm] + [col_width]*len(all_suppliers))
+                table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#27ae60')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.lightgreen),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+                ]))
+                story.append(table)
+            
+            if idx < len(periods) - 1:
+                story.append(PageBreak())
+    
+    doc.build(story)
+    return buffer
+
+
+def create_management_pdf_multi(all_projects, periods, loaded_data):
+    """Tüm projeler için kapsamlı PDF rapor oluştur"""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5*cm, bottomMargin=0.5*cm)
+    story = []
+    
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle', parent=styles['Heading1'], fontSize=20,
+        textColor=colors.HexColor('#667eea'), spaceAfter=12, alignment=TA_CENTER, fontName='Helvetica-Bold'
+    )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading', parent=styles['Heading2'], fontSize=14,
+        textColor=colors.HexColor('#764ba2'), spaceAfter=10, fontName='Helvetica-Bold'
+    )
+    
+    # Tüm 8 proje için işle (veri olsun olmasın)
+    for proj_idx, project in enumerate(all_projects):
+        # Her proje için periyodlar
+        for period_idx, period in enumerate(periods):
+            if period not in PERIODS:
+                continue
+            
+            # Proje başlığı ve periyot bilgisi
+            story.append(Paragraph(f'YONETIM RAPORU - {PROJECTS[project].upper()}', title_style))
+            
+            period_name, _ = PERIODS[period]
+            if period == 'total':
+                date_range = 'Tum Zamanlar'
+            else:
+                end_date = datetime.now()
+                days = PERIODS[period][1]
+                start_date = end_date - timedelta(days=days)
+                date_range = f'{start_date.strftime("%d.%m.%Y")} - {end_date.strftime("%d.%m.%Y")}'
+            
+            info_text = f'<b>Periyot:</b> {period_name} ({date_range}) | <b>Rapor:</b> {datetime.now().strftime("%d.%m.%Y %H:%M")}'
+            story.append(Paragraph(info_text, styles['Normal']))
+            story.append(Spacer(1, 0.3*cm))
+            
+            # Veri kontrol
+            if project not in loaded_data:
+                story.append(Paragraph('[!] Bu proje icin veri bulunamadi.', styles['Normal']))
+                story.append(Spacer(1, 0.5*cm))
+            else:
+                fracas_df = loaded_data[project]
+                filtered_fracas = filter_by_period(fracas_df, period)
+                
+                if filtered_fracas is None or filtered_fracas.empty:
+                    story.append(Paragraph('[!] Bu periyot icin veri bulunamadi.', styles['Normal']))
+                    story.append(Spacer(1, 0.5*cm))
+                else:
+                    # 1. ARAÇ BAZINDA
+                    vehicle_data = get_vehicle_analysis(filtered_fracas)
+                    if vehicle_data:
+                        story.append(Paragraph('1. ARAÇ BAZINDA ANALİZ', heading_style))
+                        table_data = [['Araç No', 'Toplam KM', 'Arıza Sayısı', 'MTBF (km)', 'Availability %']]
+                        for v in vehicle_data[:10]:
+                            table_data.append([v['vehicle'], f"{v['total_km']:,.0f}", str(v['failure_count']),
+                                             f"{v['mtbf']:,.0f}", f"{v['availability']:.1f}%"])
+                        
+                        table = Table(table_data, colWidths=[1.5*cm, 2*cm, 2*cm, 2*cm, 2*cm])
+                        table.setStyle(TableStyle([
+                            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#667eea')),
+                            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                            ('FONTSIZE', (0, 0), (-1, 0), 10),
+                            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                            ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+                            ('FONTSIZE', (0, 1), (-1, -1), 9),
+                        ]))
+                        story.append(table)
+                        story.append(Spacer(1, 0.3*cm))
+                    else:
+                        story.append(Paragraph('⚠ Araç verisi bulunamadı.', styles['Normal']))
+                        story.append(Spacer(1, 0.3*cm))
+                    
+                    # 2. SİSTEM BAZINDA
+                    system_data = get_system_analysis(filtered_fracas)
+                    if system_data:
+                        story.append(Paragraph('2. SİSTEM BAZINDA ROOT CAUSE ANALİZİ', heading_style))
+                        table_data = [['Sistem', 'Arıza Sayısı', 'Yüzde', 'Downtime (saat)']]
+                        for s in system_data[:10]:
+                            table_data.append([s['system'], str(s['count']), f"{s['percentage']:.1f}%",
+                                             f"{s['downtime_hours']:.1f}"])
+                        
+                        table = Table(table_data, colWidths=[3*cm, 2.5*cm, 2*cm, 2.5*cm])
+                        table.setStyle(TableStyle([
+                            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#764ba2')),
+                            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                            ('BACKGROUND', (0, 1), (-1, -1), colors.lightblue),
+                            ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+                        ]))
+                        story.append(table)
+                        story.append(Spacer(1, 0.3*cm))
+                    
+                    # 3. TEDARİKÇİ-SİSTEM MATRİSİ
+                    matrix_data = get_supplier_system_matrix(filtered_fracas)
+                    if matrix_data:
+                        story.append(Paragraph('3. TEDARİKÇİ-SİSTEM MATRİSİ', heading_style))
+                        
+                        all_suppliers = set()
+                        for systems in matrix_data.values():
+                            all_suppliers.update(systems.keys())
+                        all_suppliers = sorted(list(all_suppliers))[:5]
+                        
+                        table_data = [['Sistem'] + all_suppliers]
+                        for system, suppliers in sorted(matrix_data.items())[:8]:
+                            row = [system]
+                            for supplier in all_suppliers:
+                                row.append(str(suppliers.get(supplier, 0)))
+                            table_data.append(row)
+                        
+                        table = Table(table_data, colWidths=[2.5*cm] + [1.5*cm] * len(all_suppliers))
+                        table.setStyle(TableStyle([
+                            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#27ae60')),
+                            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                            ('BACKGROUND', (0, 1), (-1, -1), colors.lightgreen),
+                            ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+                        ]))
+                        story.append(table)
+            
+            # Sayfa sonu - son proje ve son periyot değilse
+            is_last_project = (proj_idx == len(all_projects) - 1)
+            is_last_period = (period_idx == len(periods) - 1)
+            if not (is_last_project and is_last_period):
+                story.append(PageBreak())
+    
+    doc.build(story)
+    return buffer

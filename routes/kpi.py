@@ -1,524 +1,486 @@
 """
-KPI Dashboard - EN 15341 Bakım KPI Standardına Uygun
+FRACAS Analiz Dashboard - EN 15341 Bakım KPI Standardına Uygun
+Gelişmiş Arıza & Bakım Analitikleri
 Bozankaya SSH Takip Sistemi
 """
 
-from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, session
+from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, session, send_file
 from flask_login import login_required, current_user
 from models import db, Equipment, WorkOrder, Failure
-from sqlalchemy import func
 from datetime import datetime, timedelta
 import os
 import pandas as pd
 import logging
-import sys
-from utils.project_manager import ProjectManager
-from utils.backup_manager import BackupManager
+from io import BytesIO
 
 logger = logging.getLogger(__name__)
 
 bp = Blueprint('kpi', __name__, url_prefix='/kpi')
 
 
-def get_fracas_data():
-    """Seçili projenin FRACAS verilerini yükle - logs/{project}/ariza_listesi/Fracas_*.xlsx (birleştirilmiş)"""
+def get_fracas_data(project=None):
+    """Seçili projenin FRACAS verilerini yükle"""
     from flask import current_app
     
-    current_project = session.get('current_project', 'belgrad')
-    
-    # Birincil konum: logs/{project}/ariza_listesi/Fracas_{PROJECT}.xlsx
-    ariza_listesi_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
-    
-    if os.path.exists(ariza_listesi_dir):
-        # Fracas_*.xlsx ara
-        for filename in os.listdir(ariza_listesi_dir):
-            if filename.upper().startswith('FRACAS_') and filename.endswith('.xlsx') and not filename.startswith('~$'):
-                filepath = os.path.join(ariza_listesi_dir, filename)
-                try:
-                    df = pd.read_excel(filepath, sheet_name='FRACAS', header=3)
-                    df.columns = df.columns.str.replace('\n', ' ', regex=False).str.strip()
-                    
-                    # FRACAS ID kolonunu bul
-                    fracas_col = None
-                    for col in df.columns:
-                        if 'fracas' in col.lower() and 'id' in col.lower():
-                            fracas_col = col
-                            break
-                    if fracas_col:
-                        df = df[df[fracas_col].notna()]
-                    
-                    return df
-                except Exception as e:
-                    logger.error(f'Excel okuma hatasi: {e}')
-                    return None
+    try:
+        if project is None:
+            project = session.get('current_project', 'belgrad')
+        
+        ariza_listesi_dir = os.path.join(current_app.root_path, 'logs', project, 'ariza_listesi')
+        
+        if os.path.exists(ariza_listesi_dir):
+            for filename in os.listdir(ariza_listesi_dir):
+                if filename.upper().startswith('FRACAS_') and filename.endswith('.xlsx') and not filename.startswith('~$'):
+                    filepath = os.path.join(ariza_listesi_dir, filename)
+                    try:
+                        df = pd.read_excel(filepath, sheet_name='FRACAS', header=3)
+                        df.columns = df.columns.str.replace('\n', ' ', regex=False).str.strip()
+                        
+                        # Veri temizliği
+                        df = df[df['FRACAS ID'].notna()]
+                        return df
+                    except Exception as e:
+                        logger.error(f'Excel okuma hatasi ({filename}): {e}')
+                        continue
+    except Exception as e:
+        logger.error(f'get_fracas_data hatasi: {e}')
     
     return None
 
 
-def get_ariza_listesi_data():
-    """Seçili projenin Arıza Listesi verilerini yükle - FALLBACK AMAÇLI (logs/{project}/ariza_listesi/ klasöründen Fracas_*.xlsx)"""
-    from flask import current_app
-    
-    current_project = session.get('current_project', 'belgrad')
-    
-    # logs/{project}/ariza_listesi/ klasöründen Fracas_*.xlsx ara
-    ariza_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
-    
-    if os.path.exists(ariza_dir):
-        for filename in os.listdir(ariza_dir):
-            if filename.upper().startswith('FRACAS_') and filename.endswith('.xlsx') and not filename.startswith('~$'):
-                filepath = os.path.join(ariza_dir, filename)
-                try:
-                    df = pd.read_excel(filepath, sheet_name='FRACAS', header=3)
-                    df.columns = df.columns.str.replace('\n', ' ', regex=False).str.strip()
-                    
-                    # FRACAS ID kolonunu bul ve geçerli kayıtları filtrele
-                    fracas_col = None
-                    for col in df.columns:
-                        if 'fracas' in col.lower() and 'id' in col.lower():
-                            fracas_col = col
-                            break
-                    
-                    if fracas_col:
-                        df = df[df[fracas_col].notna()]
-                    
-                    return df
-                except Exception as e:
-                    logger.error(f'Fracas okuma hatasi: {e}')
-                    return None
-    
-    return None
-
-
-@bp.route('/')
-@login_required
-def index():
-    """KPI Dashboard - EN 15341 uyumlu - Fracas_BELGRAD.xlsx verilerini kullanarak"""
-    if current_user.role not in ['admin', 'muhendis', 'manager']:
-        flash('Bu sayfaya erişim yetkiniz yok.', 'error')
-        return redirect(url_for('dashboard.index'))
-    
-    # Fracas_BELGRAD.xlsx verilerini kullan (birleştirilmiş)
-    df = get_fracas_data()
-    
-    # Fallback: Fracas_BELGRAD yoksa Arıza Listesi'nden dene
-    if df is None:
-        df = get_ariza_listesi_data()
-    
-    kpi_data = {
-        'mtbf': 0,
-        'mttr': 0,
-        'availability': 0,
-        'reliability': 0,
-        'failure_count': 0,
-        'vehicle_count': 0,
-        'total_downtime': 0,
-        'monthly_trend': [],
-        'failure_by_category': {},
-        'top_failing_vehicles': [],
-        'data_source': 'Fracas_BELGRAD' if df is not None else 'Veri Yok'
-    }
-    
-    if df is not None and len(df) > 0:
-        # Kolon adlarını küçük harfe dönüştür (fuzzy matching için)
-        col_map = {}
-        for col in df.columns:
-            col_map[col.lower().strip()] = col
-        
-        # Kolon araması
-        vehicle_col = None
-        km_col = None
-        mttr_col = None
-        cat_col = None
-        date_col = None
-        
-        for col, col_lower in zip(df.columns, [c.lower() for c in df.columns]):
-            col_lower = col_lower.strip()
-            if vehicle_col is None and ('araç' in col_lower or 'vehicle' in col_lower or 'tramvay' in col_lower):
-                vehicle_col = col
-            if km_col is None and ('km' in col_lower or 'kilometre' in col_lower):
-                km_col = col
-            if mttr_col is None and (('tamir' in col_lower or 'repair' in col_lower) and ('saat' in col_lower or 'hour' in col_lower)):
-                mttr_col = col
-            if cat_col is None and (('arıza' in col_lower or 'failure' in col_lower) and ('sınıf' in col_lower or 'class' in col_lower)):
-                cat_col = col
-            if date_col is None and ('tarih' in col_lower or 'date' in col_lower):
-                date_col = col
-        
-        # Arıza sayısı ve araç sayısı
-        kpi_data['failure_count'] = len(df)
-        
-        if vehicle_col:
-            kpi_data['vehicle_count'] = df[vehicle_col].nunique()
-            
-            # MTBF hesaplama (ortalama km farkı / arıza sayısı)
-            if km_col and df[km_col].notna().any():
-                try:
-                    # Sayısal değerlere dönüştür
-                    df[km_col] = pd.to_numeric(df[km_col], errors='coerce')
-                    
-                    vehicle_mtbf = []
-                    for vehicle in df[vehicle_col].dropna().unique():
-                        v_data = df[df[vehicle_col] == vehicle][km_col].dropna()
-                        if len(v_data) > 1:
-                            km_range = v_data.max() - v_data.min()
-                            if km_range > 0:
-                                mtbf_val = km_range / len(v_data)
-                                vehicle_mtbf.append(mtbf_val)
-                    
-                    if vehicle_mtbf:
-                        kpi_data['mtbf'] = round(sum(vehicle_mtbf) / len(vehicle_mtbf), 0)
-                except Exception as e:
-                    logger.error(f'MTBF hesaplama hatasi: {e}')
-                    kpi_data['mtbf'] = 0
-        
-        # MTTR (Ortalama Tamir Süresi)
-        if mttr_col:
-            try:
-                df[mttr_col] = pd.to_numeric(df[mttr_col], errors='coerce')
-                valid_mttr = df[mttr_col].dropna()
-                if len(valid_mttr) > 0:
-                    kpi_data['mttr'] = round(valid_mttr.mean(), 2)
-                    kpi_data['total_downtime'] = round(valid_mttr.sum(), 1)
-            except Exception as e:
-                logger.error(f'MTTR hesaplama hatasi: {e}')
-        
-        # Kullanılabilirlik (Availability)
-        if kpi_data['vehicle_count'] > 0:
-            if kpi_data['total_downtime'] > 0:
-                # Yıllık operasyon saati (300 gün * 16 saat)
-                yearly_op_hours = 300 * 16 * kpi_data['vehicle_count']
-                kpi_data['availability'] = max(0, round((yearly_op_hours - kpi_data['total_downtime']) / yearly_op_hours * 100, 1))
-                kpi_data['availability'] = min(kpi_data['availability'], 100)
-            else:
-                kpi_data['availability'] = 98.5
-        else:
-            kpi_data['availability'] = 95.0
-        
-        # Güvenilirlik (Reliability) - Availability üzerine dayalı
-        kpi_data['reliability'] = min(kpi_data['availability'] + 1, 99.9)
-        
-        # Arıza kategorileri
-        if cat_col:
-            try:
-                category_counts = df[cat_col].dropna().value_counts().head(10).to_dict()
-                kpi_data['failure_by_category'] = {str(k): int(v) for k, v in category_counts.items()}
-            except Exception as e:
-                logger.error(f'Kategori hesaplama hatasi: {e}')
-        
-        # En çok arıza yapan araçlar
-        if vehicle_col:
-            try:
-                top_vehicles = df[vehicle_col].dropna().value_counts().head(5)
-                kpi_data['top_failing_vehicles'] = [
-                    {'vehicle': str(v), 'count': int(c)} 
-                    for v, c in top_vehicles.items()
-                ]
-            except Exception as e:
-                logger.error(f'Top vehicles hesaplama hatasi: {e}')
-        
-        # Aylık trend
-        if date_col:
-            try:
-                df['month'] = pd.to_datetime(df[date_col], errors='coerce').dt.to_period('M')
-                monthly = df.groupby('month').size()
-                kpi_data['monthly_trend'] = [
-                    {'month': str(m), 'count': int(c)} 
-                    for m, c in monthly.tail(12).items()
-                ]
-            except Exception as e:
-                logger.error(f'Aylik trend hesaplama hatasi: {e}')
-    
-    # Veritabanından ek veriler
-    current_project = session.get('current_project', 'belgrad')
-    db_stats = {
-        'active_equipment': Equipment.query.filter_by(status='aktif', project_code=current_project).count(),
-        'open_failures': Failure.query.filter_by(status='acik', project_code=current_project).count(),
-        'pending_workorders': WorkOrder.query.filter_by(status='beklemede', project_code=current_project).count()
-    }
-    
-    return render_template('kpi/index.html', 
-                         kpi=kpi_data, 
-                         db_stats=db_stats,
-                         project_name=session.get('project_name', 'Proje'))
-
-
-@bp.route('/api/data')
-@login_required
-def api_data():
-    """KPI verileri API endpoint"""
-    df = get_fracas_data()
-    
-    if df is None:
-        return jsonify({'error': 'Veri bulunamadı'}), 404
-    
-    return jsonify({
-        'record_count': len(df),
-        'columns': list(df.columns)[:20]  # İlk 20 kolon
-    })
-
-
-def get_column(df, possible_names):
-    """Veri çerçevesinde kolon adını bulunmaz (fuzzy matching)"""
+def apply_filters(df, start_date=None, end_date=None, vehicle=None, system=None, failure_class=None):
+    """FRACAS verilerine filtre uygula"""
     if df is None or df.empty:
         return None
     
-    for possible in possible_names:
-        possible_lower = possible.lower().strip()
-        for actual_col in df.columns:
-            if possible_lower in actual_col.lower() or actual_col.lower() in possible_lower:
-                return actual_col
-    return None
-
-
-@bp.route('/filter', methods=['GET'])
-@login_required
-def kpi_filter():
-    """KPI verileri filtrele - Tarih ve kategori"""
-    df = get_fracas_data()
-    
-    if df is None:
-        df = get_ariza_listesi_data()
-    
-    if df is None:
-        return jsonify({'error': 'Veri bulunamadı'}), 404
-    
-    # Filtre parametreleri
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
-    failure_class = request.args.get('failure_class')
-    
-    # Tarih sütununu bul
-    date_col = get_column(df, ['tarih', 'date', 'hata tarih', 'failure date'])
-    
-    # Filtreleri uygula
     filtered_df = df.copy()
     
+    # Tarih kolonu bul
+    date_col = None
+    for col in df.columns:
+        if 'tarih' in col.lower() and 'hata' in col.lower():
+            date_col = col
+            break
+    
     # Tarih filtresi
-    if start_date and date_col:
+    if date_col and start_date:
         try:
-            start = pd.to_datetime(start_date)
             filtered_df[date_col] = pd.to_datetime(filtered_df[date_col], errors='coerce')
+            start = pd.to_datetime(start_date)
             filtered_df = filtered_df[filtered_df[date_col] >= start]
         except:
             pass
     
-    if end_date and date_col:
+    if date_col and end_date:
         try:
             end = pd.to_datetime(end_date)
-            filtered_df[date_col] = pd.to_datetime(filtered_df[date_col], errors='coerce')
             filtered_df = filtered_df[filtered_df[date_col] <= end]
         except:
             pass
     
-    # Arıza sınıfı filtresi
+    # Araç filtresi
+    if vehicle:
+        vehicle_col = None
+        for col in df.columns:
+            if 'araç' in col.lower() and 'numarası' in col.lower():
+                vehicle_col = col
+                break
+        if vehicle_col:
+            filtered_df = filtered_df[filtered_df[vehicle_col].astype(str).str.contains(str(vehicle), na=False)]
+    
+    # Sistem filtresi
+    if system:
+        if 'Sistem' in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df['Sistem'].astype(str).str.contains(str(system), na=False, case=False)]
+    
+    # Arıza Sınıfı filtresi
     if failure_class:
-        class_col = get_column(filtered_df, ['arıza sınıfı', 'failure class', 'sınıf'])
-        if class_col:
-            filtered_df = filtered_df[filtered_df[class_col].astype(str).str.startswith(failure_class)]
+        for col in filtered_df.columns:
+            if 'arıza sınıfı' in col.lower():
+                filtered_df = filtered_df[filtered_df[col].astype(str).str.contains(str(failure_class), na=False)]
+                break
     
-    # Temeller kolon tanımlamaları
-    vehicle_col = get_column(filtered_df, ['araç', 'vehicle', 'tramvay'])
-    km_col = get_column(filtered_df, ['km', 'kilometre'])
-    mttr_col = get_column(filtered_df, ['tamir', 'repair'])
+    return filtered_df if not filtered_df.empty else None
+
+
+def calculate_mtbf_mttr(df):
+    """MTBF ve MTTR hesapla"""
+    if df is None or df.empty:
+        return {'mtbf': 0, 'mttr': 0, 'total_downtime': 0}
     
-    # KPI hesaplamaları
-    filtered_stats = {
-        'failure_count': len(filtered_df),
-        'vehicle_count': filtered_df[vehicle_col].nunique() if vehicle_col else 0,
-        'mtbf': 0,
-        'mttr': 0,
-        'availability': 98.5,
-        'filter_applied': True
-    }
+    result = {'mtbf': 0, 'mttr': 0, 'total_downtime': 0}
     
-    # MTBF ve MTTR hesapla
+    # MTTR - Tamir Süresi (dakika)
+    repair_col = None
+    for col in df.columns:
+        if 'tamir süresi' in col.lower():
+            repair_col = col
+            break
+    
+    if repair_col:
+        try:
+            df[repair_col] = pd.to_numeric(df[repair_col], errors='coerce')
+            valid_mttr = df[repair_col].dropna()
+            if len(valid_mttr) > 0:
+                result['mttr'] = round(valid_mttr.mean(), 2)
+                result['total_downtime'] = round(valid_mttr.sum(), 1)
+        except:
+            pass
+    
+    # MTBF - Araç KM bazında
+    vehicle_col = None
+    km_col = None
+    for col in df.columns:
+        if 'araç numarası' in col.lower():
+            vehicle_col = col
+        if 'araç kilometresi' in col.lower():
+            km_col = col
+    
     if vehicle_col and km_col:
         try:
-            filtered_df[km_col] = pd.to_numeric(filtered_df[km_col], errors='coerce')
+            df[km_col] = pd.to_numeric(df[km_col], errors='coerce')
             vehicle_mtbf = []
-            for vehicle in filtered_df[vehicle_col].dropna().unique():
-                v_data = filtered_df[filtered_df[vehicle_col] == vehicle][km_col].dropna()
+            for vehicle in df[vehicle_col].dropna().unique():
+                v_data = df[df[vehicle_col] == vehicle][km_col].dropna()
                 if len(v_data) > 1:
                     km_range = v_data.max() - v_data.min()
                     if km_range > 0:
                         mtbf_val = km_range / len(v_data)
                         vehicle_mtbf.append(mtbf_val)
-            
             if vehicle_mtbf:
-                filtered_stats['mtbf'] = round(sum(vehicle_mtbf) / len(vehicle_mtbf), 0)
+                result['mtbf'] = round(sum(vehicle_mtbf) / len(vehicle_mtbf), 0)
         except:
             pass
     
-    if mttr_col:
-        try:
-            filtered_df[mttr_col] = pd.to_numeric(filtered_df[mttr_col], errors='coerce')
-            valid_mttr = filtered_df[mttr_col].dropna()
-            if len(valid_mttr) > 0:
-                filtered_stats['mttr'] = round(valid_mttr.mean(), 2)
-        except:
-            pass
+    return result
+
+
+def calculate_availability_reliability(df, total_downtime_hours):
+    """Availability ve Reliability hesapla"""
+    if df is None or df.empty:
+        return {'availability': 95.0, 'reliability': 96.0}
     
-    return jsonify({
-        'success': True,
-        'total_records': len(filtered_df),
-        'filtered_count': len(filtered_df),
-        'stats': filtered_stats
-    })
+    vehicle_col = None
+    for col in df.columns:
+        if 'araç numarası' in col.lower():
+            vehicle_col = col
+            break
+    
+    vehicle_count = df[vehicle_col].nunique() if vehicle_col else 1
+    
+    # Yıllık operasyon saati (300 gün * 16 saat)
+    yearly_op_hours = 300 * 16 * max(vehicle_count, 1)
+    
+    availability = max(0, round((yearly_op_hours - total_downtime_hours) / yearly_op_hours * 100, 1)) if total_downtime_hours > 0 else 98.5
+    availability = min(availability, 100)
+    reliability = min(availability + 2, 99.9)
+    
+    return {'availability': availability, 'reliability': reliability}
 
 
-@bp.route('/export/excel', methods=['GET'])
+def get_analysis_data(df):
+    """Tüm analiz verilerini hesapla"""
+    if df is None or df.empty:
+        return get_empty_analysis()
+    
+    result = {
+        'total_failures': len(df),
+        'unique_vehicles': 0,
+        'unique_systems': 0,
+        'kpi': {},
+        'failure_by_source': {},
+        'failure_by_class': {},
+        'failure_by_system': {},
+        'failure_by_type': {},
+        'top_vehicles': [],
+        'top_parts': [],
+        'top_suppliers': [],
+        'monthly_trend': [],
+        'repair_personnel': {}
+    }
+    
+    try:
+        # Temel metrikler
+        vehicle_col = None
+        for col in df.columns:
+            if 'araç numarası' in col.lower():
+                vehicle_col = col
+                break
+        if vehicle_col:
+            result['unique_vehicles'] = df[vehicle_col].nunique()
+        
+        if 'Sistem' in df.columns:
+            result['unique_systems'] = df['Sistem'].nunique()
+        
+        # KPI Hesapları
+        result['kpi'] = calculate_mtbf_mttr(df)
+        result['kpi'].update(calculate_availability_reliability(df, result['kpi']['total_downtime']))
+        
+        # Arıza Kaynağı
+        for col in df.columns:
+            if 'arıza kaynağı' in col.lower():
+                source_counts = df[col].value_counts().head(10).to_dict()
+                result['failure_by_source'] = {str(k): int(v) for k, v in source_counts.items() if pd.notna(k)}
+                break
+        
+        # Arıza Sınıfı
+        for col in df.columns:
+            if 'arıza sınıfı' in col.lower():
+                class_counts = df[col].value_counts().head(10).to_dict()
+                result['failure_by_class'] = {str(k): int(v) for k, v in class_counts.items() if pd.notna(k)}
+                break
+        
+        # Sistem bazında arızalar
+        if 'Sistem' in df.columns:
+            system_counts = df['Sistem'].value_counts().head(10).to_dict()
+            result['failure_by_system'] = {str(k): int(v) for k, v in system_counts.items() if pd.notna(k)}
+        
+        # Arıza Tipi
+        for col in df.columns:
+            if 'arıza tipi' in col.lower():
+                type_counts = df[col].value_counts().head(10).to_dict()
+                result['failure_by_type'] = {str(k): int(v) for k, v in type_counts.items() if pd.notna(k)}
+                break
+        
+        # En çok arıza yapan araçlar
+        if vehicle_col:
+            top_vehicles = df[vehicle_col].value_counts().head(5)
+            result['top_vehicles'] = [{'vehicle': str(v), 'count': int(c)} for v, c in top_vehicles.items()]
+        
+        # En sık değiştirilen parçalar
+        for col in df.columns:
+            if 'parça adı' in col.lower():
+                top_parts = df[col].value_counts().head(5)
+                result['top_parts'] = [{'part': str(v) if pd.notna(v) else 'Bilinmiyor', 'count': int(c)} for v, c in top_parts.items()]
+                break
+        
+        # En sık arızan tedarikçiler
+        for col in df.columns:
+            if 'tedarikçi' in col.lower():
+                top_suppliers = df[col].value_counts().head(5)
+                result['top_suppliers'] = [{'supplier': str(v) if pd.notna(v) else 'Bilinmiyor', 'count': int(c)} for v, c in top_suppliers.items()]
+                break
+        
+        # Aylık trend
+        date_col = None
+        for col in df.columns:
+            if 'tarih' in col.lower() and 'hata' in col.lower():
+                date_col = col
+                break
+        
+        if date_col:
+            try:
+                df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+                monthly = df[date_col].dt.to_period('M').value_counts().sort_index().tail(12)
+                result['monthly_trend'] = [{'month': str(m), 'count': int(c)} for m, c in monthly.items()]
+            except:
+                pass
+        
+        # Tamir için gerekli personel
+        for col in df.columns:
+            if 'personel' in col.lower() or 'personel sayısı' in col.lower():
+                try:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+                    personnel_counts = df[col].value_counts().head(5).to_dict()
+                    result['repair_personnel'] = {str(int(k)): int(v) for k, v in personnel_counts.items() if pd.notna(k)}
+                except:
+                    pass
+                break
+        
+    except Exception as e:
+        logger.error(f'Analiz hesaplama hatasi: {e}')
+    
+    return result
+
+
+def get_empty_analysis():
+    """Boş analiz verilerini döndür"""
+    return {
+        'total_failures': 0,
+        'unique_vehicles': 0,
+        'unique_systems': 0,
+        'kpi': {'mtbf': 0, 'mttr': 0, 'availability': 95.0, 'reliability': 96.0, 'total_downtime': 0},
+        'failure_by_source': {},
+        'failure_by_class': {},
+        'failure_by_system': {},
+        'failure_by_type': {},
+        'top_vehicles': [],
+        'top_parts': [],
+        'top_suppliers': [],
+        'monthly_trend': [],
+        'repair_personnel': {}
+    }
+
+
+@bp.route('/')
 @login_required
-def kpi_export_excel():
-    """KPI verileri Excel'e aktar"""
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment
-    from io import BytesIO
+def index():
+    """FRACAS Analiz Dashboard"""
+    try:
+        current_project = session.get('current_project', 'belgrad')
+        project_name = session.get('project_name', 'Belgrad')
+        
+        if current_user.role not in ['admin', 'muhendis', 'manager']:
+            flash('Bu sayfaya erişim yetkiniz yok.', 'error')
+            return redirect(url_for('dashboard.index'))
+        
+        # FRACAS verilerini yükle
+        df = get_fracas_data(current_project)
+        
+        # Filtreler
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        vehicle = request.args.get('vehicle')
+        system = request.args.get('system')
+        failure_class = request.args.get('failure_class')
+        
+        # Filtreleri uygula
+        filtered_df = apply_filters(df, start_date, end_date, vehicle, system, failure_class)
+        
+        # Analiz verilerini hesapla
+        if filtered_df is not None:
+            analysis = get_analysis_data(filtered_df)
+            data_available = True
+        else:
+            analysis = get_empty_analysis()
+            data_available = False
+        
+        # Sistemler listesi (filtreleme için)
+        systems = []
+        if df is not None and not df.empty and 'Sistem' in df.columns:
+            systems = sorted([s for s in df['Sistem'].dropna().unique() if pd.notna(s)])
+        
+        # Araçlar listesi
+        vehicles = []
+        if df is not None and not df.empty:
+            for col in df.columns:
+                if 'araç numarası' in col.lower():
+                    vehicles = sorted([str(v) for v in df[col].dropna().unique() if pd.notna(v)])
+                    break
+        
+        return render_template('kpi/dashboard.html',
+                             current_project=current_project,
+                             project_name=project_name,
+                             analysis=analysis,
+                             systems=systems,
+                             vehicles=vehicles,
+                             filters={
+                                 'start_date': start_date,
+                                 'end_date': end_date,
+                                 'vehicle': vehicle,
+                                 'system': system,
+                                 'failure_class': failure_class
+                             },
+                             data_available=data_available)
     
-    df = get_fracas_data()
-    
-    if df is None:
-        df = get_ariza_listesi_data()
-    
-    if df is None:
-        flash('KPI verileri bulunamadı!', 'danger')
-        return redirect(url_for('kpi.index'))
-    
-    # Filtre parametreleri
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
-    failure_class = request.args.get('failure_class')
-    
-    date_col = get_column(df, ['tarih', 'date', 'hata tarih'])
-    filtered_df = df.copy()
-    
-    # Filtreler uygula
-    if start_date and date_col:
-        try:
-            start = pd.to_datetime(start_date)
-            filtered_df[date_col] = pd.to_datetime(filtered_df[date_col], errors='coerce')
-            filtered_df = filtered_df[filtered_df[date_col] >= start]
-        except:
-            pass
-    
-    if end_date and date_col:
-        try:
-            end = pd.to_datetime(end_date)
-            filtered_df[date_col] = pd.to_datetime(filtered_df[date_col], errors='coerce')
-            filtered_df = filtered_df[filtered_df[date_col] <= end]
-        except:
-            pass
-    
-    if failure_class:
-        class_col = get_column(filtered_df, ['arıza sınıfı', 'failure class', 'sınıf'])
-        if class_col:
-            filtered_df = filtered_df[filtered_df[class_col].astype(str).str.startswith(failure_class)]
-    
-    # Excel oluştur
-    from io import BytesIO
-    output = BytesIO()
-    
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        filtered_df.to_excel(writer, sheet_name='KPI', index=False)
-    
-    output.seek(0)
-    
-    from flask import send_file
-    project_code = session.get('current_project', 'proje')
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    
-    return send_file(
-        output,
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        as_attachment=True,
-        download_name=f'KPI_{project_code}_{timestamp}.xlsx'
-    )
+    except Exception as e:
+        logger.error(f'KPI index hatasi: {e}')
+        flash('KPI sayfası yüklenirken hata oluştu.', 'error')
+        return redirect(url_for('dashboard.index'))
 
 
-@bp.route('/export/pdf', methods=['GET'])
+@bp.route('/export/excel')
 @login_required
-def kpi_export_pdf():
-    """KPI verileri PDF'e aktar"""
-    from reportlab.lib.pagesizes import landscape, A4
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import inch
-    from reportlab.lib import colors
-    from io import BytesIO
-    
-    df = get_fracas_data()
-    
-    if df is None:
-        df = get_ariza_listesi_data()
-    
-    if df is None:
-        flash('KPI verileri bulunamadı!', 'danger')
+def export_excel():
+    """Verileri Excel'e indir"""
+    try:
+        current_project = session.get('current_project', 'belgrad')
+        df = get_fracas_data(current_project)
+        
+        # Filtreler
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        vehicle = request.args.get('vehicle')
+        system = request.args.get('system')
+        
+        filtered_df = apply_filters(df, start_date, end_date, vehicle, system)
+        
+        if filtered_df is None or filtered_df.empty:
+            flash('İndirilebilir veri yok.', 'warning')
+            return redirect(url_for('kpi.index'))
+        
+        # Excel dosyası oluştur
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            filtered_df.to_excel(writer, sheet_name='FRACAS Verileri', index=False)
+            
+            # Özet sayfası
+            analysis = get_analysis_data(filtered_df)
+            summary_data = {
+                'Metrik': [
+                    'Toplam Arızalar',
+                    'Eşsiz Araçlar',
+                    'Sistem Sayısı',
+                    'MTBF (km)',
+                    'MTTR (dakika)',
+                    'Availability (%)',
+                    'Reliability (%)',
+                    'Toplam Downtime (dakika)'
+                ],
+                'Değer': [
+                    analysis['total_failures'],
+                    analysis['unique_vehicles'],
+                    analysis['unique_systems'],
+                    int(analysis['kpi']['mtbf']),
+                    f"{analysis['kpi']['mttr']:.2f}",
+                    f"{analysis['kpi']['availability']:.1f}",
+                    f"{analysis['kpi']['reliability']:.1f}",
+                    int(analysis['kpi']['total_downtime'])
+                ]
+            }
+            summary_df = pd.DataFrame(summary_data)
+            summary_df.to_excel(writer, sheet_name='Özet', index=False)
+        
+        output.seek(0)
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'FRACAS_Analiz_{current_project}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+        )
+    except Exception as e:
+        logger.error(f'Excel export hatasi: {e}')
+        flash('Excel export başarısız.', 'error')
         return redirect(url_for('kpi.index'))
+
+
+@bp.route('/api/filters')
+@login_required
+def api_filters():
+    """Filtreleme seçeneklerini API'de döndür"""
+    try:
+        current_project = session.get('current_project', 'belgrad')
+        df = get_fracas_data(current_project)
+        
+        if df is None or df.empty:
+            return jsonify({'success': False})
+        
+        # Sistemler
+        systems = []
+        if 'Sistem' in df.columns:
+            systems = sorted([str(s) for s in df['Sistem'].dropna().unique() if pd.notna(s)])
+        
+        # Araçlar
+        vehicles = []
+        for col in df.columns:
+            if 'araç numarası' in col.lower():
+                vehicles = sorted([str(v) for v in df[col].dropna().unique() if pd.notna(v)])
+                break
+        
+        # Arıza Sınıfları
+        failure_classes = []
+        for col in df.columns:
+            if 'arıza sınıfı' in col.lower():
+                failure_classes = sorted([str(c) for c in df[col].dropna().unique() if pd.notna(c)])
+                break
+        
+        return jsonify({
+            'success': True,
+            'systems': systems,
+            'vehicles': vehicles,
+            'failure_classes': failure_classes
+        })
     
-    # Filtre parametreleri
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
-    
-    date_col = get_column(df, ['tarih', 'date', 'hata tarih'])
-    filtered_df = df.copy()
-    
-    # Filtreler uygula
-    if start_date and date_col:
-        try:
-            start = pd.to_datetime(start_date)
-            filtered_df[date_col] = pd.to_datetime(filtered_df[date_col], errors='coerce')
-            filtered_df = filtered_df[filtered_df[date_col] >= start]
-        except:
-            pass
-    
-    if end_date and date_col:
-        try:
-            end = pd.to_datetime(end_date)
-            filtered_df[date_col] = pd.to_datetime(filtered_df[date_col], errors='coerce')
-            filtered_df = filtered_df[filtered_df[date_col] <= end]
-        except:
-            pass
-    
-    # PDF oluştur
-    output = BytesIO()
-    doc = SimpleDocTemplate(output, pagesize=landscape(A4))
-    elements = []
-    
-    # Başlık
-    styles = getSampleStyleSheet()
-    title = Paragraph(f"KPI Raporu - {session.get('project_name', 'Proje')}", 
-                     ParagraphStyle(name='CustomTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor('#1E40AF')))
-    elements.append(title)
-    elements.append(Spacer(1, 0.2*inch))
-    
-    # Tablo oluştur
-    table_data = [list(filtered_df.columns)]
-    table_data.extend(filtered_df.head(100).values.tolist())
-    
-    table = Table(table_data)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('FONTSIZE', (0, 1), (-1, -1), 8)
-    ]))
-    
-    elements.append(table)
-    doc.build(elements)
-    
-    output.seek(0)
-    
-    from flask import send_file
-    project_code = session.get('current_project', 'proje')
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    
-    return send_file(
-        output,
-        mimetype='application/pdf',
-        as_attachment=True,
-        download_name=f'KPI_{project_code}_{timestamp}.pdf'
-    )
+    except Exception as e:
+        logger.error(f'Filtreleme API hatasi: {e}')
+        return jsonify({'success': False})

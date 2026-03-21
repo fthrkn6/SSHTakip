@@ -33,6 +33,7 @@ from utils_project_excel_store import (
     upsert_service_status,
     sync_service_excel_to_db,
 )
+from utils_excel_grid_manager import ExcelGridManager, RCAExcelManager, init_excel_files
 import os
 import shutil
 import tempfile
@@ -252,7 +253,7 @@ def create_app():
                 if project_code:
                     # Kullanıcının bu projeye erişim yetkisi var mı kontrol et
                     if current_user.can_access_project(project_code):
-                        session['project_code'] = project_code
+                        session['current_project'] = project_code
                         # Proje adını da sessionda sakla
                         projects = ProjectManager.get_all_projects()
                         for p in projects:
@@ -261,15 +262,15 @@ def create_app():
                                 break
                 
                 # Session'da proje kodu yoksa varsayılan ayarla
-                if 'project_code' not in session:
+                if 'current_project' not in session:
                     # Admin ise belgrad, saha ise ilk atanan projeyi al
                     if current_user.is_admin():
-                        session['project_code'] = 'belgrad'
+                        session['current_project'] = 'belgrad'
                         session['project_name'] = 'Belgrad'
                     else:
                         assigned = current_user.get_assigned_projects()
                         if assigned:
-                            session['project_code'] = assigned[0]
+                            session['current_project'] = assigned[0]
                             projects = ProjectManager.get_all_projects()
                             for p in projects:
                                 if p['code'] == assigned[0]:
@@ -297,7 +298,20 @@ def create_app():
         def global_excel_sync():
             """Excel senkronizasyonu (OPTIMIZED: 1 saatte 1 kere)"""
             if current_user.is_authenticated:
-                current_project = session.get('current_project', session.get('project_code', 'belgrad'))
+                current_project = session.get('current_project', 'belgrad')
+                
+                # ========== YENİ: Excel Files Init (İlk Kullanım) ==========
+                try:
+                    from routes.service_status import get_tram_ids_from_veriler
+                    
+                    # Excel dosyaları varsa init et (idempotent - zaten varsa re-create etmez)
+                    equipment_codes = get_tram_ids_from_veriler(current_project)
+                    if equipment_codes:
+                        init_excel_files(app, current_project, equipment_codes)
+                except Exception as excel_init_error:
+                    logger.warning(f'Excel init hatası (devam et): {excel_init_error}')
+                
+                # ========== Excel Sync (1 saatte 1 kere) ==========
                 
                 # Sync'in gerekli olup olmadığını kontrol et
                 if should_sync_excel(current_project):

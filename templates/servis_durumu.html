@@ -493,7 +493,24 @@
         <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Yeni Durum Girişi</h5>
     </div>
     <div class="card-body">
-        <form method="POST" action="/servis-durumu">
+        <!-- Success Message Area -->
+        <div id="successAlert" class="alert alert-success alert-dismissible fade show d-none" role="alert">
+            <div class="row">
+                <div class="col-md-8">
+                    <i class="bi bi-check-circle-fill me-2"></i>
+                    <strong id="successTitle">Başarılı!</strong><br>
+                    <small id="successMsg"></small>
+                </div>
+                <div class="col-md-4 text-end">
+                    <span id="availabilityDisplay" style="font-size: 1.2em; font-weight: bold; color: #10b981;">
+                        <i class="bi bi-graph-up me-1"></i><span id="availabilityValue">-</span>% Operasyon Oranı
+                    </span>
+                </div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Kapat"></button>
+        </div>
+
+        <form id="statusForm">
             <div class="row">
                 <div class="col-md-3">
                     <label class="form-label">Tarih</label>
@@ -510,9 +527,9 @@
                     <label class="form-label">Durum</label>
                     <select class="form-select" name="durum" id="durum" required>
                         <option value="">Seçiniz</option>
-                        <option value="Servis">Servis</option>
-                        <option value="Servis Dışı">Servis Dışı</option>
-                        <option value="İşletme Kaynaklı Servis Dışı">İşletme Kaynaklı Servis Dışı</option>
+                        <option value="Servis">✓ Servis</option>
+                        <option value="Servis Dışı">✗ Servis Dışı</option>
+                        <option value="İşletme Kaynaklı Servis Dışı">! İşletme Kaynaklı Servis Dışı</option>
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -708,6 +725,60 @@
 
     // Sayfa yüklendiğinde dün'ün verilerini otomatik yükle
     document.addEventListener('DOMContentLoaded', function () {
+        // ============================================
+        // FORM SUBMIT HANDLER - Servis Durumu Kayıt
+        // ============================================
+        const statusForm = document.getElementById('statusForm');
+        if (statusForm) {
+            statusForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(this);
+                const data = {
+                    tram_id: formData.get('tramvay_id'),
+                    status: formData.get('durum'),
+                    sistem: formData.get('sistem'),
+                    alt_sistem: formData.get('alt_sistem'),
+                    reason: formData.get('aciklama')
+                };
+                
+                try {
+                    const response = await fetch('/servis/durumu/log', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // Success mesajını göster
+                        document.getElementById('successTitle').textContent = '✅ Servis Durumu Kaydedildi!';
+                        document.getElementById('successMsg').textContent = 
+                            `${result.tram_name} (${result.tram_id}) | Durum: ${result.status} | ${result.timestamp}`;
+                        document.getElementById('availabilityValue').textContent = result.availability;
+                        document.getElementById('successAlert').classList.remove('d-none');
+                        
+                        // 6 saniye sonra kaybol
+                        setTimeout(() => {
+                            document.getElementById('successAlert').classList.add('d-none');
+                        }, 6000);
+                        
+                        // Form'ı reset et
+                        this.reset();
+                    } else {
+                        alert('❌ Hata: ' + (result.error || 'Bilinmeyen hata'));
+                    }
+                } catch (error) {
+                    console.error('Form Error:', error);
+                    alert('❌ Hata oluştu: ' + error.message);
+                }
+            });
+        }
+        
+        // ============================================
+        // ESKI KOD: Dün'ün verilerini yükle
+        // ============================================
         if (Object.keys(yesterday_data).length > 0) {
             // Tüm araçlar için dün'ün durumunu al ve bugüne kopyala
             Object.entries(yesterday_data).forEach(([tram_id, data]) => {

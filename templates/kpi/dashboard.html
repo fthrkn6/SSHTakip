@@ -1,0 +1,905 @@
+{% extends "base.html" %}
+
+{% block title %}FRACAS Analiz Dashboard{% endblock %}
+
+{% block extraheader %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<style>
+    .dashboard-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 10px;
+        margin-bottom: 30px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
+        margin-bottom: 30px;
+    }
+
+    .kpi-card {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border-left: 4px solid #667eea;
+    }
+
+    .kpi-card h4 {
+        color: #666;
+        font-size: 13px;
+        font-weight: 600;
+        margin: 0 0 10px 0;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .kpi-value {
+        font-size: 28px;
+        font-weight: bold;
+        color: #667eea;
+        margin: 10px 0;
+    }
+
+    .kpi-unit {
+        font-size: 12px;
+        color: #999;
+    }
+
+    .kpi-card.warning { border-left-color: #f39c12; }
+    .kpi-card.danger { border-left-color: #e74c3c; }
+    .kpi-card.success { border-left-color: #27ae60; }
+
+    .filter-section {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 30px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .filter-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 15px;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .filter-group label {
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 5px;
+        color: #333;
+        text-transform: uppercase;
+    }
+
+    .filter-group input,
+    .filter-group select {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 13px;
+    }
+
+    .filter-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+    }
+
+    .btn-filter {
+        padding: 8px 20px;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .btn-filter:hover {
+        background: #764ba2;
+    }
+
+    .btn-reset {
+        padding: 8px 20px;
+        background: #95a5a6;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .btn-export {
+        padding: 8px 20px;
+        background: #27ae60;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+        margin-top: 15px;
+    }
+
+    .chart-container {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+
+    .chart-title {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 15px;
+        color: #333;
+    }
+
+    .table-container {
+        overflow-x: auto;
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+
+    table th {
+        background: #f5f5f5;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        border-bottom: 2px solid #ddd;
+        color: #333;
+    }
+
+    table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #eee;
+    }
+
+    table tbody tr:hover {
+        background: #f9f9f9;
+    }
+
+    .no-data {
+        text-align: center;
+        padding: 40px;
+        color: #999;
+    }
+
+    .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+
+    @media (max-width: 768px) {
+        .grid-2 {
+            grid-template-columns: 1fr;
+        }
+        
+        .filter-row {
+            grid-template-columns: 1fr;
+        }
+        
+        .kpi-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .dashboard-header h1 {
+            font-size: 20px;
+        }
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 3px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .status-good { background: #d4edda; color: #155724; }
+    .status-warning { background: #fff3cd; color: #856404; }
+    .status-bad { background: #f8d7da; color: #721c24; }
+</style>
+
+<div class="filter-section">
+    <h3>🔍 Filtreleme</h3>
+    <form method="GET" action="" class="filter-form">
+        <div class="filter-row">
+            <div class="filter-group">
+                <label>Başlangıç Tarihi</label>
+                <input type="date" name="start_date" value="{{ filters.start_date or '' }}">
+            </div>
+            <div class="filter-group">
+                <label>Bitiş Tarihi</label>
+                <input type="date" name="end_date" value="{{ filters.end_date or '' }}">
+            </div>
+            <div class="filter-group">
+                <label>Araç</label>
+                <select name="vehicle">
+                    <option value="">Tümü</option>
+                    {% for v in vehicles %}
+                    <option value="{{ v }}" {% if filters.vehicle == v %}selected{% endif %}>{{ v }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        
+        <div class="filter-row">
+            <div class="filter-group">
+                <label>Sistem</label>
+                <select name="system">
+                    <option value="">Tümü</option>
+                    {% for s in systems %}
+                    <option value="{{ s }}" {% if filters.system == s %}selected{% endif %}>{{ s }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Arıza Sınıfı</label>
+                <select name="failure_class">
+                    <option value="">Tümü</option>
+                    <option value="A" {% if filters.failure_class == 'A' %}selected{% endif %}>A - Sistem Etkileyen</option>
+                    <option value="B" {% if filters.failure_class == 'B' %}selected{% endif %}>B - Kısmen Etkileyen</option>
+                    <option value="C" {% if filters.failure_class == 'C' %}selected{% endif %}>C - Etkisiz</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="filter-buttons">
+            <button type="submit" class="btn-filter">🔎 Filtrele</button>
+            <a href="{{ url_for('kpi.index') }}" class="btn-reset">🔄 Sıfırla</a>
+            {% if data_available %}
+            <a href="{{ url_for('kpi.export_excel', start_date=filters.start_date, end_date=filters.end_date, vehicle=filters.vehicle, system=filters.system) }}" 
+               class="btn-export">📥 Excel İndir</a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+{% if data_available %}
+<!-- KPI KARTLARI -->
+<div class="kpi-grid">
+    <div class="kpi-card {% if analysis.kpi.mtbf < 1000 %}danger{% elif analysis.kpi.mtbf < 5000 %}warning{% else %}success{% endif %}">
+        <h4>📍 MTBF</h4>
+        <div class="kpi-value">{{ "%.0f"|format(analysis.kpi.mtbf) }}</div>
+        <div class="kpi-unit">km / Ortalama arıza aralığı</div>
+    </div>
+
+    <div class="kpi-card {% if analysis.kpi.mttr > 300 %}danger{% elif analysis.kpi.mttr > 120 %}warning{% else %}success{% endif %}">
+        <h4>⏱️ MTTR</h4>
+        <div class="kpi-value">{{ "%.2f"|format(analysis.kpi.mttr) }}</div>
+        <div class="kpi-unit">dakika / Ortalama tamir süresi</div>
+    </div>
+
+    <div class="kpi-card {% if analysis.kpi.availability < 90 %}danger{% elif analysis.kpi.availability < 95 %}warning{% else %}success{% endif %}">
+        <h4>🚄 Availability</h4>
+        <div class="kpi-value">{{ "%.1f"|format(analysis.kpi.availability) }}%</div>
+        <div class="kpi-unit">Sistem kullanılabilirliği</div>
+    </div>
+
+    <div class="kpi-card {% if analysis.kpi.reliability < 90 %}danger{% elif analysis.kpi.reliability < 95 %}warning{% else %}success{% endif %}">
+        <h4>🛡️ Reliability</h4>
+        <div class="kpi-value">{{ "%.1f"|format(analysis.kpi.reliability) }}%</div>
+        <div class="kpi-unit">Sistem güvenilirliği</div>
+    </div>
+
+    <div class="kpi-card">
+        <h4>⚙️ Toplam Arızalar</h4>
+        <div class="kpi-value">{{ analysis.total_failures }}</div>
+        <div class="kpi-unit">100% / Kayıtlı arıza</div>
+    </div>
+
+    <div class="kpi-card">
+        <h4>🚎 Eşsiz Araçlar</h4>
+        <div class="kpi-value">{{ analysis.unique_vehicles }}</div>
+        <div class="kpi-unit">Arızası olan araç</div>
+    </div>
+
+    <div class="kpi-card">
+        <h4>🔧 Sistem Sayısı</h4>
+        <div class="kpi-value">{{ analysis.unique_systems }}</div>
+        <div class="kpi-unit">Farklı sistem türü</div>
+    </div>
+
+    <div class="kpi-card">
+        <h4>⏳ Toplam Downtime</h4>
+        <div class="kpi-value">{{ "%.0f"|format(analysis.kpi.total_downtime) }}</div>
+        <div class="kpi-unit">dakika / Toplam bakım süresi</div>
+    </div>
+</div>
+
+<!-- ANALIZ GRAFIKLERI VE TABLOLARI -->
+<div class="grid-2">
+    <!-- Arıza Kaynağı -->
+    {% if analysis.failure_by_source %}
+    <div class="chart-container">
+        <h3 class="chart-title">🔴 Arıza Kaynağı Dağılımı</h3>
+        <canvas id="chartSource" style="max-height: 300px;"></canvas>
+        <table style="margin-top: 20px;">
+            <thead>
+                <tr>
+                    <th>Kaynak</th>
+                    <th style="text-align: right;">Sayı</th>
+                    <th style="text-align: right;">Yüzde</th>
+                    <th style="width: 30%; text-align: left;">Görsel</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set total = analysis.failure_by_source.values()|sum %}
+                {% for source, count in analysis.failure_by_source.items() %}
+                {% set percentage = (count / total * 100)|round(1) %}
+                <tr>
+                    <td>{{ source }}</td>
+                    <td style="text-align: right; font-weight: 600;">{{ count }}</td>
+                    <td style="text-align: right; font-weight: 600; color: #667eea;">{{ percentage }}%</td>
+                    <td>
+                        <div style="height: 20px; background: linear-gradient(90deg, #667eea, #764ba2); 
+                                    width: {{ (percentage)|int }}%; border-radius: 3px;"></div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Arıza Sınıfı -->
+    {% if analysis.failure_by_class %}
+    <div class="chart-container">
+        <h3 class="chart-title">📊 Arıza Sınıfı (EN 15341)</h3>
+        <canvas id="chartClass" style="max-height: 300px;"></canvas>
+        <table style="margin-top: 20px;">
+            <thead>
+                <tr>
+                    <th>Sınıf</th>
+                    <th style="text-align: right;">Sayı</th>
+                    <th style="text-align: right;">Yüzde</th>
+                    <th style="width: 30%; text-align: left;">Görsel</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set total_class = analysis.failure_by_class.values()|sum %}
+                {% for klass, count in analysis.failure_by_class.items() %}
+                {% set percentage = (count / total_class * 100)|round(1) %}
+                <tr>
+                    <td><strong>{{ klass }}</strong></td>
+                    <td style="text-align: right; font-weight: 600;">{{ count }}</td>
+                    <td style="text-align: right; font-weight: 600; color: #667eea;">{{ percentage }}%</td>
+                    <td>
+                        <div style="height: 20px; background: linear-gradient(90deg, #f39c12, #e67e22); 
+                                    width: {{ (percentage)|int }}%; border-radius: 3px;"></div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Sistem Bazında Arızalar -->
+    {% if analysis.failure_by_system %}
+    <div class="chart-container">
+        <h3 class="chart-title">🔧 Sistem Bazında Arızalar</h3>
+        <canvas id="chartSystem" style="max-height: 300px;"></canvas>
+        <table style="margin-top: 20px;">
+            <thead>
+                <tr>
+                    <th>Sistem</th>
+                    <th style="text-align: right;">Sayı</th>
+                    <th style="text-align: right;">Yüzde</th>
+                    <th style="width: 30%; text-align: left;">Görsel</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set total_sys = analysis.failure_by_system.values()|sum %}
+                {% for system, count in analysis.failure_by_system.items() %}
+                {% set percentage = (count / total_sys * 100)|round(1) %}
+                <tr>
+                    <td>{{ system }}</td>
+                    <td style="text-align: right; font-weight: 600;">{{ count }}</td>
+                    <td style="text-align: right; font-weight: 600; color: #667eea;">{{ percentage }}%</td>
+                    <td>
+                        <div style="height: 20px; background: linear-gradient(90deg, #27ae60, #2ecc71); 
+                                    width: {{ (percentage)|int }}%; border-radius: 3px;"></div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Arıza Tipi -->
+    {% if analysis.failure_by_type %}
+    <div class="chart-container">
+        <h3 class="chart-title">🎯 Arıza Tipi Dağılımı</h3>
+        <canvas id="chartType" style="max-height: 300px;"></canvas>
+        <table style="margin-top: 20px;">
+            <thead>
+                <tr>
+                    <th>Tip</th>
+                    <th style="text-align: right;">Sayı</th>
+                    <th style="text-align: right;">Yüzde</th>
+                    <th style="width: 30%; text-align: left;">Görsel</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set total_type = analysis.failure_by_type.values()|sum %}
+                {% for ftype, count in analysis.failure_by_type.items() %}
+                {% set percentage = (count / total_type * 100)|round(1) %}
+                <tr>
+                    <td>{{ ftype }}</td>
+                    <td style="text-align: right; font-weight: 600;">{{ count }}</td>
+                    <td style="text-align: right; font-weight: 600; color: #667eea;">{{ percentage }}%</td>
+                    <td>
+                        <div style="height: 20px; background: linear-gradient(90deg, #e74c3c, #c0392b); 
+                                    width: {{ (percentage)|int }}%; border-radius: 3px;"></div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- En Çok Arıza Yapan Araçlar -->
+    {% if analysis.top_vehicles %}
+    <div class="chart-container">
+        <h3 class="chart-title">🚌 En Çok Arıza Yapan Araçlar</h3>
+        <canvas id="chartVehicles" style="max-height: 300px;"></canvas>
+        <table style="margin-top: 20px;">
+            <thead>
+                <tr>
+                    <th>Araç</th>
+                    <th style="text-align: right;">Sayı</th>
+                    <th style="text-align: right;">Yüzde</th>
+                    <th style="width: 30%; text-align: left;">Görsel</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set total_veh = analysis.top_vehicles|map(attribute='count')|sum %}
+                {% for item in analysis.top_vehicles %}
+                {% set percentage = (item.count / total_veh * 100)|round(1) %}
+                <tr>
+                    <td><strong>{{ item.vehicle }}</strong></td>
+                    <td style="text-align: right; font-weight: 600;">{{ item.count }}</td>
+                    <td style="text-align: right; font-weight: 600; color: #667eea;">{{ percentage }}%</td>
+                    <td>
+                        <div style="height: 20px; background: linear-gradient(90deg, #3498db, #2980b9); 
+                                    width: {{ (percentage)|int }}%; border-radius: 3px;"></div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- En Sık Değiştirilen Parçalar -->
+    {% if analysis.top_parts %}
+    <div class="chart-container">
+        <h3 class="chart-title">⚙️ En Sık Değiştirilen Parçalar</h3>
+        <canvas id="chartParts" style="max-height: 300px;"></canvas>
+        <table style="margin-top: 20px;">
+            <thead>
+                <tr>
+                    <th>Parça</th>
+                    <th style="text-align: right;">Sayı</th>
+                    <th style="text-align: right;">Yüzde</th>
+                    <th style="width: 30%; text-align: left;">Görsel</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set total_parts = analysis.top_parts|map(attribute='count')|sum %}
+                {% for item in analysis.top_parts %}
+                {% set percentage = (item.count / total_parts * 100)|round(1) %}
+                <tr>
+                    <td>{{ item.part }}</td>
+                    <td style="text-align: right; font-weight: 600;">{{ item.count }}</td>
+                    <td style="text-align: right; font-weight: 600; color: #667eea;">{{ percentage }}%</td>
+                    <td>
+                        <div style="height: 20px; background: linear-gradient(90deg, #9b59b6, #8e44ad); 
+                                    width: {{ (percentage)|int }}%; border-radius: 3px;"></div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- En Sık Arızan Tedarikçiler -->
+    {% if analysis.top_suppliers %}
+    <div class="chart-container">
+        <h3 class="chart-title">🏢 En Sık Arızan Tedarikçiler</h3>
+        <canvas id="chartSuppliers" style="max-height: 300px;"></canvas>
+        <table style="margin-top: 20px;">
+            <thead>
+                <tr>
+                    <th>Tedarikçi</th>
+                    <th style="text-align: right;">Sayı</th>
+                    <th style="text-align: right;">Yüzde</th>
+                    <th style="width: 30%; text-align: left;">Görsel</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set total_sup = analysis.top_suppliers|map(attribute='count')|sum %}
+                {% for item in analysis.top_suppliers %}
+                {% set percentage = (item.count / total_sup * 100)|round(1) %}
+                <tr>
+                    <td>{{ item.supplier }}</td>
+                    <td style="text-align: right; font-weight: 600;">{{ item.count }}</td>
+                    <td style="text-align: right; font-weight: 600; color: #667eea;">{{ percentage }}%</td>
+                    <td>
+                        <div style="height: 20px; background: linear-gradient(90deg, #1abc9c, #16a085); 
+                                    width: {{ (percentage)|int }}%; border-radius: 3px;"></div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Aylık Trend -->
+{% if analysis.monthly_trend %}
+<div class="chart-container">
+    <h3 class="chart-title">📈 Aylık Arıza Trendi</h3>
+    <canvas id="chartMonthly" style="max-height: 300px;"></canvas>
+    <table style="margin-top: 20px;">
+        <thead>
+            <tr>
+                <th>Ay</th>
+                <th style="text-align: right;">Sayı</th>
+                <th style="width: 40%; text-align: left;">Görsel</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set max_count = analysis.monthly_trend|map(attribute='count')|max|default(1) %}
+            {% for item in analysis.monthly_trend %}
+            <tr>
+                <td><strong>{{ item.month }}</strong></td>
+                <td style="text-align: right; font-weight: 600;">{{ item.count }}</td>
+                <td>
+                    <div style="height: 20px; background: linear-gradient(90deg, #667eea, #764ba2); 
+                                width: {{ (item.count / max_count * 100)|int }}%; 
+                                border-radius: 3px;"></div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<!-- Tamir Personeli -->
+{% if analysis.repair_personnel %}
+<div class="chart-container">
+    <h3 class="chart-title">👥 Tamir için Gerekli Personel</h3>
+    <canvas id="chartPersonnel" style="max-height: 300px;"></canvas>
+    <table style="margin-top: 20px;">
+        <thead>
+            <tr>
+                <th>Personel Sayısı</th>
+                <th style="text-align: right;">Sayı</th>
+                <th style="text-align: right;">Yüzde</th>
+                <th style="width: 30%; text-align: left;">Görsel</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set total_pers = analysis.repair_personnel.values()|sum %}
+            {% for personnel, count in analysis.repair_personnel.items() %}
+            {% set percentage = (count / total_pers * 100)|round(1) %}
+            <tr>
+                <td><strong>{{ personnel }} kişi</strong></td>
+                <td style="text-align: right; font-weight: 600;">{{ count }}</td>
+                <td style="text-align: right; font-weight: 600; color: #667eea;">{{ percentage }}%</td>
+                <td>
+                    <div style="height: 20px; background: linear-gradient(90deg, #f1c40f, #f39c12); 
+                                width: {{ (percentage)|int }}%; border-radius: 3px;"></div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: {
+                display: true,
+                position: 'top',
+            },
+            tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                padding: 12,
+                titleColor: '#fff',
+                bodyColor: '#fff',
+                borderColor: '#667eea',
+                borderWidth: 1,
+            }
+        }
+    };
+
+    // Arıza Kaynağı - Pie Chart
+    {% if analysis.failure_by_source %}
+    const sourceCtx = document.getElementById('chartSource');
+    if (sourceCtx) {
+        new Chart(sourceCtx, {
+            type: 'doughnut',
+            data: {
+                labels: {{ analysis.failure_by_source.keys()|list|tojson }},
+                datasets: [{
+                    data: {{ analysis.failure_by_source.values()|list|tojson }},
+                    backgroundColor: ['#667eea', '#764ba2', '#f39c12', '#e74c3c', '#27ae60', '#3498db', '#9b59b6', '#1abc9c'],
+                    borderColor: '#fff',
+                    borderWidth: 2,
+                }]
+            },
+            options: chartOptions
+        });
+    }
+    {% endif %}
+
+    // Arıza Sınıfı - Pie Chart
+    {% if analysis.failure_by_class %}
+    const classCtx = document.getElementById('chartClass');
+    if (classCtx) {
+        new Chart(classCtx, {
+            type: 'doughnut',
+            data: {
+                labels: {{ analysis.failure_by_class.keys()|list|tojson }},
+                datasets: [{
+                    data: {{ analysis.failure_by_class.values()|list|tojson }},
+                    backgroundColor: ['#e74c3c', '#f39c12', '#27ae60'],
+                    borderColor: '#fff',
+                    borderWidth: 2,
+                }]
+            },
+            options: chartOptions
+        });
+    }
+    {% endif %}
+
+    // Sistem Bazında - Bar Chart
+    {% if analysis.failure_by_system %}
+    const systemCtx = document.getElementById('chartSystem');
+    if (systemCtx) {
+        new Chart(systemCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ analysis.failure_by_system.keys()|list|tojson }},
+                datasets: [{
+                    label: 'Arıza Sayısı',
+                    data: {{ analysis.failure_by_system.values()|list|tojson }},
+                    backgroundColor: '#27ae60',
+                    borderColor: '#229954',
+                    borderWidth: 1,
+                }]
+            },
+            options: Object.assign({}, chartOptions, {
+                indexAxis: 'y',
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            })
+        });
+    }
+    {% endif %}
+
+    // Arıza Tipi - Bar Chart
+    {% if analysis.failure_by_type %}
+    const typeCtx = document.getElementById('chartType');
+    if (typeCtx) {
+        new Chart(typeCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ analysis.failure_by_type.keys()|list|tojson }},
+                datasets: [{
+                    label: 'Arıza Sayısı',
+                    data: {{ analysis.failure_by_type.values()|list|tojson }},
+                    backgroundColor: '#e74c3c',
+                    borderColor: '#c0392b',
+                    borderWidth: 1,
+                }]
+            },
+            options: Object.assign({}, chartOptions, {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            })
+        });
+    }
+    {% endif %}
+
+    // En Çok Arıza Yapan Araçlar - Horizontal Bar
+    {% if analysis.top_vehicles %}
+    const vehiclesCtx = document.getElementById('chartVehicles');
+    if (vehiclesCtx) {
+        new Chart(vehiclesCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ analysis.top_vehicles|map(attribute='vehicle')|list|tojson }},
+                datasets: [{
+                    label: 'Arıza Sayısı',
+                    data: {{ analysis.top_vehicles|map(attribute='count')|list|tojson }},
+                    backgroundColor: '#3498db',
+                    borderColor: '#2980b9',
+                    borderWidth: 1,
+                }]
+            },
+            options: Object.assign({}, chartOptions, {
+                indexAxis: 'y',
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            })
+        });
+    }
+    {% endif %}
+
+    // En Sık Değiştirilen Parçalar
+    {% if analysis.top_parts %}
+    const partsCtx = document.getElementById('chartParts');
+    if (partsCtx) {
+        new Chart(partsCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ analysis.top_parts|map(attribute='part')|list|tojson }},
+                datasets: [{
+                    label: 'Sayısı',
+                    data: {{ analysis.top_parts|map(attribute='count')|list|tojson }},
+                    backgroundColor: '#9b59b6',
+                    borderColor: '#8e44ad',
+                    borderWidth: 1,
+                }]
+            },
+            options: Object.assign({}, chartOptions, {
+                indexAxis: 'y',
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            })
+        });
+    }
+    {% endif %}
+
+    // En Sık Arızan Tedarikçiler
+    {% if analysis.top_suppliers %}
+    const suppliersCtx = document.getElementById('chartSuppliers');
+    if (suppliersCtx) {
+        new Chart(suppliersCtx, {
+            type: 'doughnut',
+            data: {
+                labels: {{ analysis.top_suppliers|map(attribute='supplier')|list|tojson }},
+                datasets: [{
+                    data: {{ analysis.top_suppliers|map(attribute='count')|list|tojson }},
+                    backgroundColor: ['#1abc9c', '#16a085', '#f39c12', '#e74c3c', '#3498db'],
+                    borderColor: '#fff',
+                    borderWidth: 2,
+                }]
+            },
+            options: chartOptions
+        });
+    }
+    {% endif %}
+
+    // Aylık Trend - Line Chart
+    {% if analysis.monthly_trend %}
+    const monthlyCtx = document.getElementById('chartMonthly');
+    if (monthlyCtx) {
+        new Chart(monthlyCtx, {
+            type: 'line',
+            data: {
+                labels: {{ analysis.monthly_trend|map(attribute='month')|list|tojson }},
+                datasets: [{
+                    label: 'Aylık Arızalar',
+                    data: {{ analysis.monthly_trend|map(attribute='count')|list|tojson }},
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    fill: true,
+                    borderWidth: 3,
+                    tension: 0.4,
+                    pointRadius: 5,
+                    pointBackgroundColor: '#667eea',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                }]
+            },
+            options: Object.assign({}, chartOptions, {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            })
+        });
+    }
+    {% endif %}
+
+    // Tamir Personeli - Pie Chart
+    {% if analysis.repair_personnel %}
+    const personnelCtx = document.getElementById('chartPersonnel');
+    if (personnelCtx) {
+        new Chart(personnelCtx, {
+            type: 'pie',
+            data: {
+                labels: {{ analysis.repair_personnel.keys()|list|tojson }},
+                datasets: [{
+                    data: {{ analysis.repair_personnel.values()|list|tojson }},
+                    backgroundColor: ['#f39c12', '#e67e22', '#d35400', '#c0392b', '#e74c3c'],
+                    borderColor: '#fff',
+                    borderWidth: 2,
+                }]
+            },
+            options: chartOptions
+        });
+    }
+    {% endif %}
+});
+</script>
+
+{% else %}
+<div class="no-data">
+    <h3>📭 Veri Bulunamadı</h3>
+    <p>Seçilen proje veya tarih aralığı için arıza verisi mevcut değil.</p>
+    <p style="font-size: 12px; color: #bbb;">Lütfen farklı filtreler deneyiniz veya proje seçimini kontrol ediniz.</p>
+</div>
+{% endif %}
+
+{% endblock %}
