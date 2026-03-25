@@ -752,17 +752,29 @@
                     const result = await response.json();
                     
                     if (result.success) {
-                        // Success mesajını göster
-                        document.getElementById('successTitle').textContent = '✅ Servis Durumu Kaydedildi!';
-                        document.getElementById('successMsg').textContent = 
-                            `${result.tram_name} (${result.tram_id}) | Durum: ${result.status} | ${result.timestamp}`;
-                        document.getElementById('availabilityValue').textContent = result.availability;
-                        document.getElementById('successAlert').classList.remove('d-none');
+                        // Success mesajını göster (null check ile)
+                        const successTitleEl = document.getElementById('successTitle');
+                        const successMsgEl = document.getElementById('successMsg');
+                        const availabilityValEl = document.getElementById('availabilityValue');
+                        const successAlertEl = document.getElementById('successAlert');
                         
-                        // 6 saniye sonra kaybol
-                        setTimeout(() => {
-                            document.getElementById('successAlert').classList.add('d-none');
-                        }, 6000);
+                        if (successTitleEl) {
+                            successTitleEl.textContent = '✅ Servis Durumu Kaydedildi!';
+                        }
+                        if (successMsgEl) {
+                            successMsgEl.textContent = `${result.tram_name} (${result.tram_id}) | Durum: ${result.status} | ${result.timestamp}`;
+                        }
+                        if (availabilityValEl) {
+                            availabilityValEl.textContent = result.availability;
+                        }
+                        if (successAlertEl) {
+                            successAlertEl.classList.remove('d-none');
+                            
+                            // 6 saniye sonra kaybol
+                            setTimeout(() => {
+                                successAlertEl.classList.add('d-none');
+                            }, 6000);
+                        }
                         
                         // Form'ı reset et
                         this.reset();
@@ -1153,19 +1165,24 @@
         .then(data => {
             console.log('[DEBUG] API Response:', data);
             
-            // Stats'dan kartları doldur
+            // Stats'dan kartları doldur (null check ile)
             const stats = data.stats || {};
             const tableData = data.table_data || [];
             
-            document.getElementById('serviceCount').textContent = stats.operational || 0;
-            document.getElementById('operatingCount').textContent = stats.maintenance || 0;
-            document.getElementById('downCount').textContent = stats.outofservice || 0;
+            const serviceCountEl = document.getElementById('serviceCount');
+            const operatingCountEl = document.getElementById('operatingCount');
+            const downCountEl = document.getElementById('downCount');
+            const availabilityPercentEl = document.getElementById('availabilityPercent');
+            
+            if (serviceCountEl) serviceCountEl.textContent = stats.operational || 0;
+            if (operatingCountEl) operatingCountEl.textContent = stats.maintenance || 0;
+            if (downCountEl) downCountEl.textContent = stats.outofservice || 0;
             
             const total = stats.total || 0;
             const availability = total > 0 
                 ? ((total - (stats.outofservice || 0)) / total * 100).toFixed(1)
                 : 0;
-            document.getElementById('availabilityPercent').textContent = availability;
+            if (availabilityPercentEl) availabilityPercentEl.textContent = availability;
             
             console.log('[DEBUG] Kartlar güncellendi:', {
                 serviceCount: stats.operational,

@@ -67,7 +67,7 @@
 
         <!-- Grafik -->
         <div class="mt-4">
-            <h6 class="text-primary mb-3">📈 Availability Tablosu</h6>
+            <h6 class="text-primary mb-3">📈 Availability Tablosu <button class="chart-download-btn" onclick="downloadChartAsImage('availabilityChart', 'AvailabilityChart')"><i class="bi bi-download"></i> İndir</button></h6>
             <canvas id="availabilityChart" height="80"></canvas>
         </div>
 
@@ -142,6 +142,7 @@
         </div>
 
         <!-- Trend Grafik -->
+        <h6 class="text-primary mt-4 mb-3">📊 Kullanılabilirlik Trendi <button class="chart-download-btn" onclick="downloadChartAsImage('trendChart', 'KullanılabilirlikTrendi')"><i class="bi bi-download"></i> İndir</button></h6>
         <div style="height: 450px; max-height: 450px; overflow: hidden; position: relative;">
             <canvas id="trendChart"></canvas>
         </div>
@@ -178,7 +179,7 @@
         <div class="row">
             <!-- Sistem Arızaları (Bar Chart) -->
             <div class="col-lg-6">
-                <h6 class="text-danger mb-3">🔧 Sistem Bazında Arıza Sayıları</h6>
+                <h6 class="text-danger mb-3">🔧 Sistem Bazında Arıza Sayıları <button class="chart-download-btn" onclick="downloadChartAsImage('systemChart', 'SistemArızaları')"><i class="bi bi-download"></i> İndir</button></h6>
                 <div style="height: 350px; max-height: 350px; overflow: hidden;">
                     <canvas id="systemChart"></canvas>
                 </div>
@@ -186,7 +187,7 @@
 
             <!-- Alt Sistem Arızaları (Pie Chart) -->
             <div class="col-lg-6">
-                <h6 class="text-danger mb-3">⚙️ Alt Sistem Bazında Arıza Dağılımı</h6>
+                <h6 class="text-danger mb-3">⚙️ Alt Sistem Bazında Arıza Dağılımı <button class="chart-download-btn" onclick="downloadChartAsImage('subsystemChart', 'AltSistemArızaları')"><i class="bi bi-download"></i> İndir</button></h6>
                 <div style="height: 350px; max-height: 350px; overflow: hidden;">
                     <canvas id="subsystemChart"></canvas>
                 </div>

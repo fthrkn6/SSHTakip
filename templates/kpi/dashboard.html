@@ -340,6 +340,7 @@
     {% if analysis.failure_by_source %}
     <div class="chart-container">
         <h3 class="chart-title">🔴 Arıza Kaynağı Dağılımı</h3>
+        <button class="chart-download-btn" onclick="downloadChartAsImage('chartSource', 'ArızaKaynağı')"><i class="bi bi-download"></i> İndir</button>
         <canvas id="chartSource" style="max-height: 300px;"></canvas>
         <table style="margin-top: 20px;">
             <thead>
@@ -373,6 +374,7 @@
     {% if analysis.failure_by_class %}
     <div class="chart-container">
         <h3 class="chart-title">📊 Arıza Sınıfı (EN 15341)</h3>
+        <button class="chart-download-btn" onclick="downloadChartAsImage('chartClass', 'ArızaSınıfı')"><i class="bi bi-download"></i> İndir</button>
         <canvas id="chartClass" style="max-height: 300px;"></canvas>
         <table style="margin-top: 20px;">
             <thead>
@@ -406,6 +408,7 @@
     {% if analysis.failure_by_system %}
     <div class="chart-container">
         <h3 class="chart-title">🔧 Sistem Bazında Arızalar</h3>
+        <button class="chart-download-btn" onclick="downloadChartAsImage('chartSystem', 'SistemAnalizi')"><i class="bi bi-download"></i> İndir</button>
         <canvas id="chartSystem" style="max-height: 300px;"></canvas>
         <table style="margin-top: 20px;">
             <thead>
@@ -438,8 +441,7 @@
     <!-- Arıza Tipi -->
     {% if analysis.failure_by_type %}
     <div class="chart-container">
-        <h3 class="chart-title">🎯 Arıza Tipi Dağılımı</h3>
-        <canvas id="chartType" style="max-height: 300px;"></canvas>
+        <h3 class="chart-title">🎯 Arıza Tipi Dağılımı</h3>        <button class="chart-download-btn" onclick="downloadChartAsImage('chartType', 'ArızaTipi')"><i class="bi bi-download"></i> İndir</button>        <canvas id="chartType" style="max-height: 300px;"></canvas>
         <table style="margin-top: 20px;">
             <thead>
                 <tr>
@@ -472,6 +474,7 @@
     {% if analysis.top_vehicles %}
     <div class="chart-container">
         <h3 class="chart-title">🚌 En Çok Arıza Yapan Araçlar</h3>
+        <button class="chart-download-btn" onclick="downloadChartAsImage('chartVehicles', 'EnArızalıAraçlar')"><i class="bi bi-download"></i> İndir</button>
         <canvas id="chartVehicles" style="max-height: 300px;"></canvas>
         <table style="margin-top: 20px;">
             <thead>
@@ -505,6 +508,7 @@
     {% if analysis.top_parts %}
     <div class="chart-container">
         <h3 class="chart-title">⚙️ En Sık Değiştirilen Parçalar</h3>
+        <button class="chart-download-btn" onclick="downloadChartAsImage('chartParts', 'EnSıkDeğiştirenParçalar')"><i class="bi bi-download"></i> İndir</button>
         <canvas id="chartParts" style="max-height: 300px;"></canvas>
         <table style="margin-top: 20px;">
             <thead>
@@ -538,6 +542,7 @@
     {% if analysis.top_suppliers %}
     <div class="chart-container">
         <h3 class="chart-title">🏢 En Sık Arızan Tedarikçiler</h3>
+        <button class="chart-download-btn" onclick="downloadChartAsImage('chartSuppliers', 'EnArızanTedarikçiler')"><i class="bi bi-download"></i> İndir</button>
         <canvas id="chartSuppliers" style="max-height: 300px;"></canvas>
         <table style="margin-top: 20px;">
             <thead>
@@ -572,6 +577,7 @@
 {% if analysis.monthly_trend %}
 <div class="chart-container">
     <h3 class="chart-title">📈 Aylık Arıza Trendi</h3>
+    <button class="chart-download-btn" onclick="downloadChartAsImage('chartMonthly', 'AylıkTrendi')"><i class="bi bi-download"></i> İndir</button>
     <canvas id="chartMonthly" style="max-height: 300px;"></canvas>
     <table style="margin-top: 20px;">
         <thead>
@@ -603,6 +609,7 @@
 {% if analysis.repair_personnel %}
 <div class="chart-container">
     <h3 class="chart-title">👥 Tamir için Gerekli Personel</h3>
+    <button class="chart-download-btn" onclick="downloadChartAsImage('chartPersonnel', 'TamirPersoneli')"><i class="bi bi-download"></i> İndir</button>
     <canvas id="chartPersonnel" style="max-height: 300px;"></canvas>
     <table style="margin-top: 20px;">
         <thead>

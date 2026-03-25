@@ -163,7 +163,7 @@
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">
-                    <h5><i class="bi bi-pie-chart"></i> Arıza Kategorileri</h5>
+                    <h5><i class="bi bi-pie-chart"></i> Arıza Kategorileri <button class="chart-download-btn" onclick="downloadChartAsImage('categoryChart', 'ArızaKategorileri')"><i class="bi bi-download"></i> İndir</button></h5>
                 </div>
                 <div class="card-body">
                     {% if kpi.failure_by_category %}
@@ -227,7 +227,7 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
-                    <h5><i class="bi bi-graph-up"></i> Aylık Arıza Trendi</h5>
+                    <h5><i class="bi bi-graph-up"></i> Aylık Arıza Trendi <button class="chart-download-btn" onclick="downloadChartAsImage('trendChart', 'AylıkTrendi')"><i class="bi bi-download"></i> İndir</button></h5>
                 </div>
                 <div class="card-body">
                     <canvas id="trendChart" height="100"></canvas>

@@ -24,6 +24,38 @@ document.addEventListener('DOMContentLoaded', function () {
     }, 5000);
 });
 
+// Grafik İndirme Fonksiyonu
+function downloadChartAsImage(canvasId, chartTitle = 'grafik') {
+    try {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) {
+            console.error(`Canvas bulunamadı: ${canvasId}`);
+            showToast('Hata', 'Grafik bulunamadı', 'danger');
+            return;
+        }
+
+        // Canvas'ı PNG olarak indir
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        
+        // Tarihi ekle
+        const now = new Date();
+        const dateStr = now.toISOString().split('T')[0];
+        const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+        
+        link.download = `${chartTitle}_${dateStr}_${timeStr}.png`;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showToast('Başarılı', `"${chartTitle}" grafik indirildi`, 'success');
+    } catch (error) {
+        console.error('Grafik indirme hatası:', error);
+        showToast('Hata', 'Grafik indirilmesi başarısız oldu', 'danger');
+    }
+}
+
 // Tarih formatı
 function formatDate(dateString) {
     if (!dateString) return 'N/A';
