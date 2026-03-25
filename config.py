@@ -8,7 +8,9 @@ class Config:
     """Temel yapılandırma sınıfı"""
     
     # Flask temel ayarları
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
+    SECRET_KEY = os.environ.get('SECRET_KEY')
+    if not SECRET_KEY:
+        raise ValueError("SECRET_KEY environment variable is required for security. Please set it before running the application.")
     
     # Veritabanı
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///bozankaya_ssh.db'

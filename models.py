@@ -13,15 +13,6 @@ import json
 
 db = SQLAlchemy()
 
-class Permission(db.Model):
-    """Sistem izinleri - sayfa ve proje erişim kontrolleri"""
-    __tablename__ = 'permissions'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), unique=True, nullable=False)  # 'dashboard', 'users', 'projects', vb
-    description = db.Column(db.String(255))
-    category = db.Column(db.String(50))  # 'page', 'project', 'action'
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
 class Role(db.Model):
     """Sistem rolleri - dinamik rol yönetimi"""
     __tablename__ = 'roles'

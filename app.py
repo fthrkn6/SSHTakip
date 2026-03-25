@@ -138,7 +138,7 @@ def load_parts_cache(project=None):
                 part_file = os.path.join(data_dir, file)
                 break
     else:
-        print(f"[WARN] Parts directory not found: {data_dir}")
+        logger.warning(f"Parts directory not found: {data_dir}")
     
     if not part_file or not os.path.exists(part_file):
         _parts_cache[project] = []
@@ -163,10 +163,10 @@ def load_parts_cache(project=None):
         
         _parts_cache[project] = parts
         _parts_cache_time[project] = datetime.now()
-        print(f"[OK] Parts cache yüklendi ({project}): {len(parts)} parça - {part_file}")
+        logger.info(f"Parts cache loaded ({project}): {len(parts)} parts - {part_file}")
         return parts
     except Exception as e:
-        print(f"Parts cache hatası ({project}): {e}")
+        logger.error(f"Parts cache error ({project}): {e}")
         _parts_cache[project] = []
         return []
 
