@@ -1,18 +1,15 @@
 """
-Servis Durumu Log Sistemi
-Her servis durumu değişikliğini JSON ve Excel format'ında kayıt tutar
+DEPRECATED: This module is kept for backward compatibility only.
+Use utils_service_status_consolidated.py instead.
+
+This module re-exports from the consolidated logger for backward compatibility.
 """
 
-import json
-import os
-from datetime import datetime
-from pathlib import Path
-import pandas as pd
-from openpyxl import Workbook, load_workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+# Import and re-export consolidated logger
+from utils_service_status_consolidated import ServiceStatusLogger, log_service_status
 
+__all__ = ['ServiceStatusLogger', 'log_service_status']
 
-class ServiceStatusLogger:
     """Servis durumu değişikliklerini log'la"""
     
     BASE_LOG_DIR = 'logs/service_status_history'
