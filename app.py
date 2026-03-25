@@ -16,6 +16,10 @@ from routes.dashboard import bp as dashboard_bp
 from routes.reports import reports_bp
 from routes.admin import bp as admin_bp
 from routes.role_management import bp_roles
+from routes.hbr import bp as hbr_bp
+from routes.equipment import bp as equipment_bp
+from routes.maintenance import bp as maintenance_bp
+from routes.api import bp as api_bp
 from utils_service_status_logger import ServiceStatusLogger
 from utils_root_cause_analysis import RootCauseAnalyzer
 from utils.project_manager import ProjectManager
@@ -239,6 +243,10 @@ def create_app():
         app.register_blueprint(reports_bp)
         app.register_blueprint(admin_bp)  # Admin paneli
         app.register_blueprint(bp_roles)  # Rol yönetimi
+        app.register_blueprint(hbr_bp)  # HBR Yönetimi
+        app.register_blueprint(equipment_bp)  # Ekipman Yönetimi
+        app.register_blueprint(maintenance_bp)  # Bakım Yönetimi
+        app.register_blueprint(api_bp)  # API Endpoints
         
         # Project session handler
         @app.before_request
