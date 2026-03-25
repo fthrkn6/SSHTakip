@@ -7,15 +7,16 @@ import os
 import json
 from pathlib import Path
 from datetime import datetime
+from typing import Dict, Optional, List, Any
 from flask import current_app, session
 
 class KMDataManager:
     """KM verilerini yönet - tek kaynaktan oku"""
     
     @staticmethod
-    def get_equipment_km(tram_id, project_code=None):
+    def get_equipment_km(tram_id: str, project_code: Optional[str] = None) -> int:
         """
-        Tramvay'ın güncel KM'sini getir (Equipment tablosundan)
+        Get current KM for tram (from Equipment table)
         PRIMARY SOURCE: Equipment.current_km
         """
         from models import Equipment
@@ -26,9 +27,9 @@ class KMDataManager:
         return 0
     
     @staticmethod
-    def get_all_tram_kms(project_code=None):
+    def get_all_tram_kms(project_code: Optional[str] = None) -> Dict[str, int]:
         """
-        Tüm tramvayların KM'sini getir (Equipment tablosundan)
+        Get KM for all trams (from Equipment table)
         Returns: {tram_id: current_km}
         """
         from models import Equipment

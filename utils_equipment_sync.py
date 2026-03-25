@@ -4,10 +4,11 @@ Excel Sayfa2'deki araç listesi Database'deki Equipment tablosuyla eşitlenir
 """
 
 import logging
+from typing import Dict, List, Tuple, Optional
 
 logger = logging.getLogger(__name__)
 
-def sync_equipment_with_excel(project_code):
+def sync_equipment_with_excel(project_code: str) -> Tuple[int, int]:
     """
     Excel Sayfa2 ile Database Equipment tablosunu senkronize et
     

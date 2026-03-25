@@ -5,6 +5,7 @@ EN 13306 Bakım Terminolojisi Standardına Uygun
 """
 
 from datetime import datetime, date, timedelta
+from typing import List, Dict, Optional, Any
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -67,18 +68,18 @@ class User(UserMixin, db.Model):
     is_available = db.Column(db.Boolean, default=True)
     availability_notes = db.Column(db.Text)
     
-    def set_password(self, password):
+    def set_password(self, password: str) -> None:
+        """Set hashed password"""
         self.password_hash = generate_password_hash(password)
     
-    def check_password(self, password):
+    def check_password(self, password: str) -> bool:
+        """Check if password matches hash"""
         return check_password_hash(self.password_hash, password)
     
-    def is_admin(self):
-        """Admin mi kontrol et"""
-        # Yeni sistem: role_obj ile
+    def is_admin(self) -> bool:
+        """Check if user is admin"""
         if self.role_obj and self.role_obj.name == 'admin':
             return True
-        # Eski sistem uyumluluğu: role ile
         if self.role == 'admin':
             return True
         return False
@@ -93,8 +94,8 @@ class User(UserMixin, db.Model):
             return True
         return False
     
-    def can_access_project(self, project_code):
-        """Projeye erişim izni var mı kontrol et"""
+    def can_access_project(self, project_code: str) -> bool:
+        """Check if user can access project"""
         if self.is_admin():
             return True
         
@@ -106,10 +107,10 @@ class User(UserMixin, db.Model):
                 return False
         return False
     
-    def get_assigned_projects(self):
-        """İzin edilen projeleri listele"""
+    def get_assigned_projects(self) -> List[str]:
+        """Get list of assigned projects"""
         if self.is_admin():
-            return '*'  # Tüm projeler
+            return ['*']
         
         if self.assigned_projects:
             try:
@@ -118,8 +119,8 @@ class User(UserMixin, db.Model):
                 return []
         return []
     
-    def set_assigned_projects(self, projects):
-        """İzin edilen projeleri ayarla"""
+    def set_assigned_projects(self, projects: List[str]) -> None:
+        """Set assigned projects"""
         if isinstance(projects, list):
             self.assigned_projects = json.dumps(projects)
         else:
