@@ -1,0 +1,209 @@
+<!-- Equipment Status Styling Component -->
+
+<div class="equipment-status-showcase">
+    <!-- Çalışan -->
+    <div class="equipment-item">
+        <div class="equipment-status running">
+            <i class="bi bi-play-circle-fill"></i>
+        </div>
+        <div class="equipment-info">
+            <div class="equipment-name">Çalışan Ekipman</div>
+            <div class="status-text running-text">Aktif & Sağlıklı</div>
+        </div>
+        <div class="status-badge badge-running">✓</div>
+    </div>
+
+    <!-- Arızalı -->
+    <div class="equipment-item">
+        <div class="equipment-status failed">
+            <i class="bi bi-exclamation-diamond-fill"></i>
+        </div>
+        <div class="equipment-info">
+            <div class="equipment-name">Arızalı Ekipman</div>
+            <div class="status-text failed-text">Onarım Gerekli</div>
+        </div>
+        <div class="status-badge badge-failed">!</div>
+    </div>
+
+    <!-- Bakımda -->
+    <div class="equipment-item">
+        <div class="equipment-status maintenance">
+            <i class="bi bi-hammer"></i>
+        </div>
+        <div class="equipment-info">
+            <div class="equipment-name">Bakım Halinde</div>
+            <div class="status-text maintenance-text">Bakım Planlandı</div>
+        </div>
+        <div class="status-badge badge-maintenance">◆</div>
+    </div>
+
+    <!-- Idle -->
+    <div class="equipment-item">
+        <div class="equipment-status idle">
+            <i class="bi bi-pause-circle-fill"></i>
+        </div>
+        <div class="equipment-info">
+            <div class="equipment-name">Boş Ekipman</div>
+            <div class="status-text idle-text">Kullanımda Değil</div>
+        </div>
+        <div class="status-badge badge-idle">—</div>
+    </div>
+</div>
+
+<style>
+    .equipment-status-showcase {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 16px;
+        margin: 20px 0;
+    }
+
+    .equipment-item {
+        background: white;
+        border-radius: 12px;
+        padding: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border: 1px solid #e2e8f0;
+        transition: all 0.2s ease;
+    }
+
+    .equipment-item:hover {
+        border-color: #cbd5e1;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .equipment-status {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        flex-shrink: 0;
+    }
+
+    .equipment-status.running {
+        background: rgba(16, 185, 129, 0.15);
+        color: #10b981;
+    }
+
+    .equipment-status.failed {
+        background: rgba(239, 68, 68, 0.15);
+        color: #ef4444;
+    }
+
+    .equipment-status.maintenance {
+        background: rgba(245, 158, 11, 0.15);
+        color: #f59e0b;
+    }
+
+    .equipment-status.idle {
+        background: rgba(100, 116, 139, 0.15);
+        color: #64748b;
+    }
+
+    .equipment-info {
+        flex: 1;
+    }
+
+    .equipment-name {
+        font-weight: 600;
+        font-size: 14px;
+        color: #1e293b;
+        margin-bottom: 4px;
+    }
+
+    .status-text {
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .status-text.running-text {
+        color: #10b981;
+    }
+
+    .status-text.failed-text {
+        color: #ef4444;
+    }
+
+    .status-text.maintenance-text {
+        color: #f59e0b;
+    }
+
+    .status-text.idle-text {
+        color: #64748b;
+    }
+
+    .status-badge {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 16px;
+        flex-shrink: 0;
+    }
+
+    .status-badge.badge-running {
+        background: rgba(16, 185, 129, 0.1);
+        color: #10b981;
+    }
+
+    .status-badge.badge-failed {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+    }
+
+    .status-badge.badge-maintenance {
+        background: rgba(245, 158, 11, 0.1);
+        color: #f59e0b;
+    }
+
+    .status-badge.badge-idle {
+        background: rgba(100, 116, 139, 0.1);
+        color: #64748b;
+    }
+
+    /* For inline status badges in tables/lists */
+    .status-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .status-label.status-running {
+        background: rgba(16, 185, 129, 0.2);
+        color: #059669;
+    }
+
+    .status-label.status-failed {
+        background: rgba(239, 68, 68, 0.2);
+        color: #dc2626;
+    }
+
+    .status-label.status-maintenance {
+        background: rgba(245, 158, 11, 0.2);
+        color: #d97706;
+    }
+
+    .status-label.status-idle {
+        background: rgba(100, 116, 139, 0.2);
+        color: #475569;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .equipment-status-showcase {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>

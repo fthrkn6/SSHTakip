@@ -42,6 +42,22 @@ import os
 import shutil
 import tempfile
 import logging
+from datetime import timedelta
+
+# Infrastructure: Caching & Performance
+from utils_performance import init_cache, CacheManager, CacheConfig, cache_result
+from utils_report_manager import template_manager, report_builder, ReportTemplateManager
+from utils_ui_config import UIConfig, DARK_MODE_SCRIPT, CUSTOM_CSS
+
+# Celery for async tasks
+try:
+    from celery import Celery
+    from celery_config import make_celery, CeleryConfig
+    CELERY_AVAILABLE = True
+except ImportError:
+    CELERY_AVAILABLE = False
+    logger_module = logging.getLogger('ssh_takip')
+    logger_module.warning("Celery not installed - async tasks disabled")
 
 # Initialize reporting system
 from utils_reporting import init_reporting_system
@@ -202,12 +218,35 @@ def create_app():
         app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session timeout
         app.config['COMPRESS_LEVEL'] = 6  # Gzip compression level
         
+        # Infrastructure Configuration
+        app.config['REDIS_URL'] = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+        app.config['CACHE_DEFAULT_TIMEOUT'] = 300  # 5 minutes
+        
+        # Celery Configuration
+        if CELERY_AVAILABLE:
+            app.config.from_object(CeleryConfig)
+            celery = make_celery(app)
+            app.celery = celery
+        
         # Enable compression
         try:
             from flask_compress import Compress
             Compress(app)
         except ImportError:
             pass  # Flask-Compress not installed, skipping
+        
+        # Initialize Cache Manager
+        try:
+            import redis
+            redis_client = redis.from_url(app.config['REDIS_URL'])
+            redis_client.ping()  # Test connection
+            cache_mgr = init_cache(redis_client)
+            logger.info("Redis cache initialized successfully")
+        except Exception as e:
+            logger.warning(f"Redis not available, using local cache: {e}")
+            cache_mgr = init_cache(None)  # Fallback to local cache
+        
+        app.cache_manager = cache_mgr
 
         # Initialize database
         db.init_app(app)
@@ -247,6 +286,13 @@ def create_app():
         app.register_blueprint(equipment_bp)  # Ekipman Yönetimi
         app.register_blueprint(maintenance_bp)  # Bakım Yönetimi
         app.register_blueprint(api_bp)  # API Endpoints
+        
+        # Register infrastructure blueprints
+        from routes.performance import bp as performance_bp
+        app.register_blueprint(performance_bp)  # Performance monitoring
+        
+        from routes.reporting import bp as reporting_bp
+        app.register_blueprint(reporting_bp)  # Advanced reporting
         
         # Project session handler
         @app.before_request

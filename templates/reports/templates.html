@@ -1,0 +1,362 @@
+{% extends "base.html" %}
+
+{% block title %}Report Templates{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="display-5">Report Templates</h1>
+            <p class="text-muted">Select and customize reports</p>
+        </div>
+        <div class="col-md-4 text-end">
+            {% if current_user.is_admin %}
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createTemplateModal">
+                Create Custom Template
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Templates Grid -->
+    <div class="row" id="templatesContainer">
+        <div class="text-center mt-5">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Report Generation Modal -->
+<div class="modal fade" id="generateModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reportTitle">Generate Report</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="generateForm">
+                    <!-- Project Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">Project</label>
+                        <select class="form-select" id="projectSelect" required>
+                            <option value="">Select project...</option>
+                        </select>
+                    </div>
+
+                    <!-- Date Range -->
+                    <div class="mb-3">
+                        <label class="form-label">Date Range</label>
+                        <select class="form-select" id="dateRange" required>
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                            <option value="custom">Custom Range</option>
+                        </select>
+                    </div>
+
+                    <!-- Custom Date Range (hidden by default) -->
+                    <div class="mb-3" id="customDateRange" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">From</label>
+                                <input type="date" class="form-control" id="fromDate">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">To</label>
+                                <input type="date" class="form-control" id="toDate">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Export Format -->
+                    <div class="mb-3">
+                        <label class="form-label">Format</label>
+                        <div class="btn-group" role="group" id="formatGroup">
+                            <input type="radio" class="btn-check" name="format" id="formatPdf" value="pdf" checked>
+                            <label class="btn btn-outline-primary" for="formatPdf">PDF</label>
+
+                            <input type="radio" class="btn-check" name="format" id="formatExcel" value="xlsx">
+                            <label class="btn btn-outline-primary" for="formatExcel">Excel</label>
+
+                            <input type="radio" class="btn-check" name="format" id="formatHtml" value="html">
+                            <label class="btn btn-outline-primary" for="formatHtml">HTML</label>
+
+                            <input type="radio" class="btn-check" name="format" id="formatJson" value="json">
+                            <label class="btn btn-outline-primary" for="formatJson">JSON</label>
+                        </div>
+                    </div>
+
+                    <!-- Additional Options -->
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="includeCharts" checked>
+                            <label class="form-check-label" for="includeCharts">
+                                Include Charts
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="includeSummary" checked>
+                            <label class="form-check-label" for="includeSummary">
+                                Include Summary
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Progress -->
+                    <div id="generationProgress" style="display: none;">
+                        <div class="progress mb-3">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 id="progressBar" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <p class="text-muted text-center">Generating report...</p>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="generateReport()">Generate & Download</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Template Modal (Admin Only) -->
+{% if current_user.is_admin %}
+<div class="modal fade" id="createTemplateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create Custom Template</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createTemplateForm">
+                    <div class="mb-3">
+                        <label class="form-label">Template Name</label>
+                        <input type="text" class="form-control" id="templateName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Title</label>
+                        <input type="text" class="form-control" id="templateTitle" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" id="templateDesc" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Modules (comma-separated)</label>
+                        <input type="text" class="form-control" id="templateModules" 
+                               placeholder="summary,failures,charts" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="createTemplate()">Create</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<style>
+.template-card {
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    height: 100%;
+}
+
+.template-card:hover {
+    border-color: #007bff;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.15);
+    transform: translateY(-5px);
+}
+
+.template-card.active {
+    border-color: #007bff;
+    background-color: #f0f7ff;
+}
+
+.template-icon {
+    font-size: 2.5em;
+    margin: 10px 0;
+}
+
+.template-badge {
+    display: inline-block;
+    margin: 3px;
+    font-size: 0.75em;
+}
+</style>
+
+<script>
+let selectedTemplate = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadTemplates();
+    setupEventListeners();
+    loadProjects();
+});
+
+function loadTemplates() {
+    fetch('/api/reports/templates')
+        .then(r => r.json())
+        .then(data => {
+            renderTemplates(data.templates);
+        })
+        .catch(err => console.error('Error loading templates:', err));
+}
+
+function renderTemplates(templates) {
+    const container = document.getElementById('templatesContainer');
+    
+    if (templates.length === 0) {
+        container.innerHTML = '<p class="col-12 text-center text-muted">No templates available</p>';
+        return;
+    }
+
+    const icons = {
+        'daily_ops': '📋',
+        'weekly_maint': '🔧',
+        'monthly_kpi': '📊',
+        'fracas_analysis': '🔍'
+    };
+
+    container.innerHTML = templates.map(t => `
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card template-card p-3 text-center" onclick="selectTemplate('${t.name}')">
+                <div class="template-icon">${icons[t.name] || '📄'}</div>
+                <h5 class="card-title">${t.title}</h5>
+                <p class="card-text small text-muted">${t.description}</p>
+                <div>
+                    <span class="badge bg-light text-dark template-badge">
+                        ${t.format.toUpperCase()}
+                    </span>
+                    ${t.include_charts ? '<span class="badge bg-info template-badge">Charts</span>' : ''}
+                    ${t.email_enabled ? '<span class="badge bg-success template-badge">Email</span>' : ''}
+                </div>
+                <button class="btn btn-sm btn-primary mt-3 w-100" onclick="openGenerateModal('${t.name}', '${t.title}')">
+                    Generate
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function selectTemplate(name) {
+    selectedTemplate = name;
+    document.querySelectorAll('.template-card').forEach(c => c.classList.remove('active'));
+    event.target.closest('.template-card').classList.add('active');
+}
+
+function openGenerateModal(templateName, templateTitle) {
+    selectedTemplate = templateName;
+    document.getElementById('reportTitle').textContent = `Generate: ${templateTitle}`;
+    const modal = new bootstrap.Modal(document.getElementById('generateModal'));
+    modal.show();
+}
+
+function setupEventListeners() {
+    document.getElementById('dateRange').addEventListener('change', function() {
+        const customRange = document.getElementById('customDateRange');
+        customRange.style.display = this.value === 'custom' ? 'block' : 'none';
+    });
+}
+
+function loadProjects() {
+    // Load user projects
+    fetch('/api/projects')
+        .then(r => r.json())
+        .then(projects => {
+            const select = document.getElementById('projectSelect');
+            projects.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p.code;
+                option.textContent = p.name;
+                select.appendChild(option);
+            });
+        })
+        .catch(err => console.error('Error loading projects:', err));
+}
+
+function generateReport() {
+    const templateName = selectedTemplate;
+    const format = document.querySelector('input[name="format"]:checked').value;
+    const projectCode = document.getElementById('projectSelect').value;
+    const dateRange = document.getElementById('dateRange').value;
+
+    if (!projectCode) {
+        alert('Please select a project');
+        return;
+    }
+
+    document.getElementById('generationProgress').style.display = 'block';
+
+    // Generate and export
+    fetch('/api/reports/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            template_name: templateName,
+            format: format,
+            filters: {
+                project_code: projectCode,
+                date_range: dateRange
+            }
+        })
+    })
+    .then(r => {
+        if (r.ok) return r.blob();
+        throw new Error('Failed to generate report');
+    })
+    .then(blob => {
+        // Download file
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `report_${Date.now()}.${format}`;
+        a.click();
+
+        document.getElementById('generationProgress').style.display = 'none';
+        bootstrap.Modal.getInstance(document.getElementById('generateModal')).hide();
+        alert('Report downloaded successfully!');
+    })
+    .catch(err => {
+        console.error('Error:', err);
+        alert('Error generating report: ' + err.message);
+        document.getElementById('generationProgress').style.display = 'none';
+    });
+}
+
+function createTemplate() {
+    const formData = {
+        name: document.getElementById('templateName').value,
+        title: document.getElementById('templateTitle').value,
+        description: document.getElementById('templateDesc').value,
+        modules: document.getElementById('templateModules').value.split(',').map(m => m.trim()),
+        format: 'pdf'
+    };
+
+    fetch('/api/reports/templates/custom', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('Template created successfully!');
+            bootstrap.Modal.getInstance(document.getElementById('createTemplateModal')).hide();
+            loadTemplates();
+        }
+    })
+    .catch(err => console.error('Error:', err));
+}
+</script>
+{% endblock %}

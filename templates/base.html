@@ -563,6 +563,143 @@
             }
         }
 
+        /* Mobile Responsive - Tablet (768px) */
+        @media (max-width: 768px) {
+            :root {
+                --sidebar-width: 0;
+                --navbar-height: 56px;
+            }
+
+            .page-title {
+                font-size: 20px;
+            }
+
+            .page-subtitle {
+                font-size: 13px;
+            }
+
+            .card {
+                border-radius: 12px;
+            }
+
+            .stat-card {
+                padding: 16px;
+                gap: 12px;
+            }
+
+            .stat-icon {
+                width: 48px;
+                height: 48px;
+                font-size: 20px;
+            }
+
+            .navbar-icon-btn {
+                width: 36px;
+                height: 36px;
+            }
+
+            .user-dropdown {
+                padding: 4px 8px;
+            }
+
+            .user-info {
+                display: none !important;
+            }
+
+            .top-navbar {
+                padding: 0 16px;
+            }
+
+            .page-content {
+                padding: 16px;
+            }
+        }
+
+        /* Mobile Responsive - Phone (480px) */
+        @media (max-width: 480px) {
+            :root {
+                --navbar-height: 50px;
+            }
+
+            .page-title {
+                font-size: 18px;
+            }
+
+            .stat-card {
+                padding: 12px;
+                gap: 8px;
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .stat-icon {
+                width: 40px;
+                height: 40px;
+                font-size: 18px;
+            }
+
+            .navbar-search {
+                width: 100%;
+            }
+
+            .top-navbar {
+                height: auto;
+                padding: 8px 12px;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+
+            .navbar-actions {
+                gap: 8px;
+            }
+
+            .navbar-icon-btn {
+                width: 32px;
+                height: 32px;
+                font-size: 16px;
+            }
+
+            .page-content {
+                padding: 12px;
+            }
+
+            .card {
+                border-radius: 10px;
+            }
+
+            /* Full width tables */
+            .table-responsive {
+                border: 0;
+            }
+
+            /* Stack grid columns */
+            .row > [class^="col-"] {
+                max-width: 100%;
+            }
+
+            /* Adjust modal sizes */
+            .modal-dialog {
+                margin: 10px;
+            }
+        }
+
+        /* Extra Small Mobile (320px) */
+        @media (max-width: 320px) {
+            .page-title {
+                font-size: 16px;
+            }
+
+            .navbar-icon-btn {
+                width: 28px;
+                height: 28px;
+                font-size: 14px;
+            }
+
+            .stat-card {
+                padding: 8px;
+            }
+        }
+
         /* Animations */
         @keyframes fadeIn {
             from {
@@ -729,6 +866,12 @@
             </a>
 
             {% if current_user.role == 'admin' %}
+            <a href="{{ url_for('reports.management_dashboard') }}"
+                class="sidebar-link {{ 'active' if 'reports.management_dashboard' in request.endpoint|string }}">
+                <i class="bi bi-speedometer2"></i>
+                <span>📊 Yönetim Dashboard</span>
+            </a>
+
             <a href="{{ url_for('reports.management_report') }}"
                 class="sidebar-link {{ 'active' if 'reports.management' in request.endpoint|string }}">
                 <i class="bi bi-graph-up"></i>
@@ -821,6 +964,11 @@
                     </ul>
                 </div>
                 {% endif %}
+
+                <!-- Dark Mode Toggle -->
+                <button class="navbar-icon-btn" id="darkModeToggle" title="Karanlık Mod">
+                    <i class="bi bi-moon"></i>
+                </button>
 
                 <button class="navbar-icon-btn">
                     <i class="bi bi-bell"></i>
@@ -932,6 +1080,80 @@
                     dropdownMenu.innerHTML = '<li><a class="dropdown-item" href="?project=belgrad">Belgrad</a></li>';
                 });
         });
+    </script>
+
+    <!-- Dark Mode Toggle Script -->
+    <script>
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const htmlElement = document.documentElement;
+        
+        // Initialize dark mode from localStorage
+        function initDarkMode() {
+            const isDarkMode = localStorage.getItem('darkMode') === 'true';
+            if (isDarkMode) {
+                enableDarkMode();
+            }
+        }
+        
+        // Enable dark mode
+        function enableDarkMode() {
+            htmlElement.setAttribute('data-bs-theme', 'dark');
+            htmlElement.style.backgroundColor = '#0f172a';
+            htmlElement.style.color = '#e2e8f0';
+            document.body.style.backgroundColor = '#0f172a';
+            document.body.style.color = '#e2e8f0';
+            
+            // Update icon
+            darkModeToggle.innerHTML = '<i class="bi bi-sun"></i>';
+            localStorage.setItem('darkMode', 'true');
+            
+            // Update CSS variables for dark mode
+            const root = document.documentElement;
+            root.style.setProperty('--light-bg', '#1e293b');
+            root.style.setProperty('--primary-color', '#3b82f6');
+        }
+        
+        // Disable dark mode
+        function disableDarkMode() {
+            htmlElement.removeAttribute('data-bs-theme');
+            htmlElement.style.backgroundColor = '';
+            htmlElement.style.color = '';
+            document.body.style.backgroundColor = '#f8fafc';
+            document.body.style.color = '#1e293b';
+            
+            // Update icon
+            darkModeToggle.innerHTML = '<i class="bi bi-moon"></i>';
+            localStorage.setItem('darkMode', 'false');
+            
+            // Restore CSS variables
+            const root = document.documentElement;
+            root.style.setProperty('--light-bg', '#f8fafc');
+            root.style.setProperty('--primary-color', '#2563eb');
+        }
+        
+        // Toggle dark mode
+        darkModeToggle.addEventListener('click', () => {
+            const isDarkMode = localStorage.getItem('darkMode') === 'true';
+            if (isDarkMode) {
+                disableDarkMode();
+            } else {
+                enableDarkMode();
+            }
+        });
+        
+        // Listen for storage changes (multi-tab sync)
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'darkMode') {
+                if (e.newValue === 'true') {
+                    enableDarkMode();
+                } else {
+                    disableDarkMode();
+                }
+            }
+        });
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', initDarkMode);
     </script>
 
     {% block scripts %}{% endblock %}

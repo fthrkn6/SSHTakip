@@ -838,6 +838,17 @@ def get_supplier_system_matrix(df):
     return matrix if matrix else None
 
 
+@reports_bp.route('/dashboard-yonetim', methods=['GET'])
+@login_required
+def management_dashboard():
+    """Yönetim raporları sunumsal dashboard - Tüm projeler KPI"""
+    if current_user.role not in ['admin', 'manager']:
+        flash('Bu sayfaya erişim yetkiniz yok.', 'error')
+        return redirect(url_for('dashboard.index'))
+    
+    return render_template('management_dashboard.html')
+
+
 @reports_bp.route('/management', methods=['GET', 'POST'])
 @login_required
 def management_report():
