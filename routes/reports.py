@@ -849,6 +849,101 @@ def management_dashboard():
     return render_template('management_dashboard.html')
 
 
+@reports_bp.route('/api/projects-kpi', methods=['GET'])
+@login_required
+def get_projects_kpi():
+    """Tüm projeler için gerçek KPI verilerini döndür"""
+    try:
+        from datetime import datetime, timedelta
+        from sqlalchemy import func
+        
+        projects_data = {}
+        
+        for project_code, project_name in PROJECTS.items():
+            try:
+                # Proje için tüm araçları say
+                total_vehicles = Equipment.query.filter_by(
+                    project_code=project_code,
+                    parent_id=None
+                ).count()
+                
+                # Aktif araçları say
+                active_vehicles = Equipment.query.filter_by(
+                    project_code=project_code,
+                    parent_id=None,
+                    status='Aktif'
+                ).count()
+                
+                availability = round((active_vehicles / total_vehicles * 100) if total_vehicles > 0 else 0)
+                
+                # Son 30 günde arıza sayısı
+                thirty_days_ago = datetime.now() - timedelta(days=30)
+                failures_30 = Failure.query.join(Equipment).filter(
+                    Equipment.project_code == project_code,
+                    Failure.failure_date >= thirty_days_ago
+                ).count()
+                
+                # Ortalama MTTR hesapla (repairs duration'ı varsa)
+                mttr = 0
+                try:
+                    failed_equipment = Equipment.query.filter_by(
+                        project_code=project_code,
+                        status='Arızalı'
+                    ).all()
+                    
+                    if failed_equipment:
+                        total_mttr = 0
+                        count = 0
+                        for eq in failed_equipment:
+                            if hasattr(eq, 'current_km') and eq.current_km:
+                                avg_speed = 30  # km/h varsayılan
+                                estimated_hours = eq.current_km / avg_speed if eq.current_km > 0 else 0
+                                total_mttr += estimated_hours
+                                count += 1
+                        mttr = round(total_mttr / count, 1) if count > 0 else 0
+                except:
+                    mttr = 0
+                
+                # Proje durumunu belirle
+                if availability >= 85:
+                    status = 'active'
+                elif availability >= 75:
+                    status = 'maintenance'
+                else:
+                    status = 'issues'
+                
+                projects_data[project_code] = {
+                    'name': project_name,
+                    'vehicles': total_vehicles,
+                    'availability': availability,
+                    'failures30': failures_30,
+                    'mttr': mttr,
+                    'status': status
+                }
+            except Exception as e:
+                logger.warning(f"Error getting KPI for {project_code}: {e}")
+                projects_data[project_code] = {
+                    'name': project_name,
+                    'vehicles': 0,
+                    'availability': 0,
+                    'failures30': 0,
+                    'mttr': 0,
+                    'status': 'issues'
+                }
+        
+        return jsonify({
+            'success': True,
+            'data': projects_data
+        })
+    
+    except Exception as e:
+        logger.error(f"Error in get_projects_kpi: {e}")
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
 @reports_bp.route('/management', methods=['GET', 'POST'])
 @login_required
 def management_report():

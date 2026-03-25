@@ -470,7 +470,7 @@
 </template>
 
 <script>
-    // Tüm projeler için verileri yükle
+    // Tüm projeler için verileri yükle - GERÇEKİ API'DEN
     const PROJECTS = {
         'belgrad': 'Belgrad',
         'iasi': 'Iași',
@@ -482,78 +482,41 @@
         'istanbul': 'İstanbul'
     };
 
-    // Sahte veri (gerçek veri API'den gelecek)
-    const projectData = {
-        'belgrad': {
-            name: 'Belgrad',
-            vehicles: 147,
-            availability: 85,
-            failures30: 12,
-            mttr: 4.5,
-            status: 'active'
-        },
-        'iasi': {
-            name: 'Iași',
-            vehicles: 98,
-            availability: 88,
-            failures30: 8,
-            mttr: 3.8,
-            status: 'active'
-        },
-        'timisoara': {
-            name: 'Timișoara',
-            vehicles: 76,
-            availability: 82,
-            failures30: 15,
-            mttr: 5.2,
-            status: 'maintenance'
-        },
-        'kayseri': {
-            name: 'Kayseri',
-            vehicles: 52,
-            availability: 90,
-            failures30: 5,
-            mttr: 2.1,
-            status: 'active'
-        },
-        'kocaeli': {
-            name: 'Kocaeli',
-            vehicles: 88,
-            availability: 87,
-            failures30: 10,
-            mttr: 4.3,
-            status: 'active'
-        },
-        'gebze': {
-            name: 'Gebze',
-            vehicles: 64,
-            availability: 84,
-            failures30: 11,
-            mttr: 4.8,
-            status: 'active'
-        },
-        'samsun': {
-            name: 'Samsun',
-            vehicles: 45,
-            availability: 86,
-            failures30: 6,
-            mttr: 3.5,
-            status: 'active'
-        },
-        'istanbul': {
-            name: 'İstanbul',
-            vehicles: 156,
-            availability: 80,
-            failures30: 20,
-            mttr: 5.8,
-            status: 'issues'
-        }
-    };
+    let projectData = {}; // API'den doldurulacak
 
     function loadProjects() {
         const grid = document.getElementById('projectsGrid');
-        const template = document.getElementById('projectCardTemplate');
         const comparisonBody = document.getElementById('comparisonBody');
+        
+        // Loading state göster
+        grid.innerHTML = '<div style="text-align: center; padding: 40px; grid-column: 1 / -1;"><i class="bi bi-hourglass-split"></i> Veriler yükleniyor...</div>';
+        comparisonBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Veriler yükleniyor...</td></tr>';
+
+        // API'den gerçek verileri çek
+        fetch('/reports/api/projects-kpi')
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                return response.json();
+            })
+            .then(result => {
+                if (result.success) {
+                    projectData = result.data;
+                    renderProjects(grid, comparisonBody);
+                } else {
+                    grid.innerHTML = `<div style="grid-column: 1 / -1; padding: 20px; background: #fee; border-radius: 8px; color: #c00;">❌ Veri yükleme hatası: ${result.message}</div>`;
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching projects KPI:', error);
+                grid.innerHTML = `<div style="grid-column: 1 / -1; padding: 20px; background: #fee; border-radius: 8px; color: #c00;">❌ Veri yükleme hatası: ${error.message}</div>`;
+            });
+    }
+
+    function renderProjects(grid, comparisonBody) {
+        const template = document.getElementById('projectCardTemplate');
+        
+        grid.innerHTML = ''; // Önceki içeriği temizle
+        comparisonBody.innerHTML = ''; // Önceki satırları temizle
 
         Object.entries(projectData).forEach(([projectKey, data]) => {
             // KPI kartı oluştur
@@ -565,29 +528,30 @@
             card.querySelector('.vehicle-count').textContent = data.vehicles;
             card.querySelector('.availability').textContent = data.availability + '%';
             card.querySelector('.failure-count').textContent = data.failures30;
-            card.querySelector('.mttr-value').textContent = data.mttr;
+            card.querySelector('.mttr-value').textContent = data.mttr > 0 ? data.mttr : '-';
 
             // Status badge
             const statusBadge = card.querySelector('.project-status');
             statusBadge.className = 'project-status';
             if (data.status === 'active') {
                 statusBadge.classList.add('status-active');
-                statusBadge.textContent = 'Aktif';
+                statusBadge.textContent = 'Aktif ✓';
             } else if (data.status === 'maintenance') {
                 statusBadge.classList.add('status-maintenance');
-                statusBadge.textContent = 'Bakımda';
+                statusBadge.textContent = 'Bakımda ⚙️';
             } else {
                 statusBadge.classList.add('status-issues');
-                statusBadge.textContent = 'Sorun Var';
+                statusBadge.textContent = 'Dikkat ⚠️';
             }
 
             // Metrik çizim
             const chart = card.querySelector('.metric-chart');
             chart.id = 'chart-' + projectKey;
+            chart.innerHTML = ''; // Önceki barları temizle
             
             const metrics = [
                 { value: data.availability, label: 'Availability' },
-                { value: (100 - data.failures30 * 5), label: 'Reliability' }
+                { value: Math.max(0, 100 - data.failures30 * 5), label: 'Reliability' }
             ];
 
             metrics.forEach(m => {
@@ -608,18 +572,21 @@
 
             // Karşılaştırma tablosuna satır ekle
             const row = document.createElement('tr');
+            const availColor = data.availability >= 85 ? '#10b981' : data.availability >= 75 ? '#f59e0b' : '#ef4444';
+            const failureColor = data.failures30 <= 10 ? '#10b981' : data.failures30 <= 15 ? '#f59e0b' : '#ef4444';
+            
             row.innerHTML = `
                 <td><strong class="project-name-col">${data.name}</strong></td>
-                <td>${data.vehicles}</td>
+                <td><strong>${data.vehicles}</strong></td>
                 <td>
-                    <span class="metric-indicator" style="background: ${data.availability >= 85 ? '#10b981' : data.availability >= 75 ? '#f59e0b' : '#ef4444'}"></span>
+                    <span class="metric-indicator" style="background: ${availColor}"></span>
                     ${data.availability}%
                 </td>
                 <td>
-                    <span class="metric-indicator" style="background: ${data.failures30 <= 10 ? '#10b981' : data.failures30 <= 15 ? '#f59e0b' : '#ef4444'}"></span>
+                    <span class="metric-indicator" style="background: ${failureColor}"></span>
                     ${data.failures30}
                 </td>
-                <td>${data.mttr} saat</td>
+                <td>${data.mttr > 0 ? data.mttr + ' saat' : '-'}</td>
                 <td>
                     <a href="#" class="btn btn-sm btn-outline-primary" onclick="generateProjectReport('${projectKey}'); return false;">
                         <i class="bi bi-download"></i> İndir
@@ -632,13 +599,17 @@
 
     function generateProjectReport(projectKey) {
         const projectName = projectData[projectKey]?.name || 'Proje';
-        alert(`${projectName} için yönetim raporu oluşturuluyor...\n\nYönlendiriliyorsunuz rapor sayfasına.`);
         window.location.href = `/reports/management`;
     }
 
     function viewProjectDetails(projectKey) {
         const data = projectData[projectKey];
-        alert(`${data.name} - Proje Detayları\n\nAraç: ${data.vehicles}\nAktiflik: ${data.availability}%\nSon 30 Gün Arıza: ${data.failures30}\nOrt. MTTR: ${data.mttr} saat`);
+        alert(`${data.name} - Proje Detayları
+        
+📊 Toplam Araç: ${data.vehicles}
+📈 Aktif Oranı: ${data.availability}%
+⚠️  Son 30 Gün Arıza: ${data.failures30}
+⏱️  Ort. MTTR: ${data.mttr > 0 ? data.mttr + ' saat' : 'Veri yok'}`);
     }
 
     // Sayfa yüklendiğinde projeleri yükle
