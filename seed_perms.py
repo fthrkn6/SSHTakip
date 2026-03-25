@@ -9,13 +9,13 @@ app = create_app()
 with app.app_context():
     # Create tables
     db.create_all()
-    print("[OK] Tables created", flush=True)
+    logger.info(f"\2")
     
     # Clear old permissions
     Permission.query.delete()
     RolePermission.query.delete()
     db.session.commit()
-    print("[OK] Old permissions cleared", flush=True)
+    logger.info(f"\2")
     
     # Add new permissions
     perms = [
@@ -35,7 +35,7 @@ with app.app_context():
         db.session.add(p)
     
     db.session.commit()
-    print(f"[OK] {len(perms)} permissions added", flush=True)
+    logger.info(f"\2")
     
     # Get permission IDs
     perm_dict = {}
@@ -44,7 +44,7 @@ with app.app_context():
         if p:
             perm_dict[page_name] = p.id
     
-    print(f"[OK] Permission IDs loaded: {len(perm_dict)}", flush=True)
+    logger.info(f"\2")
     
     # Add role permissions
     role_perms = {
@@ -76,6 +76,6 @@ with app.app_context():
     rp_count = RolePermission.query.count()
     p_count = Permission.query.count()
     
-    print(f"[OK] Permissions: {p_count}", flush=True)
-    print(f"[OK] Role Permissions: {rp_count}", flush=True)
-    print("[DONE]", flush=True)
+    logger.info(f"\2")
+    logger.info(f"\2")
+    logger.info("\1")

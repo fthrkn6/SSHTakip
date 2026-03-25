@@ -783,8 +783,8 @@ def get_equipment_failures(equipment_code=None):
         import glob
         
         current_project = session.get('current_project', 'belgrad')
-        print(f"[DEBUG-API] current_project from session: {current_project}", flush=True)
-        print(f"[DEBUG-API] equipment_code: {equipment_code}", flush=True)
+        logger.info(f"\1")
+        logger.info(f"\1")
         
         # Birincil konum: logs/{project}/ariza_listesi/
         ariza_listesi_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs', current_project, 'ariza_listesi')
@@ -793,21 +793,21 @@ def get_equipment_failures(equipment_code=None):
         use_sheet = None
         header_row = 0
         
-        print(f"[DEBUG-API] Arizing_listesi_dir: {ariza_listesi_dir}", flush=True)
-        print(f"[DEBUG-API] Dir exists: {os.path.exists(ariza_listesi_dir)}", flush=True)
+        logger.info(f"\1")
+        logger.info(f"\1")
         
         if os.path.exists(ariza_listesi_dir):
             # Tüm Fracas_*.xlsx dosyalarını ara (Türkçe karakterleri ignore et)
             fracas_files = glob.glob(os.path.join(ariza_listesi_dir, 'Fracas_*.xlsx'))
             fracas_files = [f for f in fracas_files if not f.startswith('~$')]
             
-            print(f"[DEBUG-API] Bulunan Fracas dosyaları: {fracas_files}", flush=True)
+            logger.info(f"\1")
             
             if fracas_files:
                 ariza_listesi_file = fracas_files[0]
                 use_sheet = 'FRACAS'
                 header_row = 3
-                print(f"[DEBUG-API] Seçilen Fracas dosyası: {ariza_listesi_file}", flush=True)
+                logger.info(f"\1")
         
         # Fallback: Ariza_Listesi dosyası
         if not ariza_listesi_file and os.path.exists(ariza_listesi_dir):
@@ -816,7 +816,7 @@ def get_equipment_failures(equipment_code=None):
                     ariza_listesi_file = os.path.join(ariza_listesi_dir, file)
                     use_sheet = 'Ariza Listesi'
                     header_row = 3
-                    print(f"[DEBUG-API] Fallback Ariza_Listesi kullanılıyor: {ariza_listesi_file}", flush=True)
+                    logger.info(f"\1")
                     break
         
         # Fallback: data/{project}/Veriler.xlsx (Sayfa2)
@@ -826,21 +826,21 @@ def get_equipment_failures(equipment_code=None):
                 ariza_listesi_file = veriler_file
                 use_sheet = 'Sayfa2'
                 header_row = 0
-                print(f"[DEBUG-API] Fallback Veriler.xlsx kullanılıyor: {ariza_listesi_file}", flush=True)
+                logger.info(f"\1")
         
         if not ariza_listesi_file or not os.path.exists(ariza_listesi_file):
             logger.warning(f'[API] Arıza kaynağı bulunamadı: {current_project}')
-            print(f"[DEBUG-API] ✗ Arıza kaynağı bulunamadı!", flush=True)
+            logger.info(f"\1")
             return jsonify({'failures': [], 'count': 0, 'error': 'Arıza kaynağı bulunamadı'})
         
-        print(f"[DEBUG-API] Kullanılan dosya: {ariza_listesi_file}, Sheet: {use_sheet}", flush=True)
+        logger.info(f"\1")
         
         try:
             # Excel'i oku
             df = pd.read_excel(ariza_listesi_file, sheet_name=use_sheet, header=header_row)
             logger.info(f'[API] {ariza_listesi_file} okundu - {len(df)} satır, sütunlar: {list(df.columns)[:5]}...')
-            print(f"[DEBUG-API] Excel okundu: {len(df)} satır", flush=True)
-            print(f"[DEBUG-API] TÜM SÜTUN ADLARI: {list(df.columns)}", flush=True)
+            logger.info(f"\1")
+            logger.info(f"\1")
             
             # Sütunları bul - flexible names
             tram_id_col = None
@@ -898,12 +898,12 @@ def get_equipment_failures(equipment_code=None):
                 if ('kompanent' in col_clean or 'component' in col_clean) and ('mttr' in col_clean or 'mdt' in col_clean):
                     mttr_komponent_col = col
             
-            print(f"[DEBUG-API] Tüm sütunlar: {list(df.columns)}", flush=True)
-            print(f"[DEBUG-API] Sütunlar - tram_id: {tram_id_col}, ariza: {ariza_col}, sistem: {sistem_col}, Araç MTTR: {mttr_arac_col}, Komponent MTTR: {mttr_komponent_col}", flush=True)
+            logger.info(f"\1")
+            logger.info(f"\1")
             
             if not tram_id_col or not ariza_col:
                 logger.warning(f'[API] Gerekli sütunlar bulunamadı. tram_id: {tram_id_col}, ariza: {ariza_col}')
-                print(f"[DEBUG-API] ✗ Gerekli sütunlar bulunamadı!", flush=True)
+                logger.info(f"\1")
                 return jsonify({'failures': [], 'count': 0, 'error': 'Sütun eşleştirmesi yapılamadı'})
             
             # Arıza dolu satırları filtrele
@@ -914,16 +914,16 @@ def get_equipment_failures(equipment_code=None):
             filtered_df = filtered_df[filtered_df[ariza_col].astype(str) != 'nan']
             
             logger.info(f'[API] Arıza dolu satırlar: {len(filtered_df)}')
-            print(f"[DEBUG-API] Arıza dolu satırlar: {len(filtered_df)}", flush=True)
+            logger.info(f"\1")
             
             # Equipment code verilirse filtrele
             if equipment_code:
                 equipment_code = equipment_code.strip().replace('TRN-', '')
-                print(f"[DEBUG-API] Equipment code normalize: {equipment_code}", flush=True)
+                logger.info(f"\1")
                 
                 # tram_id'yi normalize et
                 filtered_df[tram_id_col] = filtered_df[tram_id_col].astype(str).str.strip()
-                print(f"[DEBUG-API] Normalize ÖNCESİ sütun örnekleri: {filtered_df[tram_id_col].head().tolist()}", flush=True)
+                logger.info(f"\1")
                 
                 # Paranthesli kodları temizle: '3874(3)' → '3874'
                 import re
@@ -936,14 +936,14 @@ def get_equipment_failures(equipment_code=None):
                     lambda x: str(int(float(x))) if x.replace('.', '').replace('-', '').isdigit() else x
                 )
                 
-                print(f"[DEBUG-API] Normalize SONRASI sütun örnekleri: {filtered_df[tram_id_col].head().tolist()}", flush=True)
-                print(f"[DEBUG-API] Aranıyor: '{equipment_code}' - Sütundaki tüm değerler: {filtered_df[tram_id_col].unique()[:20]}", flush=True)
+                logger.info(f"\1")
+                logger.info(f"\1")
                 
                 filtered_df = filtered_df[filtered_df[tram_id_col] == equipment_code]
                 logger.info(f'[API] {equipment_code} aracı: {len(filtered_df)} arıza')
-                print(f"[DEBUG-API] {equipment_code} aracı filtresi: {len(filtered_df)} arıza", flush=True)
+                logger.info(f"\1")
                 if len(filtered_df) == 0:
-                    print(f"[DEBUG-API] ⚠️ Sonuç 0! Eşleştirme başarısız.", flush=True)
+                    logger.info(f"\1")
             
             # Son 5 arızayı al
             if len(filtered_df) > 5:
@@ -1009,18 +1009,18 @@ def get_equipment_failures(equipment_code=None):
                     continue
             
             logger.info(f'[API] {len(failures)} arıza döndürülüyor')
-            print(f"[DEBUG-API] ✓ {len(failures)} arıza gönderiliyor", flush=True)
+            logger.info(f"\1")
             return jsonify({'failures': failures, 'count': len(failures)})
             
         except Exception as excel_error:
             logger.error(f'[API] Excel okuma hatası: {excel_error}')
-            print(f"[DEBUG-API] ✗ Excel okuma hatası: {excel_error}", flush=True)
+            logger.info(f"\1")
             return jsonify({'failures': [], 'error': str(excel_error)})
     
     except Exception as e:
         logger.error(f'[API] Hata: {type(e).__name__}: {e}')
         import traceback
         logger.error(traceback.format_exc())
-        print(f"[DEBUG-API] ✗ API Hatası: {e}", flush=True)
+        logger.info(f"\1")
         return jsonify({'failures': [], 'error': f'API Error: {str(e)}'})
 

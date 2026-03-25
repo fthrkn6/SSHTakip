@@ -361,22 +361,22 @@ def create_app():
                 try:
                     username = request.form.get('username')
                     password = request.form.get('password')
-                    print(f"[LOGIN] Attempting login with username: {username}")
+                    logger.info(f"\1")
                     
                     user = User.query.filter_by(username=username).first()
-                    print(f"[LOGIN] User found: {user is not None}")
+                    logger.info(f"\1")
                     
                     if user and user.check_password(password):
-                        print(f"[LOGIN] Password correct for {username}")
+                        logger.info(f"\1")
                         login_user(user, remember=request.form.get('remember'))
                         user.last_login = datetime.now()
                         db.session.commit()
-                        print(f"[LOGIN] User {username} logged in successfully")
+                        logger.info(f"\1")
                         
                         # Set project from form selection or default to belgrad
                         selected_project = request.form.get('project', '')
-                        print(f"[LOGIN] Form project value: '{selected_project}'")
-                        print(f"[LOGIN] Available projects: {[p['code'] for p in PROJECTS]}")
+                        logger.info(f"\1")
+                        logger.info(f"\1")
                         
                         if selected_project and selected_project in [p['code'] for p in PROJECTS]:
                             project = next((p for p in PROJECTS if p['code'] == selected_project), None)
@@ -384,9 +384,9 @@ def create_app():
                                 session['current_project'] = selected_project
                                 session['project_code'] = selected_project
                                 session['project_name'] = f"{project['flag']} {project['name']}"
-                                print(f"[LOGIN] Project set to: {selected_project}")
+                                logger.info(f"\1")
                         else:
-                            print(f"[LOGIN] Project '{selected_project}' not valid, using default 'belgrad'")
+                            logger.info(f"\1")
                             session['current_project'] = 'belgrad'
                             session['project_code'] = 'belgrad'
                             session['project_name'] = '🇷🇸 Belgrad'
@@ -396,10 +396,10 @@ def create_app():
                             return redirect(next_page)
                         return redirect(url_for('dashboard.index'))
                     else:
-                        print(f"[LOGIN] Invalid password for {username}")
+                        logger.info(f"\1")
                         flash('Invalid username or password', 'danger')
                 except Exception as e:
-                    print(f"[LOGIN] Error during login: {type(e).__name__}: {str(e)}")
+                    logger.info(f"\1")
                     import traceback
                     traceback.print_exc()
                     flash(f'Login error: {str(e)}', 'danger')
@@ -460,8 +460,8 @@ def create_app():
                 # APP.ROOT_PATH kullanarak doğru lokasyonu bul
                 fracas_file = os.path.join(app.root_path, 'logs', project, 'ariza_listesi', f'Fracas_{project.upper()}.xlsx')
                 
-                print(f"[GET-DEBUG] Dosya yolu: {fracas_file}")
-                print(f"[GET-DEBUG] Dosya var mı: {os.path.exists(fracas_file)}")
+                logger.info(f"\1")
+                logger.info(f"\1")
                 
                 if os.path.exists(fracas_file):
                     try:
@@ -479,7 +479,7 @@ def create_app():
                                 try:
                                     num = int(str(cell_val).split('FF-')[-1])
                                     ids.append(num)
-                                    print(f"   ✓ Row {row}: {cell_val} -> {num}")
+                                    logger.info(f"\1")
                                 except:
                                     pass
                         
@@ -490,7 +490,7 @@ def create_app():
                         else:
                             next_fracas_id = 1
                     except Exception as e:
-                        print(f"   [ERROR] FRACAS ID okunamadı ({fracas_file}): {e}")
+                        logger.info(f"\1")
                         next_fracas_id = 1
                 
                 # Tramvaylar ve sistemler
@@ -614,7 +614,7 @@ def create_app():
                                 ariza_tipleri = sorted(list(set(ariza_tipleri)))
                                 break
                     except Exception as e:
-                        print(f"Sayfa2 yükleme hatası: {e}")
+                        logger.info(f"\1")
                 
                 sistem_detay = {k: {'tedarikciler': list(set(v['tedarikciler'])), 'alt_sistemler': list(set(v['alt_sistemler']))} for k, v in sistemler.items()}
                 
@@ -626,10 +626,10 @@ def create_app():
                         if 'Sayfa2' in wb_veriler.sheetnames:
                             ws_sayfa2 = wb_veriler['Sayfa2']
                             fracas_code = ws_sayfa2['B2'].value
-                            print(f"   ✓ FRACAS kodu ({project}): {fracas_code}")
+                            logger.info(f"\1")
                         wb_veriler.close()
                     except Exception as e:
-                        print(f"   [WARNING] Veriler.xlsx'ten FRACAS kodu okunamadı: {e}")
+                        logger.info(f"\1")
                 
                 # Fallback: Proje kodu kısaltması
                 if not fracas_code:
@@ -661,15 +661,15 @@ def create_app():
                     arac_modules = request.form.getlist('arac_module')
                     arac_module_str = ', '.join(arac_modules) if arac_modules else ''
                     
-                    print(f"\n📤 POST /yeni-ariza-bildir")
-                    print(f"   📋 Gelen form alanları: {list(form_data.keys())}")
-                    print(f"   🔧 Araç Modül seçimleri: {arac_modules}")
-                    print(f"   [OK] create_hbr değeri: '{request.form.get('create_hbr')}' (type: {type(request.form.get('create_hbr'))})")
-                    print(f"   🎯 HBR yapılacak mı?: {request.form.get('create_hbr') == 'true'}")
+                    logger.info(f"\1")
+                    logger.info(f"\1")
+                    logger.info(f"\1")
+                    logger.info(f"\1")
+                    logger.info(f"\1")
                     
                     # FRACAS ID'yi form'dan al veya hesapla
                     fracas_id = form_data.get('fracas_id', '').strip()
-                    print(f"   🔢 Form'dan gelen FRACAS ID: '{fracas_id}'")
+                    logger.info(f"\1")
                     
                     # FRACAS TEMPLATE dosyasından FRACAS ID'yi hesapla (Ariza Listesi değil!)
                     import tempfile
@@ -695,7 +695,7 @@ def create_app():
                             ws_check = wb_check['FRACAS']
                             
                             # E sütununda (FRACAS ID) max numarayı bul
-                            print(f"   [INFO] Fracas_{project.upper()} max row: {ws_check.max_row}")
+                            logger.info(f"\1")
                             for row in range(5, ws_check.max_row + 1):
                                 cell_val = ws_check.cell(row=row, column=5).value  # E sütunu = column 5
                                 if cell_val:
@@ -703,14 +703,14 @@ def create_app():
                                         if isinstance(cell_val, str) and 'FF-' in cell_val:
                                             num = int(cell_val.split('FF-')[-1])
                                             next_fracas_num = max(next_fracas_num, num + 1)
-                                            print(f"   ✓ Row {row}: {cell_val} -> next will be {next_fracas_num}")
+                                            logger.info(f"\1")
                                     except Exception as e:
                                         pass
                             wb_check.close()
                             os.remove(temp_read_file)
-                            print(f"   [OK] FRACAS ID hesaplandı: {next_fracas_num}")
+                            logger.info(f"\1")
                         except Exception as e:
-                            print(f"   [ERROR] FRACAS ID okuma hatası: {e}")
+                            logger.info(f"\1")
                             next_fracas_num = 1
                     
                     if not fracas_id:
@@ -731,7 +731,7 @@ def create_app():
                                     fracas_code = ws_sayfa2['B2'].value
                                 wb_veriler.close()
                             except Exception as e:
-                                print(f"   [WARNING] Veriler.xlsx'ten FRACAS kodu okunamadı: {e}")
+                                logger.info(f"\1")
                         
                         # Fallback
                         if not fracas_code:
@@ -746,7 +746,7 @@ def create_app():
                             fracas_code = project_code_map.get(project, 'BOZ')
                         
                         fracas_id = f"BOZ-{fracas_code}-FF-{next_fracas_num:03d}"
-                        print(f"   ✓ Hesaplanan FRACAS ID: {fracas_id}")
+                        logger.info(f"\1")
                         form_data['fracas_id'] = fracas_id
                     
                     # YENI: Arıza Listesi Excel dosyasına yaz
@@ -824,7 +824,7 @@ def create_app():
                         time.sleep(0.5)
                         try:
                             shutil.move(temp_file, ariza_listesi_file)
-                            print(f"   ✓ Arıza Listesi dosyası oluşturuldu: {ariza_listesi_file}")
+                            logger.info(f"\1")
                         except:
                             # Zaten var olabilir, kontrol et
                             if not os.path.exists(ariza_listesi_file) and os.path.exists(temp_file):
@@ -851,7 +851,7 @@ def create_app():
                         else:
                             next_row = ws.max_row + 1
                         
-                        print(f"   📝 Veri yazılacak satır: {next_row}")
+                        logger.info(f"\1")
                         
                         # Form verilerini Excel'e yaz
                         data = [
@@ -921,13 +921,13 @@ def create_app():
                             project = session.get('current_project', 'belgrad')
                             backup_success, backup_msg = BackupManager.backup_file(ariza_listesi_file, project)
                             if backup_success:
-                                print(f"   💾 Dosya yedeklendi: {backup_msg}")
+                                logger.info(f"\1")
                             else:
-                                print(f"   [WARNING] Yedekleme hatası: {backup_msg}")
+                                logger.info(f"\1")
                         except Exception as backup_err:
-                            print(f"   [WARNING] Yedek oluşturulamadı: {str(backup_err)}")
+                            logger.info(f"\1")
                         
-                        print(f"   [OK] Arıza kaydedildi: {form_data.get('fracas_id')} -> Satır {next_row}")
+                        logger.info(f"\1")
                         
                         # YENI: Fracas_BELGRAD.xlsx template'ine de yaz
                         try:
@@ -938,23 +938,23 @@ def create_app():
                             if arac_modules:
                                 fracas_data['arac_module'] = arac_modules
                             
-                            print(f"\n   📝 FRACAS yazma başlıyor...")
-                            print(f"   [INFO] Form alanları: {list(fracas_data.keys())}")
-                            print(f"   📂 App root path: {app.root_path}")
+                            logger.info(f"\1")
+                            logger.info(f"\1")
+                            logger.info(f"\1")
                             
                             # Aktif proje'yi al
                             current_project = session.get('current_project', 'belgrad')
                             
                             # FracasWriter ile Fracas template'ine yaz (Flask root_path ve project geçerek)
                             writer = FracasWriter(base_path=app.root_path, project=current_project)
-                            print(f"   📁 Template yolu: {writer.file_path}")
-                            print(f"   ✓ Template var mı: {os.path.exists(writer.file_path)}")
+                            logger.info(f"\1")
+                            logger.info(f"\1")
                             
                             result = writer.write_failure_data(fracas_data)
                             
                             if result.get('success'):
                                 project_upper = current_project.upper()
-                                print(f"   [OK] Fracas_{project_upper}.xlsx'ye yazıldı - Satır: {result['row']}, FRACAS ID: {result['fracas_id']}")
+                                logger.info(f"\1")
                                 
                                 # FRACAS dosyasını da yedekle
                                 try:
@@ -962,31 +962,31 @@ def create_app():
                                     fracas_file = ProjectManager.get_fracas_file(project)
                                     backup_success, backup_msg = BackupManager.backup_file(fracas_file, project)
                                     if backup_success:
-                                        print(f"   💾 FRACAS dosyası yedeklendi: {backup_msg}")
+                                        logger.info(f"\1")
                                 except Exception as backup_err:
-                                    print(f"   [WARNING] FRACAS yedekleme hatası: {str(backup_err)}")
+                                    logger.info(f"\1")
                                 
                                 flash(f'[OK] Arıza başarıyla kaydedildi: {form_data.get("fracas_id")} (Fracas + Arıza Listesi)', 'success')
                             else:
-                                print(f"   [WARNING] Fracas yazma kısmi başarısız: {result}")
+                                logger.info(f"\1")
                                 flash(f'[OK] Arıza kaydedildi (Arıza Listesi), Fracas: {result.get("error", "Bilinmeyen hata")}', 'warning')
                         except Exception as fracas_error:
                             import traceback
-                            print(f"\n   [ERROR] FRACAS YAZMA HATASI:")
-                            print(f"   {str(fracas_error)}")
-                            print(f"   Traceback:\n{traceback.format_exc()}")
+                            logger.info(f"\1")
+                            logger.info(f"\1")
+                            logger.info(f"\1")
                             flash(f'[ERROR] FRACAS yazma hatası (Arıza Listesi OK): {str(fracas_error)[:150]}', 'danger')
                     except Exception as e:
                         flash(f'[ERROR] Arıza Listesi yazma hatası: {str(e)}', 'danger')
                     
                     # ===== HBR (HATA BİLDİRİM RAPORU) OLUŞTURMA =====
-                    print(f"\n🔍 HBR KONTROL")
-                    print(f"   Form'dan gelen create_hbr değeri: '{request.form.get('create_hbr')}'")
-                    print(f"   Koşul sonucu (== 'true'): {request.form.get('create_hbr') == 'true'}")
+                    logger.info(f"\1")
+                    logger.info(f"\1")
+                    logger.info(f"\1")
                     
                     if request.form.get('create_hbr') == 'true':
                         try:
-                            print(f"\n[OK] HBR OLUŞTURMA BAŞLANDI!")
+                            logger.info(f"\1")
                             import time
                             from openpyxl import load_workbook
                             from openpyxl.drawing.image import Image as XLImage
@@ -1000,9 +1000,9 @@ def create_app():
                             # Template yükleme
                             template_path = os.path.join(app.root_path, 'data', project, 'FR_010_R06_SSH HBR.xlsx')
                             if not os.path.exists(template_path):
-                                print(f"   [WARNING] HBR Template bulunamadı: {template_path}")
+                                logger.info(f"\1")
                             else:
-                                print(f"   [OK] Template yüklendi: {template_path}")
+                                logger.info(f"\1")
                                 # HBR PREFIX'ini oku (Veriler.xlsx'ten veya mapping'ten)
                                 hbr_code = None
                                 # Case-insensitive dosya bulma
@@ -1020,12 +1020,12 @@ def create_app():
                                         if 'Sayfa2' in wb_veriler.sheetnames:
                                             ws_sayfa2 = wb_veriler['Sayfa2']
                                             hbr_code = ws_sayfa2['B2'].value
-                                            print(f"   ✓ Veriler.xlsx'ten HBR kodu okundu: {hbr_code} (dosya: {os.path.basename(veriler_path)})")
+                                            logger.info(f"\1")
                                         wb_veriler.close()
                                     except Exception as e:
-                                        print(f"   [WARNING] Veriler.xlsx'ten HBR kodu okunamadı: {e}")
+                                        logger.info(f"\1")
                                 else:
-                                    print(f"   [INFO] Veriler.xlsx bulunamadı: {veriler_path}")
+                                    logger.info(f"\1")
                                 
                                 # Fallback: Proje mapping'i
                                 if not hbr_code:
@@ -1038,28 +1038,28 @@ def create_app():
                                         'gebze': 'GEB25'
                                     }
                                     hbr_code = hbr_code_map.get(project, 'BOZ')
-                                    print(f"   ! Fallback mapping'ten HBR kodu: {hbr_code} (proje: {project})")
+                                    logger.info(f"\1")
                                 
-                                print(f"   📌 Seçili HBR Kodu: {hbr_code}")
-                                print(f"   📂 HBR Klasörü: {hbr_dir}")
+                                logger.info(f"\1")
+                                logger.info(f"\1")
                                 # Klasördeki mevcut HBR dosyalarını tara ve en yüksek numarayı bul
                                 ncr_numbers = []
                                 if os.path.exists(hbr_dir):
                                     existing_files = os.listdir(hbr_dir)
-                                    print(f"   📋 Klasördeki dosyalar ({len(existing_files)} toplam): {existing_files}")
+                                    logger.info(f"\1")
                                     for f in existing_files:
-                                        print(f"      Kontrol: {f} (endswith .xlsx: {f.endswith('.xlsx')}, -NCR- içeriyor: {'-NCR-' in f})")
+                                        logger.info(f"\1")
                                         if f.endswith('.xlsx') and '-NCR-' in f:
                                             try:
                                                 # {code}-NCR-{number}.xlsx formatından number'ı çıkar
                                                 num_str = f.split('-NCR-')[-1].replace('.xlsx', '')
                                                 num = int(num_str)
                                                 ncr_numbers.append(num)
-                                                print(f"         ✓ Ayrıştırıldı: {f} → Numara: {num}")
+                                                logger.info(f"\1")
                                             except (ValueError, IndexError) as e:
-                                                print(f"         ✗ Ayrıştırılamadı: {f} → {e}")
+                                                logger.info(f"\1")
                                 else:
-                                    print(f"   [INFO] HBR klasörü mevcut değil, oluşturulacak")
+                                    logger.info(f"\1")
                                 
                                 # Sonraki numarayı hesapla
                                 ncr_counter = (max(ncr_numbers) if ncr_numbers else 0) + 1
@@ -1090,9 +1090,9 @@ def create_app():
                                 ariza_tipi = form_data.get('ariza_tipi', '').strip()  # Çeşitli türler - STRIP() EKLEDIK
                                 
                                 # DEBUG: Form'dan gelen değerleri loglayalım
-                                print(f"\n   🎯 TIK YAZMA KONDİSYONLARI DEBUG")
-                                print(f"      ariza_sinifi = '{ariza_sinifi}' (uzunluk: {len(ariza_sinifi)})")
-                                print(f"      ariza_tipi = '{ariza_tipi}' (uzunluk: {len(ariza_tipi)})")
+                                logger.info(f"\1")
+                                logger.info(f"\1")
+                                logger.info(f"\1")
                                 
                                 # Hücre yazma helper fonksiyonu - merged cells için unmerge + write + remerge
                                 def write_cell(worksheet, cell_ref, value, append=False):
@@ -1120,42 +1120,42 @@ def create_app():
                                         if merged_range:
                                             # MERGED HÜCRE YAZMA PROSEDÜRÜ
                                             merged_str = str(merged_range)
-                                            print(f"         → {cell_ref} merged hücrede yazılıyor [{merged_str}]")
+                                            logger.info(f"\1")
                                             
                                             # Adım 1: Unmerge
                                             try:
                                                 worksheet.unmerge_cells(merged_str)
-                                                print(f"            ✓ Unmerge başarılı")
+                                                logger.info(f"\1")
                                             except Exception as umr_err:
-                                                print(f"            [WARNING] Unmerge başarısız: {umr_err}")
+                                                logger.info(f"\1")
                                             
                                             # Adım 2: Değeri yaz
                                             try:
                                                 worksheet[cell_ref].value = value
-                                                print(f"            ✓ Yazı başarılı: '{value}'")
+                                                logger.info(f"\1")
                                             except Exception as write_err:
-                                                print(f"            [WARNING] Yazı başarısız: {write_err}")
+                                                logger.info(f"\1")
                                             
                                             # Adım 3: Remerge
                                             try:
                                                 worksheet.merge_cells(merged_str)
-                                                print(f"            ✓ Remerge başarılı")
+                                                logger.info(f"\1")
                                             except Exception as mrg_err:
-                                                print(f"            ⚠️  Remerge başarısız: {mrg_err}")
-                                                print(f"            → Merged olmadan devam edilecek")
+                                                logger.info(f"\1")
+                                                logger.info(f"\1")
                                         else:
                                             # NORMAL HÜCRE - basit yazma
                                             worksheet[cell_ref].value = value
-                                            print(f"         → {cell_ref} normal hücreye yazıldı: '{value}'")
+                                            logger.info(f"\1")
                                     
                                     except Exception as e:
-                                        print(f"   ⚠️  KRİTİK HATA ({cell_ref}): {str(e)}")
+                                        logger.info(f"\1")
                                         # Son çare - zorla yaz
                                         try:
                                             worksheet[cell_ref].value = value
-                                            print(f"      → Zorlu yazı başarılı (merged unmerged)")
+                                            logger.info(f"\1")
                                         except:
-                                            print(f"      ❌ Zorlu yazı da başarısız!")
+                                            logger.info(f"\1")
 
                                 
                                 # Hücreleri doldur (Excel satır/sütun 1-bazlı)
@@ -1179,19 +1179,19 @@ def create_app():
                                         veriler_wb = load_workbook(veriler_path)
                                         veriler_ws = veriler_wb.active
                                         musteri_code = veriler_ws['B3'].value or ''
-                                        print(f"         → Müşteri (B3): {musteri_code}")
+                                        logger.info(f"\1")
                                     except Exception as e:
-                                        print(f"      ⚠️  Müşteri okunamadı: {e}")
+                                        logger.info(f"\1")
                                 write_cell(ws, 'E8', musteri_code, append=True)
                                 
                                 # Tespit Yöntemi (Bozankaya ise F8, Müşteri ise H8)
                                 ariza_tespit_yontemi = form_data.get('ariza_tespit_yontemi', '')
                                 if 'bozankaya' in current_user.username.lower() or 'Bozankaya' in ariza_tespit_yontemi:
                                     write_cell(ws, 'F8', '[X]', append=True)
-                                    print(f"      ✓ F8'e [X] eklendi (Tespit: Bozankaya)")
+                                    logger.info(f"\1")
                                 elif 'müşteri' in ariza_tespit_yontemi.lower():
                                     write_cell(ws, 'H8', '[X]', append=True)
-                                    print(f"      ✓ H8'e [X] eklendi (Tespit: Müşteri)")
+                                    logger.info(f"\1")
                                 
                                 # NOT: muslteri_bildirimi form'da olmadığı için bu alan yazılmıyor
                                 
@@ -1209,32 +1209,32 @@ def create_app():
                                 
                                 if sinif_mapping and 'cell' in sinif_mapping:
                                     write_cell(ws, sinif_mapping['cell'], '[X]', append=True)
-                                    print(f"      ✓ {sinif_mapping['cell']}'e [X] eklendi (Arıza Sınıfı = {sinif_mapping['type']})")
+                                    logger.info(f"\1")
                                 else:
-                                    print(f"      ⚠️  Arıza Sınıfı '{ariza_sinifi}' harita'da yok - DEBUG: {repr(ariza_sinifi)}")
+                                    logger.info(f"\1")
                                 
                                 # Arıza Tipi yerleştirme - Form'dan gelen değerler incelenecek
                                 # Olası değerler: 'ilk_defa', 'tekrarlayan_ayni_arac', 'tekrarlayan_farkli_arac'
-                                print(f"      DEBUG Arıza Tipi: '{ariza_tipi}' (type: {type(ariza_tipi)})")
+                                logger.info(f"\1")
                                 if ariza_tipi:
                                     ariza_tipi_lower = str(ariza_tipi).lower().strip()
                                     
                                     # İlk Defa
                                     if 'ilk' in ariza_tipi_lower or 'first' in ariza_tipi_lower or 'ilk_defa' in ariza_tipi_lower:
                                         write_cell(ws, 'H9', '[X]', append=True)
-                                        print(f"      ✓ H9'a [X] eklendi (İlk defa)")
+                                        logger.info(f"\1")
                                     
                                     # Aynı araçta tekrarlayan
                                     if ('tekrarlayan' in ariza_tipi_lower or 'repeat' in ariza_tipi_lower) and ('aynı' in ariza_tipi_lower or 'same' in ariza_tipi_lower or 'ayni_arac' in ariza_tipi_lower):
                                         write_cell(ws, 'A12', '[X]', append=True)
-                                        print(f"      ✓ A12'ye [X] eklendi (Tekrarlayan aynı araçta)")
+                                        logger.info(f"\1")
                                     
                                     # Farklı araçta tekrarlayan
                                     if ('tekrarlayan' in ariza_tipi_lower or 'repeat' in ariza_tipi_lower) and ('farklı' in ariza_tipi_lower or 'different' in ariza_tipi_lower or 'farkli_arac' in ariza_tipi_lower):
                                         write_cell(ws, 'E12', '[X]', append=True)
-                                        print(f"      ✓ E12'ye [X] eklendi (Tekrarlayan farklı araçta)")
+                                        logger.info(f"\1")
                                 else:
-                                    print(f"      ⚠️  Arıza Tipi seçilmedi")
+                                    logger.info(f"\1")
                                 
                                 # Arıza Tanımı
                                 write_cell(ws, 'B17', ariza_tanimi)
@@ -1264,7 +1264,7 @@ def create_app():
                                             xl_img = XLImage(img_buffer)
                                             ws.add_image(xl_img, 'B20')
                                         except Exception as img_err:
-                                            print(f"   ⚠️  HBR Resim ekleme hatası: {str(img_err)}")
+                                            logger.info(f"\1")
                                 
                                 # SSH Sorumlusu (B22) - GÜNCELLEME YAPMA!
                                 # write_cell(ws, 'B22', current_user.username)  # SSH Sorumlusu
@@ -1283,13 +1283,13 @@ def create_app():
                                     os.remove(hbr_filepath)
                                 shutil.move(temp_hbr_file, hbr_filepath)
                                 
-                                print(f"   ✅ HBR başarıyla oluşturuldu: {hbr_filename}")
+                                logger.info(f"\1")
                                 flash(f'✅ HBR başarıyla oluşturuldu: {ncr_number}', 'success')
                         
                         except Exception as hbr_error:
                             import traceback
-                            print(f"   ❌ HBR OLUŞTURMA HATASI: {str(hbr_error)}")
-                            print(f"   Traceback:\n{traceback.format_exc()}")
+                            logger.info(f"\1")
+                            logger.info(f"\1")
                             flash(f'⚠️  HBR oluşturulamadı: {str(hbr_error)[:100]}', 'warning')
                     
                     return redirect(url_for('yeni_ariza_bildir'))
@@ -1308,10 +1308,10 @@ def create_app():
             project = session.get('current_project', 'belgrad')
             hbr_dir = os.path.join(app.root_path, 'logs', project, 'HBR')
             
-            print(f"\n📂 HBR Listesi yükleniyor...")
-            print(f"   Proje: {project}")
-            print(f"   Yol: {hbr_dir}")
-            print(f"   Mevcut mi?: {os.path.exists(hbr_dir)}")
+            logger.info(f"\1")
+            logger.info(f"\1")
+            logger.info(f"\1")
+            logger.info(f"\1")
             
             hbr_files = []
             total_size = 0
@@ -1320,8 +1320,8 @@ def create_app():
             if os.path.exists(hbr_dir):
                 try:
                     files_found = os.listdir(hbr_dir)
-                    print(f"   Toplam dosya: {len(files_found)}")
-                    print(f"   Dosyalar: {files_found}")
+                    logger.info(f"\1")
+                    logger.info(f"\1")
                     
                     for filename in files_found:
                         # Tüm -NCR- formatındaki .xlsx dosyalarını al
@@ -1352,23 +1352,23 @@ def create_app():
                                 if not latest_date or file_time > latest_date:
                                     latest_date = file_time.strftime('%d.%m.%Y %H:%M')
                                 
-                                print(f"      ✓ {filename} ({size_display})")
+                                logger.info(f"\1")
                             except Exception as e:
-                                print(f"      ⚠️  {filename} - Hata: {e}")
+                                logger.info(f"\1")
                     
                     # Tarihe göre sırala (yeni dosyalar önce)
                     hbr_files.sort(key=lambda x: x['date'], reverse=True)
-                    print(f"   ✓ Yüklenen HBR dosyaları: {len(hbr_files)}")
+                    logger.info(f"\1")
                     
                 except Exception as e:
-                    print(f"   ❌ HBR listesi yükleme hatası: {e}")
+                    logger.info(f"\1")
             else:
-                print(f"   ⚠️  HBR klasörü mevcut değil! Oluşturuluyor...")
+                logger.info(f"\1")
                 try:
                     os.makedirs(hbr_dir, exist_ok=True)
-                    print(f"   ✓ Klasör oluşturuldu")
+                    logger.info(f"\1")
                 except Exception as e:
-                    print(f"   ❌ Klasör oluşturma hatası: {e}")
+                    logger.info(f"\1")
             
             total_size_mb = total_size / (1024 * 1024) if total_size > 0 else 0
             
@@ -1396,12 +1396,12 @@ def create_app():
             try:
                 if os.path.exists(filepath) and filepath.startswith(hbr_dir):
                     os.remove(filepath)
-                    print(f"   ✅ HBR dosyası silindi: {filename}")
+                    logger.info(f"\1")
                     return {'success': True, 'message': 'HBR dosyası silindi'}, 200
                 else:
                     return {'error': 'Dosya bulunamadı'}, 404
             except Exception as e:
-                print(f"   ❌ HBR silme hatası: {str(e)}")
+                logger.info(f"\1")
                 return {'error': f'Silme hatası: {str(e)}'}, 500
 
         @app.route('/hbr-download')
@@ -1435,7 +1435,7 @@ def create_app():
                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 )
             except Exception as e:
-                print(f"   ❌ HBR indirme hatası: {str(e)}")
+                logger.info(f"\1")
                 flash(f'❌ İndirme başarısız: {str(e)}', 'danger')
                 return redirect(url_for('hbr_listesi'))
 
@@ -1448,7 +1448,7 @@ def create_app():
             from openpyxl import load_workbook
             
             project = session.get('current_project', 'belgrad')
-            print(f"\n[DEBUG] ariza_listesi_veriler() çağrıldı - Proje: {project}")
+            logger.info(f"\1")
             
             # Dropdown data (yeni_ariza_bildir ile aynı)
             data_dir = os.path.join(app.root_path, 'data', project)
@@ -1508,7 +1508,7 @@ def create_app():
                     
                     wb.close()
                 except Exception as e:
-                    print(f"[WARNING] Sistem verileri okunamadı: {e}")
+                    logger.error(f"\2")
             
             # Sayfa2'den modules, ariza_siniflari, ariza_kaynaklari, ariza_tipleri oku
             if veriler_path and os.path.exists(veriler_path):
@@ -1555,7 +1555,7 @@ def create_app():
                             ariza_tipleri = sorted(list(set(ariza_tipleri)))
                             break
                 except Exception as e:
-                    print(f"[WARNING] Sayfa2 yükleme hatası: {e}")
+                    logger.error(f"\2")
             
             sistem_detay = {k: {'tedarikciler': list(set(v['tedarikciler'])), 'alt_sistemler': list(set(v['alt_sistemler']))} for k, v in sistemler.items()}
             
@@ -1685,10 +1685,10 @@ def create_app():
                     file_mtime = os.path.getmtime(ariza_listesi_file)
                     file_date = datetime.fromtimestamp(file_mtime).strftime('%d.%m.%Y %H:%M')
                     
-                    print(f"[OK] Arıza Listesi yüklendi: {row_count} satır")
+                    logger.info(f"\2")
                     
                 except Exception as e:
-                    print(f"[ERROR] Arıza Listesi okuma hatası: {e}")
+                    logger.error(f"\2")
                     flash(f'[WARNING] Veri okuma hatası: {str(e)}', 'warning')
             else:
                 flash(f'⚠️ Bugünün Arıza Listesi dosyası bulunamadı', 'warning')
@@ -1711,7 +1711,7 @@ def create_app():
         def ariza_listesi_veriler_process():
             """Arıza Listesi verilerini işle - FRACAS dosyasından veri okuma"""
             
-            print("📤 Arıza Listesi işlem başlıyor...")
+            logger.info("\1")
             
             try:
                 project = session.get('current_project', 'belgrad')
@@ -2287,11 +2287,11 @@ def create_app():
                 Equipment.project_code == current_project
             ).order_by(Equipment.equipment_code).all()
             
-            print(f"[DEBUG-BAKIM] current_project: {current_project}, found {len(equipment_list)} equipments", flush=True)
+            logger.info(f"\1")
             
             # Kontrol: tüm Equipment'lerin project_code'larını göster (debug)
             all_equipment_projects = Equipment.query.filter(Equipment.parent_id == None).with_entities(Equipment.project_code, Equipment.equipment_code).limit(50).all()
-            print(f"[DEBUG-BAKIM] Sample 50 equipment project_codes: {[(e.project_code, e.equipment_code) for e in all_equipment_projects[:10]]}", flush=True)
+            logger.info(f"\1")
             
             # Sonuç listesi
             result = []
@@ -3172,14 +3172,14 @@ def create_app():
         @login_required
         def proje_degistir(project_code):
             """Change project"""
-            print(f"\n[PROJE_DEGISTIR] Changing from {session.get('current_project')} to {project_code}")
+            logger.info(f"\1")
             project = next((p for p in PROJECTS if p['code'] == project_code), None)
             
             if project:
                 session['current_project'] = project_code
                 session['project_code'] = project_code.lower()
                 session['project_name'] = f"{project['flag']} {project['name']}"
-                print(f"[PROJE_DEGISTIR] Session set: current_project={session.get('current_project')}, project_code={session.get('project_code')}")
+                logger.info(f"\1")
                 flash(f"Proje değiştirildi: {project['flag']} {project['name']}", 'success')
             else:
                 flash('Geçersiz proje!', 'error')
@@ -3231,13 +3231,13 @@ def create_app():
             """Update tram km - Single source: Equipment table
             Sync (bootstrap/sync) handles all propagation to Excel/JSON
             """
-            print(f"[📡 FORM-POST] /tramvay-km/guncelle received POST request")
+            logger.info(f"\1")
             try:
                 tram_id = request.form.get('tram_id')
                 current_km = request.form.get('current_km', 0)
                 notes = request.form.get('notes', '')
                 project_code = session.get('current_project', 'belgrad').lower()
-                print(f"[📡 DATA] tram_id={tram_id}, current_km={current_km}, notes={notes[:20] if notes else 'None'}")
+                logger.info(f"\1")
                 
                 # Find equipment - try equipment_code first, then id
                 equipment = Equipment.query.filter_by(equipment_code=str(tram_id), project_code=project_code).first()
@@ -3541,7 +3541,7 @@ def create_app():
                                         tramvaylar.append(tram_obj)
                                 break  # İlk sheet'i bulduktan sonra çık
                 except Exception as e:
-                    print(f"Excel okuşta hata: {e}")
+                    logger.info(f"\1")
                     pass
             
             # Eğer Excel'den yüklenemezse, veritabanından yükle
@@ -3613,22 +3613,22 @@ def create_app():
                         for k, v in sistemler.items()
                     }
                 except Exception as e:
-                    print(f"Sistem verileri yüklenirken hata: {e}")
+                    logger.info(f"\1")
                     sistemler = {}
             
             import json
             sistemler_json = json.dumps(sistemler)
-            print(f"\n{'='*60}")
-            print(f"EXCEL'DEN ÇEKILEN SİSTEMLER:")
-            print(f"{'='*60}")
-            print(f"Toplam Sistem Sayısı: {len(sistemler)}")
+            logger.info(f"\1")
+            logger.info(f"\1")
+            logger.info(f"\1")
+            logger.info(f"\1")
             for sistem_adi, data in sistemler.items():
-                print(f"\n📌 {sistem_adi}")
+                logger.info(f"\1")
                 if data.get('tedarikçiler'):
-                    print(f"   Tedarikçiler: {', '.join(data['tedarikçiler'])}")
+                    logger.info(f"\1")
                 if data.get('alt_sistemler'):
-                    print(f"   Alt Sistemler: {', '.join(data['alt_sistemler'])}")
-            print(f"{'='*60}\n")
+                    logger.info(f"\1")
+            logger.info(f"\1")
             
             # ========== İSTATİSTİKLER - Tramvaylar yüklendikten sonra hesapla ==========
             stats = {
@@ -3666,15 +3666,15 @@ def create_app():
                     erisebilirlik_percent = (available / total_tramvaylar) * 100
                     stats['erisebilirlik'] = f"{erisebilirlik_percent:.1f}%"
                 
-                print(f"İstatistikler (Bugün - {today_str}):")
-                print(f"  Serviste: {servis_count}")
-                print(f"  Servis Dışı: {servis_disi_count}")
-                print(f"  İşletme Kaynaklı: {isletme_kaynak_count}")
-                print(f"  Toplam Araçlar: {total_tramvaylar}")
-                print(f"  Erişilebilirlik: {stats['erisebilirlik']}\n")
+                logger.info(f"\1")
+                logger.info(f"\1")
+                logger.info(f"\1")
+                logger.info(f"\1")
+                logger.info(f"\1")
+                logger.info(f"\1")
                 
             except Exception as e:
-                print(f"ServiceStatus hatası: {e}\n")
+                logger.info(f"\1")
                 stats = {
                     'Servis': 0,
                     'Servis Dışı': 0,
@@ -3968,11 +3968,11 @@ def create_app():
             import traceback
             # Log the full error
             print("\n" + "="*80)
-            print("INTERNAL SERVER ERROR (500)")
+            logger.info("\1")
             print("="*80)
-            print(f"Error Type: {type(error)}")
-            print(f"Error Message: {str(error)}")
-            print(f"\nFull Traceback:")
+            logger.info(f"\1")
+            logger.info(f"\1")
+            logger.info(f"\1")
             print(traceback.format_exc())
             print("="*80 + "\n")
             
@@ -3995,13 +3995,13 @@ def create_app():
         @app.before_request
         def log_request():
             """Log all incoming requests"""
-            print(f"\n>> {request.method} {request.path} - IP: {request.remote_addr}")
+            logger.info(f"\1")
 
         @app.after_request
         def optimize_response(response):
             """Optimize responses with caching and compression"""
             # Log response
-            print(f"<< {response.status_code} {response.status} - {request.path}")
+            logger.info(f"\1")
             
             # Determine cache strategy based on content type and path
             if request.path.startswith('/static/'):
@@ -4031,7 +4031,7 @@ def create_app():
         try:
             load_parts_cache()
         except Exception as e:
-            print(f"Parts cache initialization warning: {e}")
+            logger.info(f"\1")
 
         print('create_app finished')
         print(f'App object type: {type(app)}')
@@ -4069,11 +4069,11 @@ if __name__ == '__main__':
     # **PRODUCTION'A AYARLI (debug=False default)**
     # DEBUG MODE'U AÇMAK İÇİN: set FLASK_ENV=development
     debug_mode = os.environ.get('FLASK_ENV', 'production') == 'development'
-    print(f"\n{'='*60}")
-    print(f">> APP BASLANIYOR")
-    print(f"{'='*60}")
-    print(f"Port: {port}")
-    print(f"Debug Mode: {debug_mode}")
-    print(f"FLASK_ENV: {os.environ.get('FLASK_ENV', 'production (DEFAULT)')}")
-    print(f"{'='*60}\n")
+    logger.info(f"\1")
+    logger.info(f"\1")
+    logger.info(f"\1")
+    logger.info(f"\1")
+    logger.info(f"\1")
+    logger.info(f"\1")
+    logger.info(f"\1")
     app.run(host='0.0.0.0', port=port, debug=debug_mode, threaded=True)
