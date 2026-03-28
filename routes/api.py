@@ -19,17 +19,19 @@ bp = Blueprint('api', __name__, url_prefix='/api')
 def projects() -> Dict[str, Any]:
     """Get user's accessible projects"""
     try:
+        import json, os
         projects_list = current_user.get_assigned_projects()
         
+        # Load projects from projects_config.json
+        config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'projects_config.json')
+        all_projects = []
+        if os.path.exists(config_path):
+            with open(config_path, 'r', encoding='utf-8') as f:
+                all_projects = json.load(f).get('projects', [])
+        
         if '*' in projects_list:
-            # Admin: all projects
-            from config import Config
-            all_projects = Config.PROJECTS if hasattr(Config, 'PROJECTS') else []
             projects_data = [{'code': p.get('code'), 'name': p.get('name')} for p in all_projects]
         else:
-            # Regular user: assigned projects only
-            from config import Config
-            all_projects = Config.PROJECTS if hasattr(Config, 'PROJECTS') else []
             projects_data = [
                 {'code': p.get('code'), 'name': p.get('name')}
                 for p in all_projects
@@ -81,9 +83,9 @@ def failure_by_fracas_id() -> Dict[str, Any]:
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/parts-lookup', methods=['GET'])
+@bp.route('/equipment-parts', methods=['GET'])
 @login_required
-def parts_lookup() -> Dict[str, Any]:
+def equipment_parts() -> Dict[str, Any]:
     """Lookup spare parts by equipment"""
     try:
         equipment_code = request.args.get('equipment_code')

@@ -842,17 +842,15 @@ def get_supplier_system_matrix(df):
 @login_required
 def management_dashboard():
     """Yönetim raporları sunumsal dashboard - Tüm projeler KPI"""
-    if current_user.role not in ['admin', 'manager']:
-        flash('Bu sayfaya erişim yetkiniz yok.', 'error')
-        return redirect(url_for('dashboard.index'))
-    
     return render_template('management_dashboard.html')
 
 
 @reports_bp.route('/api/projects-kpi', methods=['GET'])
 @login_required
 def get_projects_kpi():
-    """Tüm projeler için gerçek KPI verilerini döndür"""
+    """Tüm projeler için kapsamlı KPI verilerini döndür - Enhanced"""
+    print("🔵 DEBUG: /reports/api/projects-kpi endpoint called!")
+    current_app.logger.info("🔵 /reports/api/projects-kpi endpoint called")
     try:
         from datetime import datetime, timedelta
         from sqlalchemy import func
@@ -861,6 +859,7 @@ def get_projects_kpi():
         
         for project_code, project_name in PROJECTS.items():
             try:
+                # === TEMEL KPİ'LAR ===
                 # Proje için tüm araçları say
                 total_vehicles = Equipment.query.filter_by(
                     project_code=project_code,
@@ -878,12 +877,24 @@ def get_projects_kpi():
                 
                 # Son 30 günde arıza sayısı
                 thirty_days_ago = datetime.now() - timedelta(days=30)
-                failures_30 = Failure.query.join(Equipment).filter(
-                    Equipment.project_code == project_code,
-                    Failure.failure_date >= thirty_days_ago
-                ).count()
+                failures_30 = 0
+                try:
+                    failures_30 = Failure.query.join(Equipment).filter(
+                        Equipment.project_code == project_code,
+                        Failure.failure_date >= thirty_days_ago
+                    ).count()
+                except:
+                    # Database schema mismatch - get from FRACAS instead
+                    try:
+                        fracas_df = get_fracas_data(project_code)
+                        if fracas_df is not None and not fracas_df.empty:
+                            # Son 30 güne göre filtrele
+                            filtered_df = filter_by_period(fracas_df, 'monthly')
+                            failures_30 = len(filtered_df) if filtered_df is not None else 0
+                    except:
+                        failures_30 = 0
                 
-                # Ortalama MTTR hesapla (repairs duration'ı varsa)
+                # Ortalama MTTR hesapla
                 mttr = 0
                 try:
                     failed_equipment = Equipment.query.filter_by(
@@ -904,6 +915,82 @@ def get_projects_kpi():
                 except:
                     mttr = 0
                 
+                # === GELIŞMIŞ KPİ'LAR ===
+                # Sınıf A (Kritik) Arıza Sayısı
+                critical_failures = 0
+                try:
+                    # FRACAS dosyasından sınıf A arızaları oku
+                    fracas_df = get_fracas_data(project_code)
+                    if fracas_df is not None and not fracas_df.empty:
+                        # Sınıf sütununu bul
+                        class_col = None
+                        for col in fracas_df.columns:
+                            if 'sınıf' in col.lower() or 'class' in col.lower():
+                                class_col = col
+                                break
+                        
+                        if class_col:
+                            critical_failures = len(fracas_df[fracas_df[class_col].astype(str).str.contains('A', case=False, na=False)])
+                except:
+                    critical_failures = 0
+                
+                # Önleyici Bakım Oranı (%)
+                preventive_maintenance_ratio = 0
+                try:
+                    total_wo = WorkOrder.query.filter_by(project_code=project_code).count()
+                    preventive_wo = WorkOrder.query.filter(
+                        WorkOrder.project_code == project_code,
+                        WorkOrder.work_type == 'Preventive'
+                    ).count()
+                    preventive_maintenance_ratio = round(
+                        (preventive_wo / total_wo * 100) if total_wo > 0 else 0, 1
+                    )
+                except Exception as e:
+                    logger.debug(f"Preventive ratio calculation failed for {project_code}: {e}")
+                    preventive_maintenance_ratio = 0
+                
+                # Ortalama Tamir Süresi (saat)
+                avg_repair_time = 0
+                try:
+                    completed_wo = WorkOrder.query.filter(
+                        WorkOrder.project_code == project_code,
+                        WorkOrder.status == 'Completed'
+                    ).all()
+                    
+                    if completed_wo:
+                        total_hours = 0
+                        count = 0
+                        for wo in completed_wo:
+                            if hasattr(wo, 'duration_hours') and wo.duration_hours:
+                                total_hours += wo.duration_hours
+                                count += 1
+                        avg_repair_time = round(total_hours / count, 1) if count > 0 else 0
+                except:
+                    avg_repair_time = 0
+                
+                # Son 30 Günde Arızasız Araç Sayısı
+                problem_free_vehicles = 0
+                try:
+                    all_vehicles = Equipment.query.filter_by(
+                        project_code=project_code,
+                        parent_id=None
+                    ).all()
+                    
+                    for vehicle in all_vehicles:
+                        try:
+                            vehicle_failures = Failure.query.filter(
+                                Failure.equipment_id == vehicle.id,
+                                Failure.failure_date >= thirty_days_ago
+                            ).count()
+                            if vehicle_failures == 0:
+                                problem_free_vehicles += 1
+                        except:
+                            # If Failure query fails, assume no failures
+                            problem_free_vehicles += 1
+                except Exception as e:
+                    logger.debug(f"Problem-free vehicles calculation failed for {project_code}: {e}")
+                    problem_free_vehicles = 0
+                
                 # Proje durumunu belirle
                 if availability >= 85:
                     status = 'active'
@@ -914,21 +1001,37 @@ def get_projects_kpi():
                 
                 projects_data[project_code] = {
                     'name': project_name,
+                    # Temel
                     'vehicles': total_vehicles,
                     'availability': availability,
                     'failures30': failures_30,
                     'mttr': mttr,
-                    'status': status
+                    'status': status,
+                    # Gelişmiş
+                    'critical_failures': critical_failures,
+                    'preventive_ratio': preventive_maintenance_ratio,
+                    'avg_repair_time': avg_repair_time,
+                    'problem_free_vehicles': problem_free_vehicles,
+                    'active_vehicles': active_vehicles,
+                    'ariza_arazlari': total_vehicles - active_vehicles
                 }
             except Exception as e:
                 logger.warning(f"Error getting KPI for {project_code}: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
                 projects_data[project_code] = {
                     'name': project_name,
                     'vehicles': 0,
                     'availability': 0,
                     'failures30': 0,
                     'mttr': 0,
-                    'status': 'issues'
+                    'status': 'issues',
+                    'critical_failures': 0,
+                    'preventive_ratio': 0,
+                    'avg_repair_time': 0,
+                    'problem_free_vehicles': 0,
+                    'active_vehicles': 0,
+                    'ariza_arazlari': 0
                 }
         
         return jsonify({
@@ -938,6 +1041,8 @@ def get_projects_kpi():
     
     except Exception as e:
         logger.error(f"Error in get_projects_kpi: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return jsonify({
             'success': False,
             'message': str(e)

@@ -13,7 +13,8 @@ import sys
 
 logger = logging.getLogger(__name__)
 from utils_availability import (
-    log_service_status_change
+    log_service_status_change,
+    AvailabilityCalculator
 )
 from utils_service_status import AvailabilityAnalyzer, ExcelReportGenerator as EnhancedExcelGenerator
 from utils_daily_service_logger import log_service_status as log_service_to_file
@@ -269,7 +270,7 @@ def service_status_table():
                     status_display = 'İşletme Kaynaklı Servis Dışı'
                     status_type = 'işletme'
                     isletme_count += 1
-                elif 'Dışı' in service_status or 'dişi' in service_status.lower() or 'ariza' in service_status.lower():
+                elif 'Dışı' in service_status or 'dışı' in service_status.lower() or 'ariza' in service_status.lower():
                     status_display = 'Servis Dışı'
                     status_type = 'ariza'
                     ariza_count += 1
@@ -335,12 +336,13 @@ def log_service_status():
         alt_sistem = data.get('alt_sistem')
         reason = data.get('reason')
         duration_hours = float(data.get('duration_hours', 0))
+        tarih = data.get('tarih')  # Seçili tarih parametresi
         
         if not tram_id or not new_status:
             return jsonify({'error': 'Tram ID ve durum gerekli'}), 400
         
-        # Proje kodunu al
-        project_code = session.get('current_project', 'belgrad')
+        # Proje kodunu al (lowercase tutarlılık için)
+        project_code = session.get('current_project', 'belgrad').lower()
         
         # Tramvay adını al
         equipment = Equipment.query.filter_by(equipment_code=str(tram_id), project_code=project_code).first()
@@ -354,7 +356,7 @@ def log_service_status():
             alt_sistem=alt_sistem or '',
             aciklama=reason or '',
             user=current_user.username if current_user else 'system',
-            project_code=project_code
+            project_code=project_code.lower()
         )
         
         # **EXCEL LOGGER: Excel dosyasına kaydet**
@@ -367,26 +369,26 @@ def log_service_status():
             aciklama=reason or '',
             user=current_user.username if current_user else 'system',
             action='GÜNCELLE',
-            project_code=project_code
+            project_code=project_code.lower()
         )
         
         # **EXCEL GRID: Grid dosyasına kaydı aktar (durum tablosu)**
         try:
-            grid_manager = ExcelGridManager(project_code)
-            # Durum kodu oluştur
+            grid_manager = ExcelGridManager(project_code.lower())
+            # Durum kodu oluştur (Turkish character-safe)
             status_code = 'aktif'
             if 'İşletme' in new_status or 'işletme' in new_status.lower():
                 status_code = 'isletme_kaynakli'
-            elif 'Dışı' in new_status or 'dişi' in new_status.lower() or 'ariza' in new_status.lower():
+            elif 'Dışı' in new_status or 'dışı' in new_status.lower() or 'ariza' in new_status.lower():
                 status_code = 'servis_disi'
             
-            # Grid'e yaz
-            today = date.today().strftime('%Y-%m-%d')
-            grid_manager.update_status(current_app.root_path, tram_id, today, status_code)
+            # Grid'e yaz - seçili tarih veya bugün
+            grid_date = tarih if tarih else date.today().strftime('%Y-%m-%d')
+            grid_manager.update_status(current_app.root_path, tram_id, grid_date, status_code)
             
             # RCA kaydı ekle (eğer servis dışı ise)
             if status_code in ['servis_disi', 'isletme_kaynakli'] and sistem and alt_sistem:
-                rca_manager = RCAExcelManager(project_code)
+                rca_manager = RCAExcelManager(project_code.lower())
                 rca_manager.add_rca_record(
                     current_app.root_path,
                     tram_id,
@@ -406,7 +408,9 @@ def log_service_status():
             alt_sistem=alt_sistem,
             reason=reason,
             duration_hours=duration_hours,
-            user_id=current_user.id
+            user_id=current_user.id,
+            date_param=tarih,  # Seçili tarih parametrisini geçir
+            project_code=project_code  # Proje kodunu geçir
         )
         
         # Günlük availability'i güncelle

@@ -26,6 +26,7 @@ from utils.project_manager import ProjectManager
 from utils.backup_manager import BackupManager
 from utils.auth_decorators import require_admin, require_project_access, check_project_in_session
 from utils_km_logger import log_km_change
+from utils_km_excel_logger import KMExcelLogger
 from utils_km_manager import KMDataManager
 from utils_daily_service_logger import log_service_status
 from utils_equipment_sync import sync_equipment_with_excel
@@ -1840,26 +1841,29 @@ def create_app():
         def get_projects():
             """Systemde mevcut tüm projeleri döndür (data/ klasöründen oku)"""
             import os
-            
-            projects_dir = os.path.join(os.path.dirname(__file__), 'data')
-            projects = []
-            
-            if os.path.exists(projects_dir):
-                for item in os.listdir(projects_dir):
-                    item_path = os.path.join(projects_dir, item)
-                    # Klasör ve Veriler.xlsx var mı kontrol et
-                    if os.path.isdir(item_path):
-                        excel_path = os.path.join(item_path, 'Veriler.xlsx')
-                        if os.path.exists(excel_path):
-                            projects.append({
-                                'code': item,
-                                'name': item.capitalize()
-                            })
-            
-            # Alfabetik sıralama
-            projects.sort(key=lambda x: x['code'])
-            
-            return jsonify(projects)
+            try:
+                projects_dir = os.path.join(os.path.dirname(__file__), 'data')
+                projects = []
+                
+                if os.path.exists(projects_dir):
+                    for item in os.listdir(projects_dir):
+                        item_path = os.path.join(projects_dir, item)
+                        # Klasör ve Veriler.xlsx var mı kontrol et
+                        if os.path.isdir(item_path):
+                            excel_path = os.path.join(item_path, 'Veriler.xlsx')
+                            if os.path.exists(excel_path):
+                                projects.append({
+                                    'code': item,
+                                    'name': item.capitalize()
+                                })
+                
+                # Alfabetik sıralama
+                projects.sort(key=lambda x: x['code'])
+                
+                return jsonify(projects)
+            except Exception as e:
+                print(f'[ERROR] /api/projects: {e}')
+                return jsonify([]), 200
 
         @app.route('/api/failure-by-fracas-id', methods=['GET'])
         @login_required
@@ -3330,6 +3334,20 @@ def create_app():
                     notes=notes
                 )
                 
+                # Log to Excel for permanent audit trail
+                try:
+                    km_excel_logger = KMExcelLogger(project_code)
+                    km_excel_logger.log_km_to_excel(
+                        tram_id=tram_code,
+                        previous_km=old_km,
+                        new_km=new_km,
+                        reason=notes or 'Gün sonu sayımı',
+                        user=current_user.username if current_user else 'Sistem',
+                        system_type='Manuel'
+                    )
+                except Exception as excel_err:
+                    logger.warning(f'KM Excel logging failed for {tram_code}: {excel_err}')
+                
                 # NOTE: Excel senkronizasyonu kaldırıldı - Equipment tablosu tek kaynak
                 # Excel'in Database'i override etmesini önlemek için burada sync yapılmıyor
                 
@@ -3385,6 +3403,7 @@ def create_app():
                         if 'current_km' in data and data['current_km']:
                             try:
                                 new_km = int(float(data['current_km']))
+                                old_km = equipment.current_km if equipment else 0
                                 equipment.current_km = new_km
                                 
                                 # Sync to Excel/JSON
@@ -3395,6 +3414,21 @@ def create_app():
                                     notes=str(data.get('notes', '') or ''),
                                     updated_by=current_user.username if current_user else 'admin'
                                 )
+                                
+                                # Also log to Excel audit trail
+                                try:
+                                    km_excel_logger = KMExcelLogger(project_code)
+                                    km_excel_logger.log_km_to_excel(
+                                        tram_id=tram_code,
+                                        previous_km=old_km,
+                                        new_km=new_km,
+                                        reason=data.get('notes', '') or 'Toplu güncelleme',
+                                        user=current_user.username if current_user else 'Sistem',
+                                        system_type='Manuel'
+                                    )
+                                except Exception as excel_err:
+                                    logger.warning(f'KM Excel logging failed for {tram_code}: {excel_err}')
+                                
                             except Exception as km_err:
                                 errors.append(f"{tram_id}: Geçersiz KM değeri ({km_err})")
                                 continue
@@ -3487,7 +3521,8 @@ def create_app():
                         )
                         
                         # Log the status change
-                        ServiceStatusLogger.log_status_change(
+                        service_logger = ServiceStatusLogger(session.get('current_project', 'belgrad'))
+                        service_logger.log_status_change(
                             tram_id=tramvay_id,
                             date=tarih,
                             status=durum,
@@ -3868,7 +3903,8 @@ def create_app():
                         updated_by=current_user.username if current_user else 'system'
                     )
 
-                    ServiceStatusLogger.log_status_change(
+                    service_logger = ServiceStatusLogger(session.get('current_project', 'belgrad'))
+                    service_logger.log_status_change(
                         tram_id=tram_id,
                         date=tarih,
                         status='Servis',
@@ -3936,8 +3972,9 @@ def create_app():
                 db.session.commit()
                 
                 # Log copy operation
+                service_logger = ServiceStatusLogger(session.get('current_project', 'belgrad'))
                 for tram_id, yesterday_record in yesterday_data.items():
-                    ServiceStatusLogger.log_status_change(
+                    service_logger.log_status_change(
                         tram_id=str(tram_id),
                         date=today_str,
                         status=yesterday_record.get('status', ''),

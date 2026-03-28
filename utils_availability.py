@@ -443,8 +443,15 @@ class ExcelReportGenerator:
         return output_path
 
 
-def log_service_status_change(tram_id, new_status, sistem=None, alt_sistem=None, reason=None, duration_hours=0, user_id=None):
+def log_service_status_change(tram_id, new_status, sistem=None, alt_sistem=None, reason=None, duration_hours=0, user_id=None, date_param=None, project_code=None):
     """Servis durumu değişikliğini log'la - BOTH ServiceLog ve ServiceStatus'e yaz"""
+    
+    # Proje kodunu belirle
+    if not project_code:
+        project_code = 'belgrad'
+    
+    # Lowercase tutarlılık
+    project_code = project_code.lower()
     
     # ===== ServiceLog'a yaz (compatibility için) =====
     last_log = ServiceLog.query.filter_by(tram_id=tram_id).order_by(ServiceLog.log_date.desc()).first()
@@ -465,10 +472,16 @@ def log_service_status_change(tram_id, new_status, sistem=None, alt_sistem=None,
     db.session.add(log)
     
     # ===== ServiceStatus'e yaz (PRIMARY) =====
-    today_date = datetime.now().strftime('%Y-%m-%d')
+    # date_param varsa kullan, yoksa bugünü kullan
+    if date_param:
+        target_date = date_param
+    else:
+        target_date = datetime.now().strftime('%Y-%m-%d')
+    
     status_record = ServiceStatus.query.filter_by(
         tram_id=tram_id,
-        date=today_date
+        date=target_date,
+        project_code=project_code
     ).first()
     
     if status_record:
@@ -482,11 +495,12 @@ def log_service_status_change(tram_id, new_status, sistem=None, alt_sistem=None,
         # Yeni kayıt oluştur
         status_record = ServiceStatus(
             tram_id=tram_id,
-            date=today_date,
+            date=target_date,
             status=new_status,
             sistem=sistem,
             aciklama=reason,
-            created_by=user_id
+            created_by=user_id,
+            project_code=project_code
         )
         db.session.add(status_record)
     
@@ -495,9 +509,11 @@ def log_service_status_change(tram_id, new_status, sistem=None, alt_sistem=None,
     # Log the status change
     try:
         from utils_service_status_logger import ServiceStatusLogger
-        ServiceStatusLogger.log_status_change(
+        # Use default belgrad if project not specified
+        logger_instance = ServiceStatusLogger('belgrad')
+        logger_instance.log_status_change(
             tram_id=tram_id,
-            date=today_date,
+            date=target_date,
             status=new_status,
             sistem=sistem,
             alt_sistem='',

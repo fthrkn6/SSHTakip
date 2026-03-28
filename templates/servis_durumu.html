@@ -71,6 +71,13 @@
         font-weight: 600;
     }
 
+    .status-maintenance {
+        background-color: #ff9800 !important;
+        border: 1px solid #e68900;
+        color: white;
+        font-weight: 600;
+    }
+
     .status-operational {
         background-color: #f59e0b !important;
         border: 1px solid #d97706;
@@ -601,19 +608,24 @@
                             {% for tram_id in tram_ids %}<tr class="tram-row">
                                 <td class="tram-id-cell"><strong>{{ tram_id }}</strong></td>
                                 {% for date in dates %}{%- set si = status_matrix.get(tram_id, {}).get(date) %}
-                                {%- if si and si[0] == 'Servis Dışı' %}{%- set aciklama_text = si[3].replace(' (Dünden
-                                kopyalandı)', '').strip() if si[3] else '' %}{%- set tooltip_text = (si[1] or '') + ((' / ' +
-                                si[2]) if si[2] else '') + ((' - ' + aciklama_text) if aciklama_text else '') %}{%- endif %}
-                                {%- if si and si[0] == 'Servis' %}<td class="status-cell status-service"><i
-                                        class="bi bi-check-lg" style="font-size: 1rem; color: white; font-weight: bold;"></i>
-                                </td>
-                                {%- elif si and si[0] == 'Servis Dışı' %}<td class="status-cell status-out"
-                                    title="{{ tooltip_text if si else '' }}" data-bs-toggle="tooltip"><i class="bi bi-x-lg"
-                                        style="font-size: 1rem; color: white; font-weight: bold;"></i></td>
-                                {%- elif si and si[0] == 'İşletme Kaynaklı Servis Dışı' %}<td class="status-cell"
-                                    style="background-color: #ff9800 !important; border: 1px solid #e68900;"><i
-                                        class="bi bi-exclamation-triangle-fill"
-                                        style="font-size: 1rem; color: white; font-weight: bold;"></i></td>
+                                {%- set aciklama_text = '' %}
+                                {%- set tooltip_text = '' %}
+                                {%- if si %}
+                                    {%- set aciklama_text = si[3].replace(' (Dünden kopyalandı)', '').strip() if si[3] else '' %}
+                                    {%- set tooltip_text = (si[1] or 'Sistem yok') + ((' / ' + si[2]) if si[2] else '') + ((' - ' + aciklama_text) if aciklama_text else '') %}
+                                {%- endif %}
+                                {%- if si and si[0] == 'Servis' %}
+                                    <td class="status-cell status-service" title="{{ tooltip_text }}" data-bs-toggle="tooltip" data-bs-placement="top">
+                                        <i class="bi bi-check-lg" style="font-size: 1rem; color: white; font-weight: bold;"></i>
+                                    </td>
+                                {%- elif si and si[0] == 'Servis Dışı' %}
+                                    <td class="status-cell status-out" title="{{ tooltip_text }}" data-bs-toggle="tooltip" data-bs-placement="top">
+                                        <i class="bi bi-x-lg" style="font-size: 1rem; color: white; font-weight: bold;"></i>
+                                    </td>
+                                {%- elif si and si[0] == 'İşletme Kaynaklı Servis Dışı' %}
+                                    <td class="status-cell status-maintenance" style="background-color: #ff9800 !important; border: 1px solid #e68900;" title="{{ tooltip_text }}" data-bs-toggle="tooltip" data-bs-placement="top">
+                                        <i class="bi bi-exclamation-triangle-fill" style="font-size: 1rem; color: white; font-weight: bold;"></i>
+                                    </td>
                                 {%- else %}<td class="status-cell status-empty">-</td>
                                 {%- endif %}
                                 {%- endfor %}
@@ -726,16 +738,229 @@
     // Sayfa yüklendiğinde dün'ün verilerini otomatik yükle
     document.addEventListener('DOMContentLoaded', function () {
         // ============================================
+        // TABLOYU GERÇEK ZAMANLI GÜNCELLEME FONKSİYONU
+        // ============================================
+        function updateStatusTableCell(tramId, status, tarih) {
+            // Tarih parametresi yoksa bugünü kullan
+            let dateString = tarih;
+            if (!dateString) {
+                const today = new Date();
+                dateString = today.getFullYear() + '-' + 
+                            String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                            String(today.getDate()).padStart(2, '0');
+            }
+            
+            // dateString formatı: "2026-03-25" -> DD/MM formatına çevir
+            const dateParts = dateString.split('-');
+            const formattedDateForHeader = dateParts[2] + '/' + dateParts[1]; // "25/03"
+            
+            console.log(`Tablo güncelleme: Tramvay=${tramId}, Durum=${status}, Tarih=${dateString} (Header format: ${formattedDateForHeader})`);
+            
+            // Tabloyu tabloda bul
+            const table = document.querySelector('table');
+            const thead = table.querySelector('thead');
+            const tbody = table.querySelector('tbody');
+            
+            if (!tbody || !thead) {
+                console.log('Tablo thead/tbody bulunamadı');
+                return;
+            }
+            
+            // Satırları tara
+            const rows = tbody.querySelectorAll('tr');
+            for (let row of rows) {
+                // İlk hücreden tramvay ID'sini al
+                const firstCell = row.querySelector('td:first-child');
+                if (!firstCell) continue;
+                
+                const rowTramId = firstCell.textContent.trim();
+                
+                if (rowTramId === tramId) {
+                    console.log(`✓ Tramvay ${tramId} satırı bulundu`);
+                    
+                    const headerCells = thead.querySelectorAll('th');
+                    let targetColIndex = -1;
+                    
+                    // Tarih sütununu ara - DD/MM formatında (template'deki format)
+                    for (let i = 1; i < headerCells.length; i++) {
+                        const headerText = headerCells[i].textContent.trim();
+                        if (headerText === formattedDateForHeader) {
+                            targetColIndex = i;
+                            console.log(`✓ Tarih sütunu bulundu (${headerText}), index: ${i}`);
+                            break;
+                        }
+                    }
+                    
+                    if (targetColIndex === -1) {
+                        // Tarih sütunu yoksa tablaya ekle
+                        console.log(`⚠️ Tarih sütunu bulunamadı (${formattedDateForHeader}) - tablaya ekleniyor...`);
+                        
+                        // Header'a tarih th'i ekle
+                        const newTh = document.createElement('th');
+                        newTh.className = 'date-header';
+                        newTh.textContent = formattedDateForHeader;
+                        thead.querySelector('tr').appendChild(newTh);
+                        
+                        // Herbir satıra boş td ekle
+                        const allRows = tbody.querySelectorAll('tr');
+                        for (let r of allRows) {
+                            const newTd = document.createElement('td');
+                            newTd.className = 'status-cell status-empty';
+                            newTd.textContent = '-';
+                            r.appendChild(newTd);
+                        }
+                        
+                        // Yeni sütun indeksi
+                        targetColIndex = headerCells.length;
+                        console.log(`✓ Tarih sütunu tablaya eklendi, index: ${targetColIndex}`);
+                    }
+                    
+                    // Hedef hücreyi al ve güncelle
+                    const cells = row.querySelectorAll('td');
+                    if (targetColIndex < cells.length) {
+                        const targetCell = cells[targetColIndex];
+                        
+                        // Durum HTML'sini oluştur
+                        let statusHTML = '-';
+                        let statusClass = '';
+                        
+                        // Order önemli! "İşletme Kaynaklı Servis Dışı" ÖNCE kontrol edilmeli
+                        if (status === 'İşletme Kaynaklı Servis Dışı') {
+                            statusHTML = '<span class="status-badge status-maintenance">⚠</span>';
+                            statusClass = 'status-maintenance';
+                        } else if (status === 'Servis Dışı') {
+                            statusHTML = '<span class="status-badge status-out">✕</span>';
+                            statusClass = 'status-out';
+                        } else if (status.includes('Servis') && !status.includes('Dışı')) {
+                            statusHTML = '<span class="status-badge status-service">✓</span>';
+                            statusClass = 'status-service';
+                        }
+                        
+                        // Hücreyi güncelle
+                        targetCell.innerHTML = statusHTML;
+                        
+                        // Eski class'ları kaldır
+                        targetCell.classList.remove('status-service', 'status-out', 'status-maintenance', 'status-unknown', 'status-empty');
+                        
+                        // Yeni class'ı ekle
+                        targetCell.classList.add('status-cell');
+                        if (statusClass) {
+                            targetCell.classList.add(statusClass);
+                        }
+                        
+                        // Animasyon efekti
+                        targetCell.style.transition = 'background-color 0.3s ease';
+                        targetCell.style.backgroundColor = 'rgba(255, 193, 7, 0.3)';
+                        
+                        setTimeout(() => {
+                            targetCell.style.backgroundColor = '';
+                        }, 500);
+                        
+                        console.log(`✓ Hücre başarıyla güncellendi: ${tramId} / ${formattedDateForHeader}`);
+                    } else {
+                        console.log(`❌ Hedef sütun bu satırda bulunamadı`);
+                    }
+                    
+                    return;
+                }
+            }
+            
+            console.log(`❌ Tramvay ${tramId} tabloda bulunamadı`);
+        }
+
+        // ============================================
         // FORM SUBMIT HANDLER - Servis Durumu Kayıt
         // ============================================
         const statusForm = document.getElementById('statusForm');
+        console.log('✓ statusForm bulundu:', statusForm ? 'EVET' : 'HAYIR');
         if (statusForm) {
+            console.log('✓ Form handler başlıyor...');
+            // ============================================
+            // DURUM CHANGE - Sistem Zorunlu Kuralı
+            // ============================================
+            const durum = document.getElementById('durum');
+            const sistem = document.getElementById('sistem');
+            const altSistem = document.getElementById('alt_sistem');
+            
+            if (durum) {
+                durum.addEventListener('change', function() {
+                    if (this.value === 'Servis Dışı') {
+                        // Servis Dışı → Sistem REQUIRED
+                        sistem.disabled = false;
+                        sistem.required = true;
+                        sistem.classList.add('is-invalid');
+                        altSistem.disabled = true; // Alt-sistem otomatik populate olabilir
+                        console.log('✓ Sistem zorunlu yapıldı (Durum: Servis Dışı)');
+                    } else if (this.value === 'İşletme Kaynaklı Servis Dışı') {
+                        // İşletme Kaynaklı → Sistem DISABLED (opsiyonel açıklama)
+                        sistem.disabled = true;
+                        sistem.required = false;
+                        sistem.classList.remove('is-invalid');
+                        sistem.value = '';
+                        altSistem.value = '';
+                        altSistem.disabled = true;
+                        console.log('ℹ️ Sistem ve Alt-Sistem gizlendi (Durum: İşletme Kaynaklı)');
+                    } else if (this.value === 'Servis') {
+                        // Servis → Sistem DISABLED
+                        sistem.disabled = true;
+                        sistem.required = false;
+                        sistem.classList.remove('is-invalid');
+                        sistem.value = '';
+                        altSistem.value = '';
+                        altSistem.disabled = true;
+                        console.log('ℹ️ Sistem ve Alt-Sistem gizlendi (Durum: Servis)');
+                    }
+                });
+            }
+            
+            // ============================================
+            // FORM SUBMIT HANDLER
+            // ============================================
+            console.log('✓ Form submit listener kaydediliyor...');
+            console.log('Elements:', { durum: durum ? 'OK' : 'NULL', sistem: sistem ? 'OK' : 'NULL', altSistem: altSistem ? 'OK' : 'NULL' });
+            
             statusForm.addEventListener('submit', async function(e) {
+                console.log('🎯 FORM SUBMIT TRİGGERED!');
                 e.preventDefault();
+                
+                // CLIENT-SIDE VALIDATION - Dışarıda tanımlanan variables'ları kullan
+                
+                // Tram validation
+                if (!statusForm.tramvay_id || !statusForm.tramvay_id.value) {
+                    alert('Lütfen tramvay seçiniz!');
+                    if (statusForm.tramvay_id) statusForm.tramvay_id.focus();
+                    return;
+                }
+                
+                // Tarih validation
+                if (!statusForm.tarih || !statusForm.tarih.value) {
+                    alert('Lütfen tarih seçiniz!');
+                    if (statusForm.tarih) statusForm.tarih.focus();
+                    return;
+                }
+                
+                // Durum validation
+                if (!statusForm.durum || !statusForm.durum.value) {
+                    alert('Lütfen durum seçiniz!');
+                    if (statusForm.durum) statusForm.durum.focus();
+                    return;
+                }
+                
+                // Sistem validation - sadece "Servis Dışı"nda zorunlu
+                // "İşletme Kaynaklı Servis Dışı"nda sistem seçmesin (opsiyonel açıklama yeterli)
+                if (statusForm.durum.value === 'Servis Dışı' && (!statusForm.sistem || !statusForm.sistem.value)) {
+                    alert('❌ Sistem alanı zorunludur! (Durum: Servis Dışı)');
+                    if (statusForm.sistem) {
+                        statusForm.sistem.focus();
+                        statusForm.sistem.classList.add('is-invalid');
+                    }
+                    return;
+                }
                 
                 const formData = new FormData(this);
                 const data = {
                     tram_id: formData.get('tramvay_id'),
+                    tarih: formData.get('tarih'),
                     status: formData.get('durum'),
                     sistem: formData.get('sistem'),
                     alt_sistem: formData.get('alt_sistem'),
@@ -758,11 +983,16 @@
                         const availabilityValEl = document.getElementById('availabilityValue');
                         const successAlertEl = document.getElementById('successAlert');
                         
+                        // Seçilen tarihi formatla (YYYY-MM-DD -> DD.MM.YYYY)
+                        const selectedDate = formData.get('tarih');
+                        const dateParts = selectedDate.split('-');
+                        const formattedDate = `${dateParts[2]}.${dateParts[1]}.${dateParts[0]}`;
+                        
                         if (successTitleEl) {
                             successTitleEl.textContent = '✅ Servis Durumu Kaydedildi!';
                         }
                         if (successMsgEl) {
-                            successMsgEl.textContent = `${result.tram_name} (${result.tram_id}) | Durum: ${result.status} | ${result.timestamp}`;
+                            successMsgEl.textContent = `${result.tram_name} (${result.tram_id}) | Durum: ${result.status} | Tarih: ${formattedDate}`;
                         }
                         if (availabilityValEl) {
                             availabilityValEl.textContent = result.availability;
@@ -776,6 +1006,9 @@
                             }, 6000);
                         }
                         
+                        // TABLOYU GERÇEK ZAMANLI GÜNCELLE
+                        updateStatusTableCell(data.tram_id, data.status, selectedDate);
+                        
                         // Form'ı reset et
                         this.reset();
                     } else {
@@ -787,6 +1020,15 @@
                 }
             });
         }
+        
+        // ============================================
+        // BOOTSTRAP TOOLTIP - Tüm Hücreler içinaktive et
+        // ============================================
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+        console.log(`✓ ${tooltipList.length} tooltip aktive edildi`);
         
         // ============================================
         // ESKI KOD: Dün'ün verilerini yükle

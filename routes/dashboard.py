@@ -558,7 +558,7 @@ def index():
                 status_display = 'işletme'
                 status_color = 'warning'
                 status_from_db = 'İşletme Kaynaklı Servis Dışı'
-            elif 'Dışı' in service_status or 'disi' in service_status.lower() or 'ariza' in service_status.lower():
+            elif 'Dışı' in service_status or 'dışı' in service_status.lower() or 'ariza' in service_status.lower():
                 status_display = 'ariza'
                 status_color = 'danger'
                 status_from_db = 'Servis Dışı'

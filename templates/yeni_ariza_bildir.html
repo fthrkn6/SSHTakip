@@ -843,7 +843,7 @@ Yeni Arıza Bildir
 
                     li.addEventListener('click', function () {
                         parcaAdiInput.value = item.nesne_metni;
-                        document.querySelector('input[name="parca_kodu"]').value = item.bilesen_no;
+                        document.getElementById('parca_kodu_input').value = item.bilesen_no;
                         parcaAdiList.style.display = 'none';
                     });
 
@@ -891,7 +891,7 @@ Yeni Arıza Bildir
 
                     li.addEventListener('click', function () {
                         parcaKoduInput.value = item.bilesen_no;
-                        document.querySelector('input[name="parca_adi"]').value = item.nesne_metni;
+                        document.getElementById('parca_adi_input').value = item.nesne_metni;
                         parcaKoduList.style.display = 'none';
                     });
 
