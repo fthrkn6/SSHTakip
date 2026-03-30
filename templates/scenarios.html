@@ -82,7 +82,7 @@
 
 <!-- ============= AVAILABILITY TREND GRAFIĞI ============= -->
 <div class="card mt-5 shadow-sm" style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);">
-    <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+    <div class="card-header" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white; border: none;">
         <div class="d-flex justify-content-between align-items-center">
             <h5 class="mb-0"><i class="bi bi-graph-up-arrow"></i> Availability Trend</h5>
             <div>
@@ -112,7 +112,7 @@
         <!-- İstatistik Kartları -->
         <div class="row mb-4 g-3" id="trendStatsContainer">
             <div class="col-md-3">
-                <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; text-align: center;">
+                <div class="stat-card" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white; padding: 20px; border-radius: 10px; text-align: center;">
                     <div class="text-muted small mb-1">En Yüksek</div>
                     <div class="stat-value" style="font-size: 28px; font-weight: bold;" id="maxStat">-</div>
                     <small class="trend-indicator" id="maxTrend"></small>
@@ -477,7 +477,7 @@
                             font: {
                                 size: 11,
                                 weight: 'bold',
-                                color: '#667eea'
+                                color: '#2563eb'
                             },
                             formatter: (value) => value + '%',
                             backgroundColor: 'rgba(255, 255, 255, 0.8)',
@@ -498,7 +498,7 @@
                             padding: 12,
                             titleFont: { size: 12, weight: 'bold' },
                             bodyFont: { size: 11 },
-                            borderColor: '#667eea',
+                            borderColor: '#2563eb',
                             borderWidth: 1,
                             displayColors: true,
                             callbacks: {
@@ -516,19 +516,19 @@
         trendChart.data.datasets = [{
             label: '📊 Ortalama Availability',
             data: averages,
-            borderColor: '#667eea',
+            borderColor: '#2563eb',
             backgroundColor: 'rgba(102, 126, 234, 0.1)',
             borderWidth: 3,
             fill: true,
             tension: 0.4,
             pointRadius: 6,
             pointHoverRadius: 8,
-            pointBackgroundColor: '#667eea',
+            pointBackgroundColor: '#2563eb',
             pointBorderColor: '#fff',
             pointBorderWidth: 2,
-            pointHoverBackgroundColor: '#764ba2',
+            pointHoverBackgroundColor: '#1d4ed8',
             segment: {
-                borderColor: ctx => ctx.p0DataIndex === 0 ? '#667eea' : '#667eea'
+                borderColor: ctx => ctx.p0DataIndex === 0 ? '#2563eb' : '#2563eb'
             }
         }];
         trendChart.update();
@@ -625,13 +625,13 @@
     .btn-period:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        border-color: #667eea;
+        border-color: #2563eb;
     }
 
     .btn-check:checked + .btn-period {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
         color: white;
-        border-color: #667eea;
+        border-color: #2563eb;
         box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
     }
 
@@ -684,7 +684,7 @@
     .card {
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         border: none;
-        border-top: 4px solid #667eea;
+        border-top: 4px solid #2563eb;
     }
 
     .card:hover {

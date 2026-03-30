@@ -2,6 +2,11 @@
 
 {% block title %}FRACAS Analiz - CMMS{% endblock %}
 
+{% block breadcrumb_items %}
+<li class="breadcrumb-item active">Raporlar &amp; Analiz</li>
+<li class="breadcrumb-item active">FRACAS Analiz</li>
+{% endblock %}
+
 {% block content %}
 {% if not data_available %}
 <div class="alert alert-warning">
@@ -310,7 +315,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
     console.log('FRACAS: Chart.js v' + Chart.version + ' yüklendi, grafikler oluşturuluyor...');
-    const colors = ['#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#9333ea', '#0891b2', '#c026d3', '#ea580c', '#4f46e5', '#059669', '#d97706', '#0087be', '#7c3aed', '#db2777'];
+    const colors = ['#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#9333ea', '#0891b2', '#c026d3', '#ea580c', '#2563eb', '#059669', '#d97706', '#0087be', '#7c3aed', '#db2777'];
 
     // Pareto - Modül
     {% if pareto_labels_module %}

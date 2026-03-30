@@ -765,9 +765,18 @@
 </head>
 
 <body>
+    <!-- Skip Link for Accessibility -->
+    <a href="#main-content" class="skip-link">İçeriğe Atla</a>
+
     {% if current_user.is_authenticated %}
+    <!-- Sidebar Overlay (Mobile) -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
     <!-- Sidebar -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar" role="navigation" aria-label="Ana menü">
+        <button class="sidebar-close" id="sidebarClose" aria-label="Menüyü kapat">
+            <i class="bi bi-x-lg"></i>
+        </button>
         <div class="sidebar-brand">
             <div class="sidebar-brand-icon">
                 <i class="bi bi-train-front-fill"></i>
@@ -782,103 +791,111 @@
             <div class="sidebar-menu-title">Ana Menü</div>
 
             <a href="{{ url_for('dashboard.index') }}"
-                class="sidebar-link {{ 'active' if request.endpoint == 'dashboard.index' }}">
+                class="sidebar-link {{ 'active' if request.endpoint == 'dashboard.index' }}"
+                aria-current="{{ 'page' if request.endpoint == 'dashboard.index' else 'false' }}">
                 <i class="bi bi-grid-1x2-fill"></i>
                 <span>Dashboard</span>
             </a>
 
-            <div class="sidebar-menu-title">İş Yönetimi</div>
+            <!-- İş Yönetimi - Collapsible -->
+            <div class="sidebar-menu-title sidebar-submenu-toggle" data-bs-toggle="collapse" data-bs-target="#menuIsYonetimi" aria-expanded="true">
+                İş Yönetimi
+            </div>
+            <div class="collapse show sidebar-submenu" id="menuIsYonetimi">
+                <a href="{{ url_for('yeni_ariza_bildir') }}"
+                    class="sidebar-link {{ 'active' if 'ariza_bildir' in request.endpoint|string }}">
+                    <i class="bi bi-plus-circle-fill"></i>
+                    <span>Yeni Arıza Bildir</span>
+                </a>
 
-            <a href="{{ url_for('yeni_ariza_bildir') }}"
-                class="sidebar-link {{ 'active' if 'ariza_bildir' in request.endpoint|string }}">
-                <i class="bi bi-plus-circle-fill"></i>
-                <span>Yeni Arıza Bildir</span>
-            </a>
+                <a href="{{ url_for('ariza_listesi_veriler') }}"
+                    class="sidebar-link {{ 'active' if 'ariza_listesi_veriler' in request.endpoint|string }}">
+                    <i class="bi bi-list-check"></i>
+                    <span>Arıza Listesi - Veriler</span>
+                </a>
 
-            <a href="{{ url_for('ariza_listesi_veriler') }}"
-                class="sidebar-link {{ 'active' if 'ariza_listesi_veriler' in request.endpoint|string }}">
-                <i class="bi bi-list-check"></i>
-                <span>Arıza Listesi - Veriler</span>
-            </a>
+                <a href="{{ url_for('hbr_listesi') }}"
+                    class="sidebar-link {{ 'active' if 'hbr_listesi' in request.endpoint|string }}">
+                    <i class="bi bi-file-earmark-pdf"></i>
+                    <span>HBR Listesi</span>
+                </a>
 
-            <a href="{{ url_for('hbr_listesi') }}"
-                class="sidebar-link {{ 'active' if 'hbr_listesi' in request.endpoint|string }}">
-                <i class="bi bi-file-earmark-pdf"></i>
-                <span>HBR Listesi</span>
-            </a>
+                <a href="{{ url_for('bakim_planlari') }}"
+                    class="sidebar-link {{ 'active' if 'bakim_plan' in request.endpoint|string }}">
+                    <i class="bi bi-calendar3"></i>
+                    <span>Bakım Planları</span>
+                </a>
 
-            <a href="{{ url_for('bakim_planlari') }}"
-                class="sidebar-link {{ 'active' if 'bakim_plan' in request.endpoint|string }}">
-                <i class="bi bi-calendar3"></i>
-                <span>Bakım Planları</span>
-            </a>
+                <a href="{{ url_for('tramvay_km') }}"
+                    class="sidebar-link {{ 'active' if 'tramvay_km' in request.endpoint|string }}">
+                    <i class="bi bi-speedometer"></i>
+                    <span>Tramvay KM</span>
+                </a>
 
-            <a href="{{ url_for('tramvay_km') }}"
-                class="sidebar-link {{ 'active' if 'tramvay_km' in request.endpoint|string }}">
-                <i class="bi bi-speedometer"></i>
-                <span>Tramvay KM</span>
-            </a>
+                <a href="{{ url_for('servis_durumu') }}"
+                    class="sidebar-link {{ 'active' if 'servis_durumu' in request.endpoint|string }}">
+                    <i class="bi bi-toggle-on"></i>
+                    <span>Servis Durumu</span>
+                </a>
+            </div>
 
-            <a href="{{ url_for('servis_durumu') }}"
-                class="sidebar-link {{ 'active' if 'servis_durumu' in request.endpoint|string }}">
-                <i class="bi bi-toggle-on"></i>
-                <span>Servis Durumu</span>
-            </a>
+            <!-- Envanter - Collapsible -->
+            <div class="sidebar-menu-title sidebar-submenu-toggle" data-bs-toggle="collapse" data-bs-target="#menuEnvanter" aria-expanded="true">
+                Envanter
+            </div>
+            <div class="collapse show sidebar-submenu" id="menuEnvanter">
+                <a href="{{ url_for('yedek_parca') }}"
+                    class="sidebar-link {{ 'active' if 'yedek_parca' in request.endpoint|string }}">
+                    <i class="bi bi-box-seam"></i>
+                    <span>Yedek Parça</span>
+                </a>
+            </div>
 
-            <div class="sidebar-menu-title">Envanter</div>
+            <!-- Raporlar & Analiz - Collapsible -->
+            <div class="sidebar-menu-title sidebar-submenu-toggle" data-bs-toggle="collapse" data-bs-target="#menuRaporlar" aria-expanded="true">
+                Raporlar & Analiz
+            </div>
+            <div class="collapse show sidebar-submenu" id="menuRaporlar">
+                <a href="{{ url_for('fracas.index') }}"
+                    class="sidebar-link {{ 'active' if 'fracas' in request.endpoint|string }}">
+                    <i class="bi bi-graph-up-arrow"></i>
+                    <span>FRACAS Analiz</span>
+                </a>
 
-            <a href="{{ url_for('yedek_parca') }}"
-                class="sidebar-link {{ 'active' if 'yedek_parca' in request.endpoint|string }}">
-                <i class="bi bi-box-seam"></i>
-                <span>Yedek Parça</span>
-            </a>
+                <a href="{{ url_for('kpi.index') }}"
+                    class="sidebar-link {{ 'active' if 'kpi' in request.endpoint|string }}">
+                    <i class="bi bi-speedometer2"></i>
+                    <span>KPI Dashboard</span>
+                </a>
 
-            <div class="sidebar-menu-title">Raporlar & Analiz</div>
+                <a href="{{ url_for('reports.scenarios_page') }}"
+                    class="sidebar-link {{ 'active' if 'reports.scenarios' in request.endpoint|string }}">
+                    <i class="bi bi-lightbulb"></i>
+                    <span>Proje Analizi</span>
+                </a>
 
-            <a href="{{ url_for('fracas.index') }}"
-                class="sidebar-link {{ 'active' if 'fracas' in request.endpoint|string }}">
-                <i class="bi bi-graph-up-arrow"></i>
-                <span>FRACAS Analiz</span>
-            </a>
+                <a href="{{ url_for('reports.recent_reports') }}"
+                    class="sidebar-link {{ 'active' if 'reports.recent' in request.endpoint|string }}">
+                    <i class="bi bi-file-spreadsheet"></i>
+                    <span>Son Raporlar</span>
+                </a>
 
-            <a href="{{ url_for('kpi.index') }}"
-                class="sidebar-link {{ 'active' if 'kpi' in request.endpoint|string }}">
-                <i class="bi bi-speedometer2"></i>
-                <span>KPI Dashboard</span>
-            </a>
+                <a href="{{ url_for('reports.system_logs_page') }}"
+                    class="sidebar-link {{ 'active' if 'reports.system_logs' in request.endpoint|string }}">
+                    <i class="bi bi-file-text"></i>
+                    <span>Sistem Logları</span>
+                </a>
 
-            <a href="{{ url_for('reports.scenarios_page') }}"
-                class="sidebar-link {{ 'active' if 'reports.scenarios' in request.endpoint|string }}">
-                <i class="bi bi-lightbulb"></i>
-                <span>Proje Analizi</span>
-            </a>
+                {% if current_user.role == 'admin' %}
+                <a href="{{ url_for('reports.management_dashboard') }}"
+                    class="sidebar-link {{ 'active' if 'reports.management_dashboard' in request.endpoint|string }}">
+                    <i class="bi bi-bar-chart-line"></i>
+                    <span>Yönetim Dashboard</span>
+                </a>
+                {% endif %}
+            </div>
 
-            <a href="{{ url_for('reports.recent_reports') }}"
-                class="sidebar-link {{ 'active' if 'reports.recent' in request.endpoint|string }}">
-                <i class="bi bi-file-spreadsheet"></i>
-                <span>Son Raporlar</span>
-            </a>
-
-            <a href="{{ url_for('reports.system_logs_page') }}"
-                class="sidebar-link {{ 'active' if 'reports.system_logs' in request.endpoint|string }}">
-                <i class="bi bi-file-text"></i>
-                <span>Sistem Logları</span>
-            </a>
-
-            {% if current_user.role == 'admin' %}
-            <a href="{{ url_for('reports.management_dashboard') }}"
-                class="sidebar-link {{ 'active' if 'reports.management_dashboard' in request.endpoint|string }}">
-                <i class="bi bi-speedometer2"></i>
-                <span>📊 Yönetim Dashboard</span>
-            </a>
-
-            <a href="{{ url_for('reports.management_dashboard') }}"
-                class="sidebar-link {{ 'active' if 'reports.management_dashboard' in request.endpoint|string }}">
-                <i class="bi bi-graph-up"></i>
-                <span>🔐 Yönetim Raporları</span>
-            </a>
-            {% endif %}
-
+            <!-- Dokümantasyon -->
             <div class="sidebar-menu-title">Dokümantasyon</div>
 
             <a href="{{ url_for('dokuman_listesi') }}"
@@ -887,66 +904,75 @@
                 <span>Teknik Dokümanlar</span>
             </a>
 
-            <!-- DEBUG: Role check -->
-            <!-- Admin Status: {{ current_user.is_admin() }} -->
-            
             {% if current_user.is_admin() %}
-            <div class="sidebar-menu-title">Yönetim</div>
+            <!-- Yönetim - Collapsible -->
+            <div class="sidebar-menu-title sidebar-submenu-toggle" data-bs-toggle="collapse" data-bs-target="#menuYonetim" aria-expanded="true">
+                Yönetim
+            </div>
+            <div class="collapse show sidebar-submenu" id="menuYonetim">
+                <a href="{{ url_for('admin.dashboard') }}"
+                    class="sidebar-link {{ 'active' if 'admin' in request.endpoint|string }}">
+                    <i class="bi bi-shield-lock"></i>
+                    <span>Admin Paneli</span>
+                </a>
 
-            <a href="{{ url_for('admin.dashboard') }}"
-                class="sidebar-link {{ 'active' if 'admin' in request.endpoint|string }}">
-                <i class="bi bi-shield-lock"></i>
-                <span>Admin Paneli</span>
-            </a>
+                <a href="{{ url_for('admin.users') }}"
+                    class="sidebar-link {{ 'active' if 'admin.users' in request.endpoint|string }}">
+                    <i class="bi bi-people"></i>
+                    <span>Kullanıcı Yönetimi</span>
+                </a>
 
-            <a href="{{ url_for('admin.users') }}"
-                class="sidebar-link {{ 'active' if 'admin.users' in request.endpoint|string }}">
-                <i class="bi bi-people"></i>
-                <span>Kullanıcı Yönetimi</span>
-            </a>
+                <a href="{{ url_for('admin.projects') }}"
+                    class="sidebar-link {{ 'active' if 'admin.projects' in request.endpoint|string }}">
+                    <i class="bi bi-folder2-open"></i>
+                    <span>Proje Yönetimi</span>
+                </a>
 
-            <a href="{{ url_for('admin.projects') }}"
-                class="sidebar-link {{ 'active' if 'admin.projects' in request.endpoint|string }}">
-                <i class="bi bi-folder2-open"></i>
-                <span>Proje Yönetimi</span>
-            </a>
+                <a href="{{ url_for('admin.backups') }}"
+                    class="sidebar-link {{ 'active' if 'admin.backups' in request.endpoint|string }}">
+                    <i class="bi bi-database"></i>
+                    <span>Yedekleme</span>
+                </a>
 
-            <a href="{{ url_for('admin.backups') }}"
-                class="sidebar-link {{ 'active' if 'admin.backups' in request.endpoint|string }}">
-                <i class="bi bi-database"></i>
-                <span>Yedekleme</span>
-            </a>
+                <a href="{{ url_for('kullanicilar') }}"
+                    class="sidebar-link {{ 'active' if 'kullanici' in request.endpoint|string }}">
+                    <i class="bi bi-people-fill"></i>
+                    <span>Eski Kullanıcılar</span>
+                </a>
 
-            <a href="{{ url_for('kullanicilar') }}"
-                class="sidebar-link {{ 'active' if 'kullanici' in request.endpoint|string }}">
-                <i class="bi bi-people-fill"></i>
-                <span>Eski Kullanıcılar</span>
-            </a>
+                <a href="{{ url_for('audit_log') }}" class="sidebar-link {{ 'active' if request.endpoint == 'audit_log' }}">
+                    <i class="bi bi-shield-check"></i>
+                    <span>Denetim Günlüğü</span>
+                </a>
 
-            <a href="{{ url_for('audit_log') }}" class="sidebar-link {{ 'active' if request.endpoint == 'audit_log' }}">
-                <i class="bi bi-shield-check"></i>
-                <span>Denetim Günlüğü</span>
-            </a>
-
-            <a href="{{ url_for('admin.yetkilendirme') }}" class="sidebar-link {{ 'active' if request.endpoint == 'admin.yetkilendirme' }}">
-                <i class="bi bi-lock-fill"></i>
-                <span>Yetki Yönetimi</span>
-            </a>
+                <a href="{{ url_for('admin.yetkilendirme') }}" class="sidebar-link {{ 'active' if request.endpoint == 'admin.yetkilendirme' }}">
+                    <i class="bi bi-lock-fill"></i>
+                    <span>Yetki Yönetimi</span>
+                </a>
+            </div>
             {% endif %}
         </nav>
     </aside>
 
     <!-- Main Content -->
-    <main class="main-content">
-        <!-- DEBUG: current_user = {{ current_user }}, is_authenticated = {{ current_user.is_authenticated }}, role = "{{ current_user.role_obj.name if current_user.role_obj else '' }}" -->
+    <main class="main-content" id="main-content" role="main">
         <!-- Top Navbar -->
-        <header class="top-navbar">
-            <div class="navbar-search">
+        <header class="top-navbar" role="banner">
+            <!-- Mobile Hamburger -->
+            <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menüyü aç">
+                <i class="bi bi-list"></i>
+            </button>
+
+            <div class="navbar-search" id="navbarSearch">
                 <i class="bi bi-search"></i>
-                <input type="text" placeholder="Ara... (ekipman, arıza, iş emri)">
+                <input type="text" placeholder="Ara... (ekipman, arıza, iş emri)" aria-label="Arama">
             </div>
 
             <div class="navbar-actions">
+                <!-- Mobile Search Toggle -->
+                <button class="navbar-icon-btn mobile-search-toggle" id="mobileSearchToggle" aria-label="Arama aç">
+                    <i class="bi bi-search"></i>
+                </button>
                 <!-- Proje Seçici (Yalnız Saha Kullanıcıları için) -->
                 {% if current_user.is_saha() or current_user.is_admin() %}
                 <div class="dropdown">
@@ -966,11 +992,11 @@
                 {% endif %}
 
                 <!-- Dark Mode Toggle -->
-                <button class="navbar-icon-btn" id="darkModeToggle" title="Karanlık Mod">
+                <button class="navbar-icon-btn" id="darkModeToggle" title="Karanlık Mod" aria-label="Karanlık mod aç/kapat">
                     <i class="bi bi-moon"></i>
                 </button>
 
-                <button class="navbar-icon-btn">
+                <button class="navbar-icon-btn" aria-label="Bildirimler">
                     <i class="bi bi-bell"></i>
                     <span class="notification-badge"></span>
                 </button>
@@ -1013,6 +1039,16 @@
             </div>
         </header>
 
+        <!-- Breadcrumbs -->
+        {% block breadcrumb %}
+        <nav class="breadcrumb-wrapper" aria-label="Breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard.index') }}"><i class="bi bi-house"></i> Ana Sayfa</a></li>
+                {% block breadcrumb_items %}{% endblock %}
+            </ol>
+        </nav>
+        {% endblock %}
+
         <!-- Page Content -->
         <div class="page-content">
             <!-- Flash Messages -->
@@ -1033,6 +1069,27 @@
             {% block content %}{% endblock %}
         </div>
     </main>
+
+    <!-- Quick Actions FAB -->
+    <div class="quick-actions" id="quickActions">
+        <div class="quick-actions-menu" id="quickActionsMenu">
+            <a href="{{ url_for('yeni_ariza_bildir') }}" class="quick-action-item">
+                <span class="qa-label">Yeni Arıza Bildir</span>
+                <span class="qa-icon bg-danger"><i class="bi bi-exclamation-triangle"></i></span>
+            </a>
+            <a href="{{ url_for('fracas.index') }}" class="quick-action-item">
+                <span class="qa-label">FRACAS Analiz</span>
+                <span class="qa-icon bg-info"><i class="bi bi-graph-up-arrow"></i></span>
+            </a>
+            <a href="{{ url_for('kpi.index') }}" class="quick-action-item">
+                <span class="qa-label">KPI Dashboard</span>
+                <span class="qa-icon bg-primary"><i class="bi bi-speedometer2"></i></span>
+            </a>
+        </div>
+        <button class="quick-actions-trigger" id="quickActionsTrigger" aria-label="Hızlı işlemler">
+            <i class="bi bi-plus-lg"></i>
+        </button>
+    </div>
     {% else %}
     {% block public_content %}{% endblock %}
     {% endif %}
@@ -1088,7 +1145,6 @@
         const darkModeToggle = document.getElementById('darkModeToggle');
         const htmlElement = document.documentElement;
         
-        // Initialize dark mode from localStorage
         function initDarkMode() {
             const isDarkMode = localStorage.getItem('darkMode') === 'true';
             if (isDarkMode) {
@@ -1096,65 +1152,94 @@
             }
         }
         
-        // Enable dark mode
         function enableDarkMode() {
             htmlElement.setAttribute('data-bs-theme', 'dark');
-            htmlElement.style.backgroundColor = '#0f172a';
-            htmlElement.style.color = '#e2e8f0';
-            document.body.style.backgroundColor = '#0f172a';
-            document.body.style.color = '#e2e8f0';
-            
-            // Update icon
-            darkModeToggle.innerHTML = '<i class="bi bi-sun"></i>';
+            if (darkModeToggle) darkModeToggle.innerHTML = '<i class="bi bi-sun"></i>';
             localStorage.setItem('darkMode', 'true');
-            
-            // Update CSS variables for dark mode
-            const root = document.documentElement;
-            root.style.setProperty('--light-bg', '#1e293b');
-            root.style.setProperty('--primary-color', '#3b82f6');
         }
         
-        // Disable dark mode
         function disableDarkMode() {
             htmlElement.removeAttribute('data-bs-theme');
-            htmlElement.style.backgroundColor = '';
-            htmlElement.style.color = '';
-            document.body.style.backgroundColor = '#f8fafc';
-            document.body.style.color = '#1e293b';
-            
-            // Update icon
-            darkModeToggle.innerHTML = '<i class="bi bi-moon"></i>';
+            if (darkModeToggle) darkModeToggle.innerHTML = '<i class="bi bi-moon"></i>';
             localStorage.setItem('darkMode', 'false');
-            
-            // Restore CSS variables
-            const root = document.documentElement;
-            root.style.setProperty('--light-bg', '#f8fafc');
-            root.style.setProperty('--primary-color', '#2563eb');
         }
         
-        // Toggle dark mode
-        darkModeToggle.addEventListener('click', () => {
-            const isDarkMode = localStorage.getItem('darkMode') === 'true';
-            if (isDarkMode) {
-                disableDarkMode();
-            } else {
-                enableDarkMode();
-            }
-        });
+        if (darkModeToggle) {
+            darkModeToggle.addEventListener('click', () => {
+                if (localStorage.getItem('darkMode') === 'true') {
+                    disableDarkMode();
+                } else {
+                    enableDarkMode();
+                }
+            });
+        }
         
-        // Listen for storage changes (multi-tab sync)
         window.addEventListener('storage', (e) => {
             if (e.key === 'darkMode') {
-                if (e.newValue === 'true') {
-                    enableDarkMode();
-                } else {
-                    disableDarkMode();
-                }
+                e.newValue === 'true' ? enableDarkMode() : disableDarkMode();
             }
         });
         
-        // Initialize on page load
         document.addEventListener('DOMContentLoaded', initDarkMode);
+    </script>
+
+    <!-- Sidebar & Quick Actions & Mobile Search -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Mobile sidebar toggle
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const sidebarClose = document.getElementById('sidebarClose');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+            const sidebar = document.getElementById('sidebar');
+            
+            function openSidebar() {
+                if (sidebar) sidebar.classList.add('show');
+                if (sidebarOverlay) sidebarOverlay.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            }
+            
+            function closeSidebar() {
+                if (sidebar) sidebar.classList.remove('show');
+                if (sidebarOverlay) sidebarOverlay.classList.remove('show');
+                document.body.style.overflow = '';
+            }
+            
+            if (sidebarToggle) sidebarToggle.addEventListener('click', openSidebar);
+            if (sidebarClose) sidebarClose.addEventListener('click', closeSidebar);
+            if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
+            
+            // Mobile search toggle
+            const mobileSearchToggle = document.getElementById('mobileSearchToggle');
+            const navbarSearch = document.getElementById('navbarSearch');
+            
+            if (mobileSearchToggle && navbarSearch) {
+                mobileSearchToggle.addEventListener('click', function() {
+                    navbarSearch.classList.toggle('mobile-show');
+                    if (navbarSearch.classList.contains('mobile-show')) {
+                        navbarSearch.querySelector('input').focus();
+                    }
+                });
+            }
+            
+            // Quick actions
+            const qaTrigger = document.getElementById('quickActionsTrigger');
+            const qaMenu = document.getElementById('quickActionsMenu');
+            
+            if (qaTrigger && qaMenu) {
+                qaTrigger.addEventListener('click', function() {
+                    qaTrigger.classList.toggle('active');
+                    qaMenu.classList.toggle('show');
+                });
+                
+                // Close when clicking outside
+                document.addEventListener('click', function(e) {
+                    if (!e.target.closest('.quick-actions')) {
+                        qaTrigger.classList.remove('active');
+                        qaMenu.classList.remove('show');
+                    }
+                });
+            }
+        });
     </script>
 
     {% block scripts %}{% endblock %}

@@ -14,7 +14,7 @@
     }
 
     .report-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
         color: white;
         padding: 30px;
         border-radius: 10px;
@@ -38,7 +38,7 @@
         padding: 20px;
         border-radius: 8px;
         margin-bottom: 20px;
-        border-left: 4px solid #667eea;
+        border-left: 4px solid #2563eb;
     }
 
     .form-section h3 {
@@ -78,7 +78,7 @@
     .form-group select:focus,
     .form-group input:focus {
         outline: none;
-        border-color: #667eea;
+        border-color: #2563eb;
         box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     }
 
@@ -137,7 +137,7 @@
     }
 
     .btn-generate {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
         color: white;
         min-width: 200px;
     }
@@ -227,7 +227,7 @@
                     <label for="project">Proje</label>
                     <select name="project" id="project" required>
                         <option value="">-- Proje Seçiniz --</option>
-                        <option value="all" style="font-weight: bold; background: #667eea; color: white;">🌐 TÜM PROJELER</option>
+                        <option value="all" style="font-weight: bold; background: #2563eb; color: white;">🌐 TÜM PROJELER</option>
                         <option disabled>─────────────────────</option>
                         {% for code, name in projects.items() %}
                         <option value="{{ code }}">{{ name }}</option>

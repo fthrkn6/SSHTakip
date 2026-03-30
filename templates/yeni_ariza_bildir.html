@@ -11,7 +11,7 @@ Yeni Arıza Bildir
 {% block extra_css %}
 <style>
     :root {
-        --primary: #4f46e5;
+        --primary: #2563eb;
         --success: #10b981;
         --warning: #f59e0b;
         --danger: #ef4444;
@@ -94,7 +94,7 @@ Yeni Arıza Bildir
     }
 
     .bg-vehicle {
-        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
         box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
     }
 
@@ -286,7 +286,7 @@ Yeni Arıza Bildir
         </p>
     </div>
 
-    <form method="POST" enctype="multipart/form-data" id="arizaBildirimForm" data-project="{{ session.get('current_project', 'belgrad') }}">
+    <form method="POST" enctype="multipart/form-data" id="arizaBildirimForm" data-project="{{ session.get('current_project', 'belgrad') }}" data-validate data-loading>
         <div class="row">
             <!-- Sol Kolon -->
             <div class="col-lg-6">

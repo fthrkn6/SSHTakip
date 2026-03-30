@@ -6,10 +6,15 @@
 <!-- Chart.js base.html'den yukleniyor -->
 {% endblock %}
 
+{% block breadcrumb_items %}
+<li class="breadcrumb-item active">Raporlar &amp; Analiz</li>
+<li class="breadcrumb-item active">FRACAS Dashboard</li>
+{% endblock %}
+
 {% block content %}
 <style>
     .dashboard-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
         color: white;
         padding: 30px;
         border-radius: 10px;
@@ -30,7 +35,7 @@
         padding: 20px;
         border-radius: 8px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        border-left: 4px solid #667eea;
+        border-left: 4px solid #2563eb;
     }
 
     .kpi-card h4 {
@@ -45,7 +50,7 @@
     .kpi-value {
         font-size: 28px;
         font-weight: bold;
-        color: #667eea;
+        color: #2563eb;
         margin: 10px 0;
     }
 
@@ -102,7 +107,7 @@
 
     .btn-filter {
         padding: 8px 20px;
-        background: #667eea;
+        background: #2563eb;
         color: white;
         border: none;
         border-radius: 4px;
@@ -112,7 +117,7 @@
     }
 
     .btn-filter:hover {
-        background: #764ba2;
+        background: #1d4ed8;
     }
 
     .btn-reset {
@@ -378,9 +383,9 @@
                 <tr>
                     <td>{{ source }}</td>
                     <td style="text-align: right; font-weight: 600;">{{ count }}</td>
-                    <td style="text-align: right; font-weight: 600; color: #667eea;">{{ percentage }}%</td>
+                    <td style="text-align: right; font-weight: 600; color: #2563eb;">{{ percentage }}%</td>
                     <td>
-                        <div style="height: 20px; background: linear-gradient(90deg, #667eea, #764ba2); 
+                        <div style="height: 20px; background: linear-gradient(90deg, #2563eb, #1d4ed8); 
                                     width: {{ (percentage)|int }}%; border-radius: 3px;"></div>
                     </td>
                 </tr>
@@ -412,7 +417,7 @@
                 <tr>
                     <td><strong>{{ klass }}</strong></td>
                     <td style="text-align: right; font-weight: 600;">{{ count }}</td>
-                    <td style="text-align: right; font-weight: 600; color: #667eea;">{{ percentage }}%</td>
+                    <td style="text-align: right; font-weight: 600; color: #2563eb;">{{ percentage }}%</td>
                     <td>
                         <div style="height: 20px; background: linear-gradient(90deg, #f39c12, #e67e22); 
                                     width: {{ (percentage)|int }}%; border-radius: 3px;"></div>
@@ -446,7 +451,7 @@
                 <tr>
                     <td>{{ system }}</td>
                     <td style="text-align: right; font-weight: 600;">{{ count }}</td>
-                    <td style="text-align: right; font-weight: 600; color: #667eea;">{{ percentage }}%</td>
+                    <td style="text-align: right; font-weight: 600; color: #2563eb;">{{ percentage }}%</td>
                     <td>
                         <div style="height: 20px; background: linear-gradient(90deg, #27ae60, #2ecc71); 
                                     width: {{ (percentage)|int }}%; border-radius: 3px;"></div>
@@ -478,7 +483,7 @@
                 <tr>
                     <td>{{ ftype }}</td>
                     <td style="text-align: right; font-weight: 600;">{{ count }}</td>
-                    <td style="text-align: right; font-weight: 600; color: #667eea;">{{ percentage }}%</td>
+                    <td style="text-align: right; font-weight: 600; color: #2563eb;">{{ percentage }}%</td>
                     <td>
                         <div style="height: 20px; background: linear-gradient(90deg, #e74c3c, #c0392b); 
                                     width: {{ (percentage)|int }}%; border-radius: 3px;"></div>
@@ -512,7 +517,7 @@
                 <tr>
                     <td><strong>{{ item.vehicle }}</strong></td>
                     <td style="text-align: right; font-weight: 600;">{{ item.count }}</td>
-                    <td style="text-align: right; font-weight: 600; color: #667eea;">{{ percentage }}%</td>
+                    <td style="text-align: right; font-weight: 600; color: #2563eb;">{{ percentage }}%</td>
                     <td>
                         <div style="height: 20px; background: linear-gradient(90deg, #3498db, #2980b9); 
                                     width: {{ (percentage)|int }}%; border-radius: 3px;"></div>
@@ -546,7 +551,7 @@
                 <tr>
                     <td>{{ item.part }}</td>
                     <td style="text-align: right; font-weight: 600;">{{ item.count }}</td>
-                    <td style="text-align: right; font-weight: 600; color: #667eea;">{{ percentage }}%</td>
+                    <td style="text-align: right; font-weight: 600; color: #2563eb;">{{ percentage }}%</td>
                     <td>
                         <div style="height: 20px; background: linear-gradient(90deg, #9b59b6, #8e44ad); 
                                     width: {{ (percentage)|int }}%; border-radius: 3px;"></div>
@@ -580,7 +585,7 @@
                 <tr>
                     <td>{{ item.supplier }}</td>
                     <td style="text-align: right; font-weight: 600;">{{ item.count }}</td>
-                    <td style="text-align: right; font-weight: 600; color: #667eea;">{{ percentage }}%</td>
+                    <td style="text-align: right; font-weight: 600; color: #2563eb;">{{ percentage }}%</td>
                     <td>
                         <div style="height: 20px; background: linear-gradient(90deg, #1abc9c, #16a085); 
                                     width: {{ (percentage)|int }}%; border-radius: 3px;"></div>
@@ -614,7 +619,7 @@
                 <td><strong>{{ item.month }}</strong></td>
                 <td style="text-align: right; font-weight: 600;">{{ item.count }}</td>
                 <td>
-                    <div style="height: 20px; background: linear-gradient(90deg, #667eea, #764ba2); 
+                    <div style="height: 20px; background: linear-gradient(90deg, #2563eb, #1d4ed8); 
                                 width: {{ (item.count / max_count * 100)|int }}%; 
                                 border-radius: 3px;"></div>
                 </td>
@@ -647,7 +652,7 @@
             <tr>
                 <td><strong>{{ personnel }} kişi</strong></td>
                 <td style="text-align: right; font-weight: 600;">{{ count }}</td>
-                <td style="text-align: right; font-weight: 600; color: #667eea;">{{ percentage }}%</td>
+                <td style="text-align: right; font-weight: 600; color: #2563eb;">{{ percentage }}%</td>
                 <td>
                     <div style="height: 20px; background: linear-gradient(90deg, #f1c40f, #f39c12); 
                                 width: {{ (percentage)|int }}%; border-radius: 3px;"></div>
@@ -674,7 +679,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 padding: 12,
                 titleColor: '#fff',
                 bodyColor: '#fff',
-                borderColor: '#667eea',
+                borderColor: '#2563eb',
                 borderWidth: 1,
             }
         }
@@ -690,7 +695,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 labels: {{ analysis.failure_by_source.keys()|list|tojson }},
                 datasets: [{
                     data: {{ analysis.failure_by_source.values()|list|tojson }},
-                    backgroundColor: ['#667eea', '#764ba2', '#f39c12', '#e74c3c', '#27ae60', '#3498db', '#9b59b6', '#1abc9c'],
+                    backgroundColor: ['#2563eb', '#1d4ed8', '#f39c12', '#e74c3c', '#27ae60', '#3498db', '#9b59b6', '#1abc9c'],
                     borderColor: '#fff',
                     borderWidth: 2,
                 }]
@@ -874,13 +879,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 datasets: [{
                     label: 'Aylık Arızalar',
                     data: {{ analysis.monthly_trend|map(attribute='count')|list|tojson }},
-                    borderColor: '#667eea',
+                    borderColor: '#2563eb',
                     backgroundColor: 'rgba(102, 126, 234, 0.1)',
                     fill: true,
                     borderWidth: 3,
                     tension: 0.4,
                     pointRadius: 5,
-                    pointBackgroundColor: '#667eea',
+                    pointBackgroundColor: '#2563eb',
                     pointBorderColor: '#fff',
                     pointBorderWidth: 2,
                 }]

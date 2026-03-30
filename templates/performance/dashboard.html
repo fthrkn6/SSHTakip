@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
 {% block title %}Performance Dashboard{% endblock %}
 
@@ -19,25 +19,25 @@
     <div class="row mb-4">
         <div class="col-md-3 mb-3">
             <div class="kpi-card">
-                <div class="kpi-value" id="dbStatus">●</div>
+                <div class="kpi-value" id="dbStatus">â—</div>
                 <div class="kpi-label">Database</div>
             </div>
         </div>
         <div class="col-md-3 mb-3">
             <div class="kpi-card">
-                <div class="kpi-value" id="cacheStatus">●</div>
+                <div class="kpi-value" id="cacheStatus">â—</div>
                 <div class="kpi-label">Cache</div>
             </div>
         </div>
         <div class="col-md-3 mb-3">
             <div class="kpi-card">
-                <div class="kpi-value" id="appStatus">●</div>
+                <div class="kpi-value" id="appStatus">â—</div>
                 <div class="kpi-label">Application</div>
             </div>
         </div>
         <div class="col-md-3 mb-3">
             <div class="kpi-card">
-                <div class="kpi-value" id="celeryStatus">●</div>
+                <div class="kpi-value" id="celeryStatus">â—</div>
                 <div class="kpi-label">Celery</div>
             </div>
         </div>
@@ -135,7 +135,7 @@
 
 <style>
 .kpi-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
     color: white;
     border-radius: 10px;
     padding: 20px;
@@ -230,14 +230,14 @@ function updateHealthStatus(data) {
     const appStatus = document.getElementById('appStatus');
 
     dbStatus.className = 'kpi-value status-' + (data.components.database.status === 'healthy' ? 'healthy' : 'unhealthy');
-    dbStatus.textContent = data.components.database.status === 'healthy' ? '✓' : '✗';
+    dbStatus.textContent = data.components.database.status === 'healthy' ? 'âœ“' : 'âœ—';
 
     cacheStatus.className = 'kpi-value status-' + data.components.cache.status;
-    cacheStatus.textContent = data.components.cache.status === 'healthy' ? '✓' : 
-                             data.components.cache.status === 'degraded' ? '⚠' : '✗';
+    cacheStatus.textContent = data.components.cache.status === 'healthy' ? 'âœ“' : 
+                             data.components.cache.status === 'degraded' ? 'âš ' : 'âœ—';
 
     appStatus.className = 'kpi-value status-healthy';
-    appStatus.textContent = '✓';
+    appStatus.textContent = 'âœ“';
 
     document.getElementById('healthStatus').innerHTML = 
         `<p><strong>Status:</strong> ${data.status}</p>

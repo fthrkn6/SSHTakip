@@ -2,6 +2,11 @@
 
 {% block title %}Arıza Listesi - Veriler{% endblock %}
 
+{% block breadcrumb_items %}
+<li class="breadcrumb-item active">İş Yönetimi</li>
+<li class="breadcrumb-item active">Arıza Listesi</li>
+{% endblock %}
+
 {% block content %}
 <style>
     .fixed-download-btn {
@@ -846,7 +851,7 @@
     <div class="modal-dialog modal-xl" style="max-width: 900px;">
         <div class="modal-content" style="border-radius: 16px;">
             <!-- Modal Header -->
-            <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 16px 16px 0 0;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border: none; border-radius: 16px 16px 0 0;">
                 <h5 class="modal-title text-white" id="inlineEditModalLabel" style="font-weight: 700; font-size: 1.1rem;">
                     <i class="bi bi-pencil-square me-2"></i>FRACAS Verisini Düzenle
                 </h5>
@@ -858,7 +863,7 @@
                 <form id="inlineEditForm">
                     <!-- Araç Bilgileri Section -->
                     <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 1rem; overflow: hidden; border: 1px solid #e0e0e0;">
-                        <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 0.8rem 1rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                        <div style="background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); color: white; padding: 0.8rem 1rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
                             <i class="fas fa-subway"></i>
                             Araç Bilgileri
                         </div>
