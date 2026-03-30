@@ -19,43 +19,6 @@ logger = logging.getLogger(__name__)
 
 bp = Blueprint('fracas', __name__, url_prefix='/fracas')
 
-@bp.route('/chart-test')
-def chart_test():
-    """Diagnostic page - tests if Chart.js renders in the browser"""
-    return '''<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>Chart.js Test</title>
-<script src="/static/js/chart.min.js"></script>
-</head><body style="padding:40px;font-family:sans-serif">
-<h2>FRACAS Chart.js Diagnostic</h2>
-<div id="status" style="padding:10px;margin:10px 0;border:2px solid #ccc;border-radius:8px">Loading...</div>
-<canvas id="testChart" width="600" height="300" style="border:1px solid #ddd;max-width:100%"></canvas>
-<script>
-var s = document.getElementById('status');
-try {
-    if (typeof Chart === 'undefined') {
-        s.innerHTML = '<span style="color:red;font-weight:bold">FAIL: Chart is undefined - chart.min.js did not load!</span>';
-        s.style.borderColor = 'red';
-    } else {
-        s.innerHTML = '<span style="color:green;font-weight:bold">OK: Chart.js v' + Chart.version + ' loaded successfully</span>';
-        s.style.borderColor = 'green';
-        new Chart(document.getElementById('testChart').getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: ['Mod-A', 'Mod-B', 'Mod-C', 'Mod-D', 'Mod-E'],
-                datasets: [{label: 'Test Data', data: [12, 19, 3, 5, 2],
-                    backgroundColor: ['#2563eb','#dc2626','#16a34a','#ca8a04','#9333ea']}]
-            },
-            options: {responsive: true, plugins: {title: {display: true, text: 'Test Chart - If you see this, Chart.js works!'}}}
-        });
-        s.innerHTML += '<br><span style="color:green">Chart rendered. If you see bars below, everything works.</span>';
-    }
-} catch(e) {
-    s.innerHTML = '<span style="color:red;font-weight:bold">ERROR: ' + e.message + '</span>';
-    s.style.borderColor = 'red';
-}
-</script>
-</body></html>'''
-
 # Excel sütun eşleştirmeleri (Türkçe -> İngilizce)
 COLUMN_MAPPING = {
     'Araç Numarası Vehicle Number': 'vehicle_number',
