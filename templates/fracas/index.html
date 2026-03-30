@@ -254,24 +254,32 @@
 
 {% block extra_js %}
 {% if data_available %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+document.addEventListener('DOMContentLoaded', function() {
+  try {
+    if (typeof Chart === 'undefined') {
+        document.querySelectorAll('canvas').forEach(function(c) {
+            c.parentElement.innerHTML = '<div class="alert alert-danger">Chart.js yüklenemedi. Sayfayı yenileyin veya tarayıcı önbelleğini temizleyin.</div>';
+        });
+        return;
+    }
+    console.log('FRACAS: Chart.js v' + Chart.version + ' yüklendi, grafikler oluşturuluyor...');
     const colors = ['#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#9333ea', '#0891b2', '#c026d3', '#ea580c', '#4f46e5', '#059669', '#d97706', '#0087be', '#7c3aed', '#db2777'];
 
     // Pareto - Modül
-    {% if pareto.by_module %}
+    {% if pareto_labels_module %}
     new Chart(document.getElementById('paretoModuleChart').getContext('2d'), {
         type: 'bar',
         data: {
-            labels: [{% for item in pareto.by_module %}'{{ item.name[:20] }}'{% if not loop.last %},{% endif %}{% endfor %}],
+            labels: {{ pareto_labels_module|tojson }},
             datasets: [{
                 label: 'Arıza Sayısı',
-                data: [{% for item in pareto.by_module %}{{ item.count }}{% if not loop.last %},{% endif %}{% endfor %}],
+                data: {{ pareto_counts_module|tojson }},
                 backgroundColor: colors,
                 borderRadius: 4
             }, {
                 label: 'Kümülatif %',
-                data: [{% for item in pareto.by_module %}{{ item.cumulative }}{% if not loop.last %},{% endif %}{% endfor %}],
+                data: {{ pareto_cumulative_module|tojson }},
                 type: 'line',
                 borderColor: '#f59e0b',
                 yAxisID: 'y1',
@@ -290,19 +298,19 @@
     {% endif %}
 
     // Pareto - Tedarikçi
-    {% if pareto.by_supplier %}
+    {% if pareto_labels_supplier %}
     new Chart(document.getElementById('paretoSupplierChart').getContext('2d'), {
         type: 'bar',
         data: {
-            labels: [{% for item in pareto.by_supplier %}'{{ item.name[:20] }}'{% if not loop.last %},{% endif %}{% endfor %}],
+            labels: {{ pareto_labels_supplier|tojson }},
             datasets: [{
                 label: 'Arıza Sayısı',
-                data: [{% for item in pareto.by_supplier %}{{ item.count }}{% if not loop.last %},{% endif %}{% endfor %}],
+                data: {{ pareto_counts_supplier|tojson }},
                 backgroundColor: colors.slice().reverse(),
                 borderRadius: 4
             }, {
                 label: 'Kümülatif %',
-                data: [{% for item in pareto.by_supplier %}{{ item.cumulative }}{% if not loop.last %},{% endif %}{% endfor %}],
+                data: {{ pareto_cumulative_supplier|tojson }},
                 type: 'line',
                 borderColor: '#f59e0b',
                 yAxisID: 'y1',
@@ -321,14 +329,14 @@
     {% endif %}
 
     // Aylık Trend
-    {% if trend.monthly %}
+    {% if trend_periods %}
     new Chart(document.getElementById('monthlyTrendChart').getContext('2d'), {
         type: 'line',
         data: {
-            labels: [{% for item in trend.monthly %}'{{ item.period }}'{% if not loop.last %},{% endif %}{% endfor %}],
+            labels: {{ trend_periods|tojson }},
             datasets: [{
                 label: 'Arıza Sayısı',
-                data: [{% for item in trend.monthly %}{{ item.count }}{% if not loop.last %},{% endif %}{% endfor %}],
+                data: {{ trend_counts|tojson }},
                 borderColor: '#2563eb',
                 backgroundColor: 'rgba(37,99,235,0.1)',
                 fill: true,
@@ -340,14 +348,14 @@
     {% endif %}
 
     // Saatlik
-    {% if trend.by_hour %}
+    {% if trend_hours %}
     new Chart(document.getElementById('hourlyChart').getContext('2d'), {
         type: 'bar',
         data: {
-            labels: [{% for item in trend.by_hour %}'{{ item.hour }}'{% if not loop.last %},{% endif %}{% endfor %}],
+            labels: {{ trend_hours|tojson }},
             datasets: [{
                 label: 'Arıza Sayısı',
-                data: [{% for item in trend.by_hour %}{{ item.count }}{% if not loop.last %},{% endif %}{% endfor %}],
+                data: {{ trend_hour_counts|tojson }},
                 backgroundColor: 'rgba(37,99,235,0.7)',
                 borderRadius: 2
             }]
@@ -357,13 +365,13 @@
     {% endif %}
 
     // Arıza Sınıfı
-    {% if pareto.by_failure_class %}
+    {% if pareto_labels_class %}
     new Chart(document.getElementById('failureClassChart').getContext('2d'), {
         type: 'doughnut',
         data: {
-            labels: [{% for item in pareto.by_failure_class %}'{{ item.name[:30] }}'{% if not loop.last %},{% endif %}{% endfor %}],
+            labels: {{ pareto_labels_class|tojson }},
             datasets: [{
-                data: [{% for item in pareto.by_failure_class %}{{ item.count }}{% if not loop.last %},{% endif %}{% endfor %}],
+                data: {{ pareto_counts_class|tojson }},
                 backgroundColor: colors,
                 borderWidth: 0
             }]
@@ -373,13 +381,13 @@
     {% endif %}
 
     // Arıza Konumu
-    {% if pareto.by_location %}
+    {% if pareto_labels_location %}
     new Chart(document.getElementById('locationChart').getContext('2d'), {
         type: 'pie',
         data: {
-            labels: [{% for item in pareto.by_location %}'{{ item.name[:25] }}'{% if not loop.last %},{% endif %}{% endfor %}],
+            labels: {{ pareto_labels_location|tojson }},
             datasets: [{
-                data: [{% for item in pareto.by_location %}{{ item.count }}{% if not loop.last %},{% endif %}{% endfor %}],
+                data: {{ pareto_counts_location|tojson }},
                 backgroundColor: colors.slice().reverse(),
                 borderWidth: 0
             }]
@@ -444,6 +452,16 @@
         window.location.href = url;
         e.preventDefault();
     });
+    console.log('FRACAS: Tüm grafikler başarıyla oluşturuldu.');
+  } catch(err) {
+    console.error('FRACAS grafik hatası:', err);
+    document.querySelectorAll('canvas').forEach(function(c) {
+        if (c.offsetHeight < 5) {
+            c.parentElement.innerHTML = '<div class="alert alert-warning">Grafik yüklenirken hata: ' + err.message + '</div>';
+        }
+    });
+  }
+});
 </script>
 {% endif %}
 {% endblock %}

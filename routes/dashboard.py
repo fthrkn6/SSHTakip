@@ -117,14 +117,45 @@ def get_failures_from_excel(project_code=None):
         
         df = pd.read_excel(ariza_listesi_file, sheet_name='FRACAS', header=header_row)
         
+        # SON 30 GÜN FİLTRESİ EKLE
+        tarih_col = None
+        for col in df.columns:
+            if 'tarih' in col.lower() and 'hata' in col.lower():
+                tarih_col = col
+                break
+        
+        if tarih_col:
+            try:
+                df[tarih_col] = pd.to_datetime(df[tarih_col], errors='coerce')
+                last_30_days = datetime.utcnow() - timedelta(days=30)
+                df = df[df[tarih_col] >= last_30_days]
+            except Exception as e:
+                logger.warning(f'Tarih filtresi hatası ({project_code}): {e}')
+        
         # Son 5 açık arızayı al (son 5 satır)
         recent = df.tail(5).to_dict('records') if len(df) > 0 else []
         
-        # Arıza sınıfı istatistikleri
-        sinif_counts = {}
+        # Arıza sınıfı istatistikleri - get_ariza_counts_by_class ile aynı format
+        sinif_counts = {
+            'A': {'label': 'A-Kritik/Emniyet Riski', 'count': 0},
+            'B': {'label': 'B-Yüksek/Operasyon Engeller', 'count': 0},
+            'C': {'label': 'C-Hafif/Kısıtlı Operasyon', 'count': 0},
+            'D': {'label': 'D-Arıza Değildir', 'count': 0}
+        }
+        
         for col in df.columns:
             if 'arıza' in col.lower() and 'sınıf' in col.lower():
-                sinif_counts = df[col].value_counts().to_dict()
+                # Her sınıfı kategorize et
+                for sinif in df[col].dropna():
+                    sinif_str = str(sinif).strip()
+                    if sinif_str.startswith('A'):
+                        sinif_counts['A']['count'] += 1
+                    elif sinif_str.startswith('B'):
+                        sinif_counts['B']['count'] += 1
+                    elif sinif_str.startswith('C'):
+                        sinif_counts['C']['count'] += 1
+                    elif sinif_str.startswith('D'):
+                        sinif_counts['D']['count'] += 1
                 break
         
         return recent, sinif_counts
@@ -202,8 +233,12 @@ def get_today_completed_failures_count():
         return 0
 
 
-def get_ariza_counts_by_class():
-    """Excel'den arızaları sınıflara göre say (A, B, C, D) - Proje-dinamik"""
+def get_ariza_counts_by_class(filter_last_30_days=False):
+    """Excel'den arızaları sınıflara göre say (A, B, C, D) - Proje-dinamik
+    
+    Args:
+        filter_last_30_days: True ise sadece son 30 günü sayar, False ise tüm verileri sayar
+    """
     from flask import current_app
     
     current_project = session.get('current_project', 'belgrad')
@@ -272,6 +307,30 @@ def get_ariza_counts_by_class():
         header_row = 3 if 'logs' in ariza_listesi_file and 'ariza_listesi' in ariza_listesi_file else 0
         df = pd.read_excel(ariza_listesi_file, sheet_name='FRACAS', header=header_row)
         
+        # SON 30 GÜNDE ARIZALARI FİLTRELE (sadece istenirse)
+        if filter_last_30_days:
+            # Tarih sütununu bul
+            tarih_col = None
+            for col in df.columns:
+                if 'tarih' in col.lower() and 'hata' in col.lower():
+                    tarih_col = col
+                    break
+            
+            # Tarih sütununu datetime'a dönüştür
+            if tarih_col:
+                try:
+                    df[tarih_col] = pd.to_datetime(df[tarih_col], errors='coerce')
+                    # Son 30 gün öncesinden sonraki arızaları filtrele
+                    last_30_days = datetime.utcnow() - timedelta(days=30)
+                    df = df[df[tarih_col] >= last_30_days]
+                    logger.debug(f'[Dashboard] Tarih filtresi uygulandı: {tarih_col} >= {last_30_days}')
+                except Exception as e:
+                    logger.warning(f'Tarih dönüşüm hatası: {e}. Tüm arızalar sayılacak.')
+            else:
+                logger.warning(f'Tarih sütunu bulunamadı. Tüm arızalar sayılacak.')
+        
+        # Eğer filtre açılmamışsa, tüm verileri kullan (df zaten tüm verisi)
+        
         # Arıza sınıfı sütununu bul
         sinif_col = None
         for col in df.columns:
@@ -293,7 +352,7 @@ def get_ariza_counts_by_class():
                     counts['C']['count'] += 1
                 elif sinif_str.startswith('D'):
                     counts['D']['count'] += 1
-            logger.debug(f'Ariza sınıfı sayıları: {counts}')
+            logger.debug(f'Ariza sınıfı sayıları (son 30 gün): {counts}')
         else:
             logger.warning(f'Ariza sınıfı sütunu bulunamadı. Mevcut sütunlar: {list(df.columns)}')
         
@@ -669,14 +728,18 @@ def index():
     son_arizalar = son_arizalar_list
     
     # Arıza sınıflarına göre sayı hesapla
-    ariza_by_class = get_ariza_counts_by_class()
+    # 1. Tüm veriler (alt kartlar için A/B/C/D dağılımı)
+    ariza_sinif_counts = get_ariza_counts_by_class(filter_last_30_days=False)
     
-    # Toplam arıza sayısı = A + B + C + D (arıza_by_class'dan)
-    # Bu şekilde her zaman doğru dosyandan veri gelir
+    # 2. Son 30 gün (üstteki kart için: "Son 30 Günde Toplam Arıza")
+    ariza_by_class = get_ariza_counts_by_class(filter_last_30_days=True)
+    
+    # Toplam arıza sayısı = A + B + C + D (son 30 günden)
     total_failures_last_30_days = sum(cls_data['count'] for cls_data in ariza_by_class.values())
     
     # Log the counts
-    logger.debug(f'A={ariza_by_class["A"]["count"]}, B={ariza_by_class["B"]["count"]}, C={ariza_by_class["C"]["count"]}, D={ariza_by_class["D"]["count"]}, TOTAL={total_failures_last_30_days}')
+    logger.debug(f'[SON 30 GÜN] A={ariza_by_class["A"]["count"]}, B={ariza_by_class["B"]["count"]}, C={ariza_by_class["C"]["count"]}, D={ariza_by_class["D"]["count"]}, TOTAL={total_failures_last_30_days}')
+    logger.debug(f'[TÜM VERİ] A={ariza_sinif_counts["A"]["count"]}, B={ariza_sinif_counts["B"]["count"]}, C={ariza_sinif_counts["C"]["count"]}, D={ariza_sinif_counts["D"]["count"]}')
     
     # Filo durumu istatistikleri - ServiceStatus'ten hesapla
     aktif_count = 0
@@ -727,7 +790,7 @@ def index():
                          stats=stats,
                          kpi=latest_kpi,
                          total_failures_last_30_days=total_failures_last_30_days,
-                         ariza_sinif_counts=ariza_by_class)
+                         ariza_sinif_counts=ariza_sinif_counts)  # Tüm veriler (alt kartlar)
 
 
 @bp.route('/api/equipment-status')
@@ -1023,4 +1086,17 @@ def get_equipment_failures(equipment_code=None):
         logger.error(traceback.format_exc())
         logger.info(f"\1")
         return jsonify({'failures': [], 'error': f'API Error: {str(e)}'})
+
+
+@bp.route('/api/debug-ariza-counts')
+@login_required
+def debug_ariza_counts():
+    """Debug: get_ariza_counts_by_class() sonuçlarını göster"""
+    result = get_ariza_counts_by_class()
+    return jsonify({
+        'function': 'get_ariza_counts_by_class()',
+        'result': result,
+        'current_project': session.get('current_project', 'belgrad'),
+        'timestamp': datetime.utcnow().isoformat()
+    })
 

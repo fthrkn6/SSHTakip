@@ -2,26 +2,38 @@
 
 // Sayfa yüklendiğinde
 document.addEventListener('DOMContentLoaded', function () {
-    // Tooltip'leri başlat
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
+    try {
+        // Tooltip'leri başlat
+        if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        }
 
-    // Popover'ları başlat
-    var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
-    var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
-        return new bootstrap.Popover(popoverTriggerEl);
-    });
+        // Popover'ları başlat
+        if (typeof bootstrap !== 'undefined' && bootstrap.Popover) {
+            var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+            popoverTriggerList.map(function (popoverTriggerEl) {
+                return new bootstrap.Popover(popoverTriggerEl);
+            });
+        }
 
-    // Auto-hide alerts
-    setTimeout(function () {
-        var alerts = document.querySelectorAll('.alert');
-        alerts.forEach(function (alert) {
-            var bsAlert = new bootstrap.Alert(alert);
-            bsAlert.close();
-        });
-    }, 5000);
+        // Auto-hide alerts (grafik uyarıları hariç)
+        setTimeout(function () {
+            var alerts = document.querySelectorAll('.alert:not(.alert-danger):not(.alert-warning)');
+            alerts.forEach(function (alert) {
+                try {
+                    if (typeof bootstrap !== 'undefined' && bootstrap.Alert) {
+                        var bsAlert = new bootstrap.Alert(alert);
+                        bsAlert.close();
+                    }
+                } catch(e) {}
+            });
+        }, 5000);
+    } catch(e) {
+        console.warn('Bootstrap init hatası:', e);
+    }
 });
 
 // Grafik İndirme Fonksiyonu

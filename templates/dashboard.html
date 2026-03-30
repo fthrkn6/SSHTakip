@@ -376,8 +376,8 @@
         <div class="metric-value text-info">{{ ariza_sinif_counts.D.count }}</div>
     </div>
     <div class="metric-card flex-fill" style="min-width: 160px;">
-        <h6>Toplam Arızalar</h6>
-        <div class="metric-value text-danger">{{ total_failures_last_30_days }}</div>
+        <h6>Toplam Arıza</h6>
+        <div class="metric-value text-danger">{{ ariza_sinif_counts.A.count + ariza_sinif_counts.B.count + ariza_sinif_counts.C.count + ariza_sinif_counts.D.count }}</div>
     </div>
 </div>
 

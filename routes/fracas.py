@@ -19,6 +19,43 @@ logger = logging.getLogger(__name__)
 
 bp = Blueprint('fracas', __name__, url_prefix='/fracas')
 
+@bp.route('/chart-test')
+def chart_test():
+    """Diagnostic page - tests if Chart.js renders in the browser"""
+    return '''<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Chart.js Test</title>
+<script src="/static/js/chart.min.js"></script>
+</head><body style="padding:40px;font-family:sans-serif">
+<h2>FRACAS Chart.js Diagnostic</h2>
+<div id="status" style="padding:10px;margin:10px 0;border:2px solid #ccc;border-radius:8px">Loading...</div>
+<canvas id="testChart" width="600" height="300" style="border:1px solid #ddd;max-width:100%"></canvas>
+<script>
+var s = document.getElementById('status');
+try {
+    if (typeof Chart === 'undefined') {
+        s.innerHTML = '<span style="color:red;font-weight:bold">FAIL: Chart is undefined - chart.min.js did not load!</span>';
+        s.style.borderColor = 'red';
+    } else {
+        s.innerHTML = '<span style="color:green;font-weight:bold">OK: Chart.js v' + Chart.version + ' loaded successfully</span>';
+        s.style.borderColor = 'green';
+        new Chart(document.getElementById('testChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: ['Mod-A', 'Mod-B', 'Mod-C', 'Mod-D', 'Mod-E'],
+                datasets: [{label: 'Test Data', data: [12, 19, 3, 5, 2],
+                    backgroundColor: ['#2563eb','#dc2626','#16a34a','#ca8a04','#9333ea']}]
+            },
+            options: {responsive: true, plugins: {title: {display: true, text: 'Test Chart - If you see this, Chart.js works!'}}}
+        });
+        s.innerHTML += '<br><span style="color:green">Chart rendered. If you see bars below, everything works.</span>';
+    }
+} catch(e) {
+    s.innerHTML = '<span style="color:red;font-weight:bold">ERROR: ' + e.message + '</span>';
+    s.style.borderColor = 'red';
+}
+</script>
+</body></html>'''
+
 # Excel sütun eşleştirmeleri (Türkçe -> İngilizce)
 COLUMN_MAPPING = {
     'Araç Numarası Vehicle Number': 'vehicle_number',
@@ -108,7 +145,8 @@ def load_fracas_data(project_code=None):
             df = pd.read_excel(excel_path, sheet_name='FRACAS', header=0)
         
         # Sütun isimlerini normalize et
-        df.columns = df.columns.str.replace('\n', ' ', regex=False).str.strip()
+        df.columns = df.columns.str.replace('\n', ' ', regex=False).str.replace('\r', '', regex=False)
+        df.columns = df.columns.str.replace(r'\s+', ' ', regex=True).str.strip()
         
         # FRACAS ID kolonunu bul ve boş satırları filtrele
         fracas_col = None
@@ -160,7 +198,8 @@ def load_ariza_listesi_data():
         
         df = pd.read_excel(ariza_listesi_file, sheet_name=sheet_name, header=header)
         # Sütun isimlerini normalize et
-        df.columns = df.columns.str.replace('\n', ' ', regex=False).str.strip()
+        df.columns = df.columns.str.replace('\n', ' ', regex=False).str.replace('\r', '', regex=False)
+        df.columns = df.columns.str.replace(r'\s+', ' ', regex=True).str.strip()
         
         # FRACAS ID kolonunu bul ve boş satırları filtrele (varsa)
         fracas_col = None
@@ -197,33 +236,126 @@ def index():
     """FRACAS Ana Sayfa - Özet Dashboard - Arıza Listesi verileri kullanarak"""
     # Tüm kullanıcılara açık
     
-    # Fracas_BELGRAD.xlsx'ten verileri yükle (birleştirilmiş veri kaynağı)
-    df = load_fracas_data()
+    # URL'deki ?project parametresini veya sessiyon'daki current_project'i kullan
+    project_code = request.args.get('project') or session.get('current_project', 'belgrad')
     
-    data_source = 'Fracas_BELGRAD' if df is not None and len(df) > 0 else 'Veri Yok'
+    # DEBUG
+    logger.info(f'[FRACAS DEBUG] request.args.project={request.args.get("project")}')
+    logger.info(f'[FRACAS DEBUG] session.current_project={session.get("current_project")}')
+    logger.info(f'[FRACAS DEBUG] final project_code={project_code}')
     
-    if df is None:
-        flash('FRACAS verileri bulunamadı. Lütfen Arıza Listesi Excel dosyasını logs klasörüne ekleyin.', 'warning')
-        return render_template('fracas/index.html', data_available=False, data_source='Veri Yok')
+    # Session'a kaydet (sonraki isteklerde de kullanılabilsin)
+    if project_code:
+        session['current_project'] = project_code
+        session.modified = True
     
-    # Temel istatistikler
-    stats = calculate_basic_stats(df)
-    rams_metrics = calculate_rams_metrics(df)
-    pareto_data = calculate_pareto_analysis(df)
-    trend_data = calculate_trend_analysis(df)
-    supplier_data = calculate_supplier_analysis(df)
-    cost_data = calculate_cost_analysis(df)
-    
-    return render_template('fracas/index.html',
-                         data_available=True,
-                         data_source=data_source,
-                         stats=stats,
-                         rams=rams_metrics,
-                         pareto=pareto_data,
-                         trend=trend_data,
-                         supplier=supplier_data,
-                         cost=cost_data,
-                         total_records=len(df))
+    try:
+        # Veri yükle
+        logger.info(f'[FRACAS] Veri yükleniyor... (project: {project_code})')
+        df = load_fracas_data(project_code)
+        logger.info(f'[FRACAS] Veri yüklendi: {len(df) if df is not None else 0} satır')
+        
+        project_name = project_code.upper() if project_code else 'BILINMEYEN'
+        data_source = f'Fracas_{project_name}' if df is not None and len(df) > 0 else 'Veri Yok'
+        
+        if df is None:
+            flash(f'{project_code.upper()} için FRACAS verileri bulunamadı. Dosya: logs/{project_code}/ariza_listesi/Fracas_{project_code.upper()}.xlsx', 'warning')
+            return render_template('fracas/index.html', data_available=False, data_source=f'Veri Yok ({project_code})')
+        
+        # Temel istatistikler
+        logger.info('[FRACAS] basic_stats hesaplanıyor...')
+        stats = calculate_basic_stats(df)
+        logger.info('[FRACAS] basic_stats OK')
+        
+        logger.info('[FRACAS] rams_metrics hesaplanıyor...')
+        rams_metrics = calculate_rams_metrics(df)
+        logger.info('[FRACAS] rams_metrics OK')
+        
+        logger.info('[FRACAS] pareto_analysis hesaplanıyor...')
+        pareto_data = calculate_pareto_analysis(df)
+        logger.info('[FRACAS] pareto_analysis OK')
+        
+        logger.info('[FRACAS] trend_analysis hesaplanıyor...')
+        trend_data = calculate_trend_analysis(df)
+        logger.info('[FRACAS] trend_analysis OK')
+        
+        logger.info('[FRACAS] supplier_analysis hesaplanıyor...')
+        supplier_data = calculate_supplier_analysis(df)
+        logger.info('[FRACAS] supplier_analysis OK')
+        
+        logger.info('[FRACAS] cost_analysis hesaplanıyor...')
+        cost_data = calculate_cost_analysis(df)
+        logger.info('[FRACAS] cost_analysis OK')
+        
+        logger.info('[FRACAS] Template render ediliyor...')
+        
+        logger.info('[FRACAS] Template için verileri hazırlanıyor...')
+        
+        # Template için verileri hazırla - list comprehension kesmeyin template'de
+        pareto_labels_module = [item['name'][:20] for item in pareto_data['by_module']]
+        pareto_counts_module = [item['count'] for item in pareto_data['by_module']]
+        pareto_cumulative_module = [item['cumulative'] for item in pareto_data['by_module']]
+        logger.info(f'[FRACAS] pareto_module: {len(pareto_labels_module)} items')
+        
+        pareto_labels_supplier = [item['name'][:20] for item in pareto_data['by_supplier']]
+        pareto_counts_supplier = [item['count'] for item in pareto_data['by_supplier']]
+        pareto_cumulative_supplier = [item['cumulative'] for item in pareto_data['by_supplier']]
+        logger.info(f'[FRACAS] pareto_supplier: {len(pareto_labels_supplier)} items')
+        
+        pareto_labels_location = [item['name'][:25] for item in pareto_data['by_location']]
+        pareto_counts_location = [item['count'] for item in pareto_data['by_location']]
+        pareto_cumulative_location = [item['cumulative'] for item in pareto_data['by_location']]
+        logger.info(f'[FRACAS] pareto_location: {len(pareto_labels_location)} items')
+        
+        pareto_labels_class = [item['name'][:30] for item in pareto_data['by_failure_class']]
+        pareto_counts_class = [item['count'] for item in pareto_data['by_failure_class']]
+        pareto_cumulative_class = [item['cumulative'] for item in pareto_data['by_failure_class']]
+        logger.info(f'[FRACAS] pareto_class: {len(pareto_labels_class)} items')
+        
+        trend_periods = [item['period'] for item in trend_data['monthly']]
+        trend_counts = [item['count'] for item in trend_data['monthly']]
+        logger.info(f'[FRACAS] trend_periods: {len(trend_periods)} items')
+        
+        trend_hours = [item['hour'] for item in trend_data['by_hour']]
+        trend_hour_counts = [item['count'] for item in trend_data['by_hour']]
+        logger.info(f'[FRACAS] trend_hours: {len(trend_hours)} items')
+        
+        trend_days = [item['day'] for item in trend_data['by_weekday']]
+        trend_day_counts = [item['count'] for item in trend_data['by_weekday']]
+        logger.info(f'[FRACAS] trend_days: {len(trend_days)} items')
+        
+        return render_template('fracas/index.html',
+                             data_available=True,
+                             data_source=data_source,
+                             stats=stats,
+                             rams=rams_metrics,
+                             pareto=pareto_data,
+                             pareto_labels_module=pareto_labels_module,
+                             pareto_counts_module=pareto_counts_module,
+                             pareto_cumulative_module=pareto_cumulative_module,
+                             pareto_labels_supplier=pareto_labels_supplier,
+                             pareto_counts_supplier=pareto_counts_supplier,
+                             pareto_cumulative_supplier=pareto_cumulative_supplier,
+                             pareto_labels_location=pareto_labels_location,
+                             pareto_counts_location=pareto_counts_location,
+                             pareto_cumulative_location=pareto_cumulative_location,
+                             pareto_labels_class=pareto_labels_class,
+                             pareto_counts_class=pareto_counts_class,
+                             pareto_cumulative_class=pareto_cumulative_class,
+                             trend_periods=trend_periods,
+                             trend_counts=trend_counts,
+                             trend_hours=trend_hours,
+                             trend_hour_counts=trend_hour_counts,
+                             trend_days=trend_days,
+                             trend_day_counts=trend_day_counts,
+                             trend=trend_data,
+                             supplier=supplier_data,
+                             cost=cost_data,
+                             total_records=len(df))
+    except Exception as e:
+        logger.error(f'[FRACAS] HATA: {e}', exc_info=True)
+        flash(f'FRACAS verileri yüklenirken hata: {str(e)}', 'danger')
+        return render_template('fracas/index.html', data_available=False, data_source='Hata')
 
 
 def get_column(df, possible_names):
@@ -281,7 +413,7 @@ def calculate_basic_stats(df):
     # Garanti kapsamı
     if warranty_col:
         warranty_data = df[warranty_col].astype(str).str.lower()
-        stats['warranty_claims'] = warranty_data.str.contains('evet|yes|garanti|warranty', na=False).sum()
+        stats['warranty_claims'] = int(warranty_data.str.contains('evet|yes|garanti|warranty', na=False).sum())
     
     return stats
 
@@ -307,20 +439,20 @@ def calculate_rams_metrics(df):
         if len(valid_data) > 0:
             # Eğer sütun "saat" ise dakikaya çevir
             if 'saat' in str(mttr_col).lower():
-                rams['mttr'] = round(valid_data.mean() * 60, 2)  # Saat -> dakika
+                rams['mttr'] = float(round(valid_data.mean() * 60, 2))  # Saat -> dakika
             else:
-                rams['mttr'] = round(valid_data.mean(), 2)  # Zaten dakika
+                rams['mttr'] = float(round(valid_data.mean(), 2))  # Zaten dakika
     
     # Bekleme süresi
     wait_col = get_column(df, ['bekleme süresi', 'waiting time', 'waiting'])
     if wait_col:
         valid_data = pd.to_numeric(df[wait_col], errors='coerce').dropna()
         if len(valid_data) > 0:
-            rams['mwt'] = round(valid_data.mean(), 2)
+            rams['mwt'] = float(round(valid_data.mean(), 2))
     
     # MDT = MTTR + MWT
     if rams['mttr'] is not None and rams['mwt'] is not None:
-        rams['mdt'] = round(rams['mttr'] + rams['mwt'], 2)
+        rams['mdt'] = float(round(rams['mttr'] + rams['mwt'], 2))
     elif rams['mttr'] is not None:
         rams['mdt'] = rams['mttr']
     
@@ -341,25 +473,26 @@ def calculate_rams_metrics(df):
             # MTBF = Ortalama araç KM / Arıza sayısı
             mtbf_km = avg_km_per_vehicle / failures_per_vehicle if failures_per_vehicle > 0 else avg_km_per_vehicle
             # KM'i saate çevir (100 km/saat varsayımı)
-            rams['mtbf'] = round((mtbf_km / 100) * 60, 2)  # dakika
+            rams['mtbf'] = float(round((mtbf_km / 100) * 60, 2))  # dakika
     else:
         # KM verisi yoksa, aylık çalışma saati tahmini kullan (daha gerçekçi: 480 saat/ay)
-        total_vehicles = stats.get('unique_vehicles', 1) if 'stats' in dir() else 1
+        vehicle_col = get_column(df, ['araç', 'araç no', 'tram', 'vehicle'])
+        total_vehicles = df[vehicle_col].nunique() if vehicle_col else 1
         failures_per_vehicle = len(df) / total_vehicles if total_vehicles > 0 else 1
         mtbf_hours = 480 / failures_per_vehicle if failures_per_vehicle > 0 else 480
-        rams['mtbf'] = round(mtbf_hours * 60, 2)  # Dakikaya çevir
+        rams['mtbf'] = float(round(mtbf_hours * 60, 2))  # Dakikaya çevir
     
     # Kullanılabilirlik = MTBF / (MTBF + MTTR)
     if rams['mtbf'] and rams['mttr']:
         availability = (rams['mtbf'] / (rams['mtbf'] + rams['mttr'])) * 100
-        rams['availability'] = round(max(0, min(100, availability)), 2)
+        rams['availability'] = float(round(max(0, min(100, availability)), 2))
     
     # Reliability (İtfaiye oranı) - Başarılı onarım yüzdesi
     # Arıza Listesi'nde "Onarım Veya Onarım Dışı" veya benzeri sütun varsa kullan
     repair_col = get_column(df, ['onarım', 'repair', 'onarım veya onarım dışı', 'status'])
     if repair_col:
         successful_repairs = df[repair_col].astype(str).str.lower().str.contains('onarım|repair|fixed|başarılı', na=False).sum()
-        rams['reliability'] = round((successful_repairs / len(df)) * 100, 1) if len(df) > 0 else 95.0
+        rams['reliability'] = float(round((successful_repairs / len(df)) * 100, 1)) if len(df) > 0 else 95.0
     else:
         rams['reliability'] = 95.0  # Varsayılan EN 50126 hedef
     
@@ -368,6 +501,8 @@ def calculate_rams_metrics(df):
 
 def calculate_pareto_analysis(df):
     """Pareto analizi - En çok arıza veren modül/tedarikçi"""
+    logger.info(f'[PARETO] DataFrame columns: {list(df.columns)[:10]}...')  # İlk 10 kolonu göster
+    
     pareto = {
         'by_module': [],
         'by_supplier': [],
@@ -376,63 +511,75 @@ def calculate_pareto_analysis(df):
     }
     
     # Modül bazlı (Araç Modül sütununu kullan)
-    module_col = get_column(df, ['araç modül', 'araç modülü', 'vehicle module'])
+    module_col = get_column(df, ['araç module', 'vehicle module', 'modül'])
+    logger.info(f'[PARETO] module_col bulundu: {module_col}')
     if module_col:
         module_counts = df[module_col].value_counts().head(10)
         total = module_counts.sum()
         cumulative = 0
         for module, count in module_counts.items():
             cumulative += count
+            # Sanitize the name: remove newlines and extra spaces
+            name_str = str(module).replace('\n', ' ').replace('\r', '').strip()
             pareto['by_module'].append({
-                'name': str(module),
+                'name': name_str,
                 'count': int(count),
-                'percentage': round(count / total * 100, 1),
-                'cumulative': round(cumulative / total * 100, 1)
+                'percentage': float(round(count / total * 100, 1)),
+                'cumulative': float(round(cumulative / total * 100, 1))
             })
     
     # Tedarikçi bazlı
-    supplier_col = get_column(df, ['tedarikçi', 'supplier'])
+    supplier_col = get_column(df, ['tedarikçi', 'supplier', 'relevant supplier'])
+    logger.info(f'[PARETO] supplier_col bulundu: {supplier_col}')
     if supplier_col:
         supplier_counts = df[supplier_col].value_counts().head(10)
         total = supplier_counts.sum()
         cumulative = 0
         for supplier, count in supplier_counts.items():
             cumulative += count
+            # Sanitize the name
+            name_str = str(supplier).replace('\n', ' ').replace('\r', '').strip()
             pareto['by_supplier'].append({
-                'name': str(supplier),
+                'name': name_str,
                 'count': int(count),
-                'percentage': round(count / total * 100, 1),
-                'cumulative': round(cumulative / total * 100, 1)
+                'percentage': float(round(count / total * 100, 1)),
+                'cumulative': float(round(cumulative / total * 100, 1))
             })
     
     # Konum bazlı (Alt Sistem sütununu kullan)
-    location_col = get_column(df, ['alt sistem', 'arıza konumu', 'failure location'])
+    location_col = get_column(df, ['sistem', 'alt sistem', 'failure location', 'location'])
+    logger.info(f'[PARETO] location_col bulundu: {location_col}')
     if location_col:
         location_counts = df[location_col].value_counts().head(10)
         total = location_counts.sum()
         cumulative = 0
         for location, count in location_counts.items():
             cumulative += count
+            # Sanitize the name
+            name_str = str(location).replace('\n', ' ').replace('\r', '').strip()
             pareto['by_location'].append({
-                'name': str(location),
+                'name': name_str,
                 'count': int(count),
-                'percentage': round(count / total * 100, 1),
-                'cumulative': round(cumulative / total * 100, 1)
+                'percentage': float(round(count / total * 100, 1)),
+                'cumulative': float(round(cumulative / total * 100, 1))
             })
     
     # Arıza sınıfı bazlı
-    class_col = get_column(df, ['arıza sınıfı', 'failure class', 'sınıf'])
+    class_col = get_column(df, ['arıza sınıfı', 'failure class', 'sınıf', 'failure'])
+    logger.info(f'[PARETO] class_col bulundu: {class_col}')
     if class_col:
         class_counts = df[class_col].value_counts().head(10)
         total = class_counts.sum()
         cumulative = 0
         for cls, count in class_counts.items():
             cumulative += count
+            # Sanitize the name
+            name_str = str(cls).replace('\n', ' ').replace('\r', '').strip()
             pareto['by_failure_class'].append({
-                'name': str(cls),
+                'name': name_str,
                 'count': int(count),
-                'percentage': round(count / total * 100, 1),
-                'cumulative': round(cumulative / total * 100, 1)
+                'percentage': float(round(count / total * 100, 1)),
+                'cumulative': float(round(cumulative / total * 100, 1))
             })
     
     return pareto
@@ -509,8 +656,11 @@ def calculate_supplier_analysis(df):
     for supplier in suppliers[:15]:  # İlk 15 tedarikçi
         supplier_df = df[df[supplier_col] == supplier]
         
+        # Sanitize supplier name
+        supplier_name = str(supplier).replace('\n', ' ').replace('\r', '').strip()
+        
         perf = {
-            'name': str(supplier),
+            'name': supplier_name,
             'failure_count': len(supplier_df),
             'avg_repair_time': None
         }
@@ -518,7 +668,7 @@ def calculate_supplier_analysis(df):
         if repair_col:
             valid_repair = pd.to_numeric(supplier_df[repair_col], errors='coerce').dropna()
             if len(valid_repair) > 0:
-                perf['avg_repair_time'] = round(valid_repair.mean(), 1)
+                perf['avg_repair_time'] = float(round(valid_repair.mean(), 1))
         
         supplier_data['performance'].append(perf)
     
@@ -545,10 +695,10 @@ def calculate_cost_analysis(df):
     labor_col = get_column(df, ['işçilik maliyeti', 'labor cost'])
     
     if material_col:
-        cost_data['total_material'] = round(pd.to_numeric(df[material_col], errors='coerce').sum(), 2)
+        cost_data['total_material'] = float(round(pd.to_numeric(df[material_col], errors='coerce').sum(), 2))
     
     if labor_col:
-        cost_data['total_labor'] = round(pd.to_numeric(df[labor_col], errors='coerce').sum(), 2)
+        cost_data['total_labor'] = float(round(pd.to_numeric(df[labor_col], errors='coerce').sum(), 2))
     
     cost_data['total_cost'] = cost_data['total_material'] + cost_data['total_labor']
     
@@ -556,7 +706,7 @@ def calculate_cost_analysis(df):
     warranty_col = get_column(df, ['garanti kapsamı', 'garanti', 'warranty'])
     if warranty_col:
         warranty_data = df[warranty_col].astype(str).str.lower()
-        warranty_count = warranty_data.str.contains('evet|yes|garanti|warranty|covered', na=False).sum()
+        warranty_count = int(warranty_data.str.contains('evet|yes|garanti|warranty|covered', na=False).sum())
         cost_data['warranty_cost'] = warranty_count
         cost_data['non_warranty_cost'] = len(df) - warranty_count
     
