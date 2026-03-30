@@ -13,6 +13,7 @@ import json
 import logging
 import sys
 from utils.project_manager import ProjectManager
+from utils_performance import CacheConfig
 from utils.backup_manager import BackupManager
 
 logger = logging.getLogger(__name__)
@@ -225,30 +226,65 @@ def index():
             flash(f'{project_code.upper()} için FRACAS verileri bulunamadı. Dosya: logs/{project_code}/ariza_listesi/Fracas_{project_code.upper()}.xlsx', 'warning')
             return render_template('fracas/index.html', data_available=False, data_source=f'Veri Yok ({project_code})')
         
-        # Temel istatistikler
-        logger.info('[FRACAS] basic_stats hesaplanıyor...')
-        stats = calculate_basic_stats(df)
-        logger.info('[FRACAS] basic_stats OK')
+        # Temel istatistikler - cache ile
+        cache_key = f"fracas:{project_code}:analysis"
+        cached_analysis = None
+        try:
+            from app import cache_manager
+            cached_analysis = cache_manager.get(cache_key)
+        except Exception:
+            pass
         
-        logger.info('[FRACAS] rams_metrics hesaplanıyor...')
-        rams_metrics = calculate_rams_metrics(df)
-        logger.info('[FRACAS] rams_metrics OK')
+        if cached_analysis:
+            stats = cached_analysis['stats']
+            rams_metrics = cached_analysis['rams_metrics']
+            pareto_data = cached_analysis['pareto_data']
+            trend_data = cached_analysis['trend_data']
+            supplier_data = cached_analysis['supplier_data']
+            cost_data = cached_analysis['cost_data']
+            logger.info('[FRACAS] Cache hit - veriler cache\'den yüklendi')
+        else:
+            logger.info('[FRACAS] basic_stats hesaplanıyor...')
+            stats = calculate_basic_stats(df)
+            logger.info('[FRACAS] basic_stats OK')
+            
+            logger.info('[FRACAS] rams_metrics hesaplanıyor...')
+            rams_metrics = calculate_rams_metrics(df)
+            logger.info('[FRACAS] rams_metrics OK')
+            
+            logger.info('[FRACAS] pareto_analysis hesaplanıyor...')
+            pareto_data = calculate_pareto_analysis(df)
+            logger.info('[FRACAS] pareto_analysis OK')
+            
+            logger.info('[FRACAS] trend_analysis hesaplanıyor...')
+            trend_data = calculate_trend_analysis(df)
+            logger.info('[FRACAS] trend_analysis OK')
+            
+            logger.info('[FRACAS] supplier_analysis hesaplanıyor...')
+            supplier_data = calculate_supplier_analysis(df)
+            logger.info('[FRACAS] supplier_analysis OK')
+            
+            logger.info('[FRACAS] cost_analysis hesaplanıyor...')
+            cost_data = calculate_cost_analysis(df)
+            logger.info('[FRACAS] cost_analysis OK')
+            
+            # Cache'e kaydet (1 saat TTL)
+            try:
+                from app import cache_manager
+                cache_manager.set(cache_key, {
+                    'stats': stats,
+                    'rams_metrics': rams_metrics,
+                    'pareto_data': pareto_data,
+                    'trend_data': trend_data,
+                    'supplier_data': supplier_data,
+                    'cost_data': cost_data
+                }, CacheConfig.TTL_MEDIUM)
+                logger.info('[FRACAS] Veriler cache\'e kaydedildi')
+            except Exception:
+                pass
         
-        logger.info('[FRACAS] pareto_analysis hesaplanıyor...')
-        pareto_data = calculate_pareto_analysis(df)
-        logger.info('[FRACAS] pareto_analysis OK')
-        
-        logger.info('[FRACAS] trend_analysis hesaplanıyor...')
-        trend_data = calculate_trend_analysis(df)
-        logger.info('[FRACAS] trend_analysis OK')
-        
-        logger.info('[FRACAS] supplier_analysis hesaplanıyor...')
-        supplier_data = calculate_supplier_analysis(df)
-        logger.info('[FRACAS] supplier_analysis OK')
-        
-        logger.info('[FRACAS] cost_analysis hesaplanıyor...')
-        cost_data = calculate_cost_analysis(df)
-        logger.info('[FRACAS] cost_analysis OK')
+        # Veri kalitesi analizi (cache dışında, hafif hesaplama)
+        data_quality = calculate_data_quality(df)
         
         logger.info('[FRACAS] Template render ediliyor...')
         
@@ -314,6 +350,7 @@ def index():
                              trend=trend_data,
                              supplier=supplier_data,
                              cost=cost_data,
+                             data_quality=data_quality,
                              total_records=len(df))
     except Exception as e:
         logger.error(f'[FRACAS] HATA: {e}', exc_info=True)
@@ -322,20 +359,78 @@ def index():
 
 
 def get_column(df, possible_names):
-    """Olası kolon isimlerinden birini bul - tam ve kısmi eşleştirme"""
-    # Önce tam eşleştirme dene
+    """Olası kolon isimlerinden birini bul - tam, kısmi ve fuzzy eşleştirme"""
+    from difflib import SequenceMatcher
+    
+    # 1. Tam eşleştirme
     for col in df.columns:
         col_clean = col.strip().lower()
         for name in possible_names:
             if name.lower() == col_clean:
                 return col
-    # Sonra kısmi eşleştirme dene
+    
+    # 2. Kısmi eşleştirme (içerme kontrolü)
     for col in df.columns:
         col_lower = col.lower()
         for name in possible_names:
             if name.lower() in col_lower or col_lower in name.lower():
                 return col
+    
+    # 3. Fuzzy eşleştirme (benzerlik oranı >= 0.7)
+    best_match = None
+    best_ratio = 0.0
+    for col in df.columns:
+        col_lower = col.strip().lower()
+        for name in possible_names:
+            ratio = SequenceMatcher(None, name.lower(), col_lower).ratio()
+            if ratio > best_ratio:
+                best_ratio = ratio
+                best_match = col
+    
+    if best_ratio >= 0.7:
+        return best_match
+    
     return None
+
+
+def calculate_data_quality(df):
+    """Veri kalitesi kontrolü - kritik kolonlardaki doluluk oranını hesapla"""
+    if df is None or df.empty:
+        return {'score': 0, 'details': [], 'total_rows': 0}
+    
+    # Kritik kolonlar ve beklenen isimleri
+    critical_columns = [
+        ('Araç No', ['araç', 'araç no', 'araç numarası', 'tram', 'vehicle']),
+        ('Tarih', ['tarih', 'date', 'hata tarih', 'arıza tarihi']),
+        ('Modül/Sistem', ['modül', 'sistem', 'module', 'system']),
+        ('Arıza Sınıfı', ['arıza sınıfı', 'failure class', 'sınıf']),
+        ('Tamir Süresi', ['tamir süresi', 'repair time']),
+        ('Tedarikçi', ['tedarikçi', 'supplier']),
+        ('KM', ['km', 'muhasebe km', 'kilometre', 'araç kilometresi']),
+    ]
+    
+    total_rows = len(df)
+    details = []
+    filled_scores = []
+    
+    for label, possible_names in critical_columns:
+        col = get_column(df, possible_names)
+        if col:
+            non_null = df[col].dropna().count()
+            fill_rate = round((non_null / total_rows) * 100, 1) if total_rows > 0 else 0
+            details.append({'column': label, 'fill_rate': fill_rate, 'found': True})
+            filled_scores.append(fill_rate)
+        else:
+            details.append({'column': label, 'fill_rate': 0, 'found': False})
+            filled_scores.append(0)
+    
+    overall_score = round(sum(filled_scores) / len(filled_scores), 1) if filled_scores else 0
+    
+    return {
+        'score': overall_score,
+        'details': details,
+        'total_rows': total_rows
+    }
 
 
 def calculate_basic_stats(df):
@@ -385,6 +480,7 @@ def calculate_rams_metrics(df):
     """EN 50126 RAMS metriklerini hesapla - Arıza Listesi verilerine göre"""
     rams = {
         'mtbf': None,
+        'mtbf_time': None,
         'mttr': None,
         'mdt': None,
         'mwt': None,
@@ -445,6 +541,24 @@ def calculate_rams_metrics(df):
         mtbf_hours = 480 / failures_per_vehicle if failures_per_vehicle > 0 else 480
         rams['mtbf'] = float(round(mtbf_hours * 60, 2))  # Dakikaya çevir
     
+    # Zaman bazlı MTBF hesaplama (tarih aralığından)
+    date_col = get_column(df, ['tarih', 'date', 'hata tarih', 'arıza tarihi'])
+    if date_col:
+        try:
+            dates = pd.to_datetime(df[date_col], errors='coerce').dropna()
+            if len(dates) >= 2:
+                date_range_days = (dates.max() - dates.min()).days
+                if date_range_days > 0:
+                    vehicle_col_t = get_column(df, ['araç', 'araç no', 'tram', 'vehicle'])
+                    total_vehicles_t = df[vehicle_col_t].nunique() if vehicle_col_t else 1
+                    total_vehicles_t = max(total_vehicles_t, 1)
+                    # Araç başına operasyon süresi (gün) * 16 saat/gün * 60 dk/saat / araç başına arıza sayısı
+                    total_op_minutes = date_range_days * 16 * 60 * total_vehicles_t
+                    mtbf_time = total_op_minutes / len(df)
+                    rams['mtbf_time'] = float(round(mtbf_time, 2))
+        except Exception as e:
+            logger.warning(f'Zaman bazlı MTBF hesaplama hatası: {e}')
+    
     # Kullanılabilirlik = MTBF / (MTBF + MTTR)
     if rams['mtbf'] and rams['mttr']:
         availability = (rams['mtbf'] / (rams['mtbf'] + rams['mttr'])) * 100
@@ -455,9 +569,9 @@ def calculate_rams_metrics(df):
     repair_col = get_column(df, ['onarım', 'repair', 'onarım veya onarım dışı', 'status'])
     if repair_col:
         successful_repairs = df[repair_col].astype(str).str.lower().str.contains('onarım|repair|fixed|başarılı', na=False).sum()
-        rams['reliability'] = float(round((successful_repairs / len(df)) * 100, 1)) if len(df) > 0 else 95.0
+        rams['reliability'] = float(round((successful_repairs / len(df)) * 100, 1)) if len(df) > 0 else None
     else:
-        rams['reliability'] = 95.0  # Varsayılan EN 50126 hedef
+        rams['reliability'] = None  # Veri yoksa N/A göster
     
     return rams
 

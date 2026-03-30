@@ -120,11 +120,16 @@
                 <div class="row g-4">
                     <div class="col-md-3">
                         <div class="text-center p-3 border rounded-3">
-                            <h6 class="text-muted mb-1">MTBF</h6>
+                            <h6 class="text-muted mb-1">MTBF (KM)</h6>
                             <h2 class="text-primary mb-1">
                                 {% if rams.mtbf %}{{ "%.0f"|format(rams.mtbf) }} dk{% else %}N/A{% endif %}
                             </h2>
-                            <small>Arızalar Arası Ortalama Süre</small>
+                            <small>KM Bazlı</small>
+                            {% if rams.mtbf_time %}
+                            <div class="mt-1">
+                                <span class="badge bg-info">Zaman: {{ "%.0f"|format(rams.mtbf_time) }} dk</span>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                     <div class="col-md-3">
@@ -159,6 +164,47 @@
         </div>
     </div>
 </div>
+
+<!-- Veri Kalitesi Göstergesi -->
+{% if data_quality is defined and data_quality %}
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-clipboard-check me-2"></i>Veri Kalitesi</span>
+                <span class="badge {% if data_quality.score >= 80 %}bg-success{% elif data_quality.score >= 50 %}bg-warning{% else %}bg-danger{% endif %} fs-6">
+                    %{{ "%.0f"|format(data_quality.score) }}
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="progress mb-3" style="height: 8px;">
+                    <div class="progress-bar {% if data_quality.score >= 80 %}bg-success{% elif data_quality.score >= 50 %}bg-warning{% else %}bg-danger{% endif %}"
+                         style="width: {{ data_quality.score }}%"></div>
+                </div>
+                <div class="row">
+                    {% for detail in data_quality.details %}
+                    <div class="col-md-3 col-6 mb-2">
+                        <small class="text-muted">{{ detail.column }}</small>
+                        <div class="d-flex align-items-center">
+                            {% if not detail.found %}
+                                <span class="badge bg-secondary me-1">Yok</span>
+                            {% elif detail.fill_rate >= 80 %}
+                                <span class="badge bg-success me-1">%{{ "%.0f"|format(detail.fill_rate) }}</span>
+                            {% elif detail.fill_rate >= 50 %}
+                                <span class="badge bg-warning me-1">%{{ "%.0f"|format(detail.fill_rate) }}</span>
+                            {% else %}
+                                <span class="badge bg-danger me-1">%{{ "%.0f"|format(detail.fill_rate) }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <small class="text-muted">Toplam {{ data_quality.total_rows }} kayıt analiz edildi</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- Grafikler Satırı 1 -->
 <div class="row g-4 mb-4">

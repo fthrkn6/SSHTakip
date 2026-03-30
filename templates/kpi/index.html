@@ -90,7 +90,7 @@
                     <i class="bi bi-check-circle"></i>
                 </div>
                 <div class="stat-content">
-                    <h3>{{ kpi.availability }}%</h3>
+                    <h3>{% if kpi.availability is not none %}{{ kpi.availability }}%{% else %}N/A{% endif %}</h3>
                     <p>Kullanılabilirlik</p>
                     <small class="text-muted">Availability Rate</small>
                 </div>
@@ -102,7 +102,7 @@
                     <i class="bi bi-shield-check"></i>
                 </div>
                 <div class="stat-content">
-                    <h3>{{ kpi.reliability }}%</h3>
+                    <h3>{% if kpi.reliability is not none %}{{ kpi.reliability }}%{% else %}N/A{% endif %}</h3>
                     <p>Güvenilirlik</p>
                     <small class="text-muted">Reliability Rate</small>
                 </div>

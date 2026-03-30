@@ -4,11 +4,13 @@ Gelişmiş Arıza & Bakım Analitikleri
 Bozankaya SSH Takip Sistemi
 """
 
-from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, session, send_file
+from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, session, send_file, current_app
 from flask_login import login_required, current_user
 from models import db, Equipment, WorkOrder, Failure
 from datetime import datetime, timedelta
+from utils_performance import CacheManager, CacheConfig
 import os
+import json
 import pandas as pd
 import logging
 from io import BytesIO
@@ -106,9 +108,9 @@ def apply_filters(df, start_date=None, end_date=None, vehicle=None, system=None,
 def calculate_mtbf_mttr(df):
     """MTBF ve MTTR hesapla"""
     if df is None or df.empty:
-        return {'mtbf': 0, 'mttr': 0, 'total_downtime': 0}
+        return {'mtbf': 0, 'mtbf_time': None, 'mttr': 0, 'total_downtime': 0}
     
-    result = {'mtbf': 0, 'mttr': 0, 'total_downtime': 0}
+    result = {'mtbf': 0, 'mtbf_time': None, 'mttr': 0, 'total_downtime': 0}
     
     # MTTR - Tamir Süresi (dakika)
     repair_col = None
@@ -152,13 +154,33 @@ def calculate_mtbf_mttr(df):
         except:
             pass
     
+    # MTBF - Zaman bazlı (tarihlerden hesapla)
+    date_col = None
+    for col in df.columns:
+        if 'tarih' in col.lower():
+            date_col = col
+            break
+    
+    if date_col and vehicle_col:
+        try:
+            dates = pd.to_datetime(df[date_col], errors='coerce').dropna()
+            if len(dates) >= 2:
+                date_range_days = (dates.max() - dates.min()).days
+                if date_range_days > 0:
+                    total_vehicles = max(df[vehicle_col].nunique(), 1)
+                    # Araç başına operasyon dakikası / toplam arıza sayısı
+                    total_op_minutes = date_range_days * 16 * 60 * total_vehicles
+                    result['mtbf_time'] = round(total_op_minutes / len(df), 2)
+        except:
+            pass
+    
     return result
 
 
 def calculate_availability_reliability(df, total_downtime_hours):
     """Availability ve Reliability hesapla"""
     if df is None or df.empty:
-        return {'availability': 95.0, 'reliability': 96.0}
+        return {'availability': None, 'reliability': None}
     
     vehicle_col = None
     for col in df.columns:
@@ -168,14 +190,62 @@ def calculate_availability_reliability(df, total_downtime_hours):
     
     vehicle_count = df[vehicle_col].nunique() if vehicle_col else 1
     
-    # Yıllık operasyon saati (300 gün * 16 saat)
-    yearly_op_hours = 300 * 16 * max(vehicle_count, 1)
+    # Operasyon parametrelerini projects_config.json'dan oku
+    op_days = 300
+    op_hours = 16
+    try:
+        config_path = os.path.join(current_app.root_path, 'projects_config.json')
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        defaults = config.get('defaults', {})
+        op_days = defaults.get('operational_days_per_year', 300)
+        op_hours = defaults.get('operational_hours_per_day', 16)
+    except Exception:
+        pass
+    
+    yearly_op_hours = op_days * op_hours * max(vehicle_count, 1)
     
     availability = max(0, round((yearly_op_hours - total_downtime_hours) / yearly_op_hours * 100, 1)) if total_downtime_hours > 0 else 98.5
     availability = min(availability, 100)
     reliability = min(availability + 2, 99.9)
     
     return {'availability': availability, 'reliability': reliability}
+
+
+def calculate_data_quality(df):
+    """Veri kalitesi kontrolü - kritik kolonlardaki doluluk oranını hesapla"""
+    if df is None or df.empty:
+        return {'score': 0, 'details': [], 'total_rows': 0}
+    
+    critical_keywords = [
+        ('Araç No', 'araç numarası'),
+        ('Tarih', 'tarih'),
+        ('Tamir Süresi', 'tamir süresi'),
+        ('KM', 'araç kilometresi'),
+        ('Sistem', 'sistem'),
+    ]
+    
+    total_rows = len(df)
+    details = []
+    filled_scores = []
+    
+    for label, keyword in critical_keywords:
+        found_col = None
+        for col in df.columns:
+            if keyword in col.lower():
+                found_col = col
+                break
+        if found_col:
+            non_null = df[found_col].dropna().count()
+            fill_rate = round((non_null / total_rows) * 100, 1) if total_rows > 0 else 0
+            details.append({'column': label, 'fill_rate': fill_rate, 'found': True})
+            filled_scores.append(fill_rate)
+        else:
+            details.append({'column': label, 'fill_rate': 0, 'found': False})
+            filled_scores.append(0)
+    
+    overall_score = round(sum(filled_scores) / len(filled_scores), 1) if filled_scores else 0
+    return {'score': overall_score, 'details': details, 'total_rows': total_rows}
 
 
 def get_analysis_data(df):
@@ -299,7 +369,7 @@ def get_empty_analysis():
         'total_failures': 0,
         'unique_vehicles': 0,
         'unique_systems': 0,
-        'kpi': {'mtbf': 0, 'mttr': 0, 'availability': 95.0, 'reliability': 96.0, 'total_downtime': 0},
+        'kpi': {'mtbf': 0, 'mtbf_time': None, 'mttr': 0, 'availability': None, 'reliability': None, 'total_downtime': 0},
         'failure_by_source': {},
         'failure_by_class': {},
         'failure_by_system': {},
@@ -337,13 +407,32 @@ def index():
         # Filtreleri uygula
         filtered_df = apply_filters(df, start_date, end_date, vehicle, system, failure_class)
         
-        # Analiz verilerini hesapla
-        if filtered_df is not None:
-            analysis = get_analysis_data(filtered_df)
-            data_available = True
-        else:
-            analysis = get_empty_analysis()
-            data_available = False
+        # Cache key oluştur
+        cache_key = f"kpi:{current_project}:{start_date}:{end_date}:{vehicle}:{system}:{failure_class}"
+        
+        # Önce cache'den dene
+        try:
+            from app import cache_manager
+            cached = cache_manager.get(cache_key)
+            if cached is not None:
+                analysis = cached
+                data_available = True
+            else:
+                raise ValueError("cache miss")
+        except Exception:
+            # Cache miss veya cache yoksa hesapla
+            if filtered_df is not None:
+                analysis = get_analysis_data(filtered_df)
+                data_available = True
+                # Sonucu cache'e kaydet (1 saat TTL)
+                try:
+                    from app import cache_manager
+                    cache_manager.set(cache_key, analysis, CacheConfig.TTL_MEDIUM)
+                except Exception:
+                    pass
+            else:
+                analysis = get_empty_analysis()
+                data_available = False
         
         # Sistemler listesi (filtreleme için)
         systems = []
@@ -358,12 +447,16 @@ def index():
                     vehicles = sorted([str(v) for v in df[col].dropna().unique() if pd.notna(v)])
                     break
         
+        # Veri kalitesi analizi
+        data_quality = calculate_data_quality(df)
+        
         return render_template('kpi/dashboard.html',
                              current_project=current_project,
                              project_name=project_name,
                              analysis=analysis,
                              systems=systems,
                              vehicles=vehicles,
+                             data_quality=data_quality,
                              filters={
                                  'start_date': start_date,
                                  'end_date': end_date,

@@ -1658,6 +1658,25 @@ def create_app():
                     df = pd.read_excel(ariza_listesi_file, sheet_name=use_sheet, header=header_row)
                     column_names = list(df.columns)  # DataFrame column names
                     
+                    # Kolon isimlerinden indeks haritası oluştur (hardcoded index yerine)
+                    def find_col_idx(keywords, col_names=column_names):
+                        """Kolon isimlerinde anahtar kelimeleri ara, indeks döndür"""
+                        for idx_c, name in enumerate(col_names):
+                            name_lower = str(name).lower()
+                            if all(kw in name_lower for kw in keywords):
+                                return idx_c
+                        return None
+                    
+                    # Kritik kolon indekslerini otomatik tespit et
+                    idx_tamir_suresi = find_col_idx(['tamir', 'süresi']) or find_col_idx(['tamir']) or 21
+                    idx_arac_mttr = find_col_idx(['araç', 'mttr']) or find_col_idx(['araç', 'mdt']) or 26
+                    idx_komp_mttr = find_col_idx(['komponent', 'mttr']) or find_col_idx(['komponent', 'mdt']) or 27
+                    idx_parca_kodu = find_col_idx(['parça', 'kod']) or 28
+                    idx_parca_adi = find_col_idx(['parça', 'ad']) or find_col_idx(['parça', 'ismi']) or 30
+                    idx_parca_adedi = find_col_idx(['parça', 'adet']) or find_col_idx(['adet']) or 31
+                    idx_ariza_sinifi = find_col_idx(['arıza', 'sınıf']) or 10
+                    idx_detayli_bilgi = find_col_idx(['detaylı']) or find_col_idx(['detay']) or 25
+                    
                     # Verileri hazırla
                     for idx, row in df.iterrows():
                         row_data = list(row)
@@ -1666,14 +1685,14 @@ def create_app():
                             # NaN değerlerini 'Yok' ile değiştir, sayıları int'e çevir
                             processed_row = []
                             for i, val in enumerate(row_data):
-                                # Parça Adedi (31) NaN ise 0 yap
-                                if i == 31 and (pd.isna(val) or (isinstance(val, float) and np.isnan(val))):
+                                # Parça Adedi NaN ise 0 yap
+                                if i == idx_parca_adedi and (pd.isna(val) or (isinstance(val, float) and np.isnan(val))):
                                     processed_row.append(0)
-                                # Parça Kodu (28) ve Parça Adı (30) NaN ise 'Yok' yap
-                                elif (i == 28 or i == 30) and (pd.isna(val) or (isinstance(val, float) and np.isnan(val))):
+                                # Parça Kodu ve Parça Adı NaN ise 'Yok' yap
+                                elif (i == idx_parca_kodu or i == idx_parca_adi) and (pd.isna(val) or (isinstance(val, float) and np.isnan(val))):
                                     processed_row.append('Yok')
-                                # MTTR değerleri (26, 27) NaN ise 0 yap
-                                elif (i == 26 or i == 27) and (pd.isna(val) or (isinstance(val, float) and np.isnan(val))):
+                                # MTTR değerleri NaN ise 0 yap
+                                elif (i == idx_arac_mttr or i == idx_komp_mttr) and (pd.isna(val) or (isinstance(val, float) and np.isnan(val))):
                                     processed_row.append(0)
                                 # Float değerini int'e çevir (1.0 → 1) - NaN değilse
                                 elif isinstance(val, float) and not (pd.isna(val) or np.isnan(val)) and val == int(val):
@@ -1681,13 +1700,14 @@ def create_app():
                                 else:
                                     processed_row.append(val)
                             
-                            # Eğer Parça Kodu (28) ve Parça Adı (30) her ikisi de 'Yok' ise, Adedi (31) 0 yap
-                            if processed_row[28] == 'Yok' and processed_row[30] == 'Yok':
-                                processed_row[31] = 0
+                            # Eğer Parça Kodu ve Parça Adı her ikisi de 'Yok' ise, Adedi 0 yap
+                            if len(processed_row) > idx_parca_adedi and len(processed_row) > idx_parca_kodu and len(processed_row) > idx_parca_adi:
+                                if processed_row[idx_parca_kodu] == 'Yok' and processed_row[idx_parca_adi] == 'Yok':
+                                    processed_row[idx_parca_adedi] = 0
                             
                             # ===== MTTR HESAPLAMA =====
-                            # Column 21 (V): Tamir Süresi - "3 saat 0 dakika" formatını dakikaya çevir
-                            tamir_suresi_text = processed_row[21] if len(processed_row) > 21 else None
+                            # Tamir Süresi sütunu - "3 saat 0 dakika" formatını dakikaya çevir
+                            tamir_suresi_text = processed_row[idx_tamir_suresi] if len(processed_row) > idx_tamir_suresi else None
                             mttr_minutes = 0
                             
                             if tamir_suresi_text and isinstance(tamir_suresi_text, str):
@@ -1713,24 +1733,24 @@ def create_app():
                                 except:
                                     mttr_minutes = 0
                             
-                            # Eğer processed_row'un uzunluğu 32'den az ise doldur
-                            while len(processed_row) < 32:
+                            # Eğer processed_row'un uzunluğu yeterli değilse doldur
+                            max_idx = max(idx_parca_adedi, idx_komp_mttr, idx_arac_mttr) + 1
+                            while len(processed_row) < max_idx:
                                 processed_row.append(0)
                             
-                            # Column 26 (AA): Araç MTTR / MDT - Şartlı
-                            # Column 27 (AB): Komponent MTTR / MDT = MTTR (dk)
+                            # Araç MTTR / MDT ve Komponent MTTR / MDT
                             
-                            ariza_sinifi = processed_row[10] if len(processed_row) > 10 else None  # K sütunu
-                            detayli_bilgi = processed_row[25] if len(processed_row) > 25 else None  # Z sütunu
+                            ariza_sinifi = processed_row[idx_ariza_sinifi] if len(processed_row) > idx_ariza_sinifi else None
+                            detayli_bilgi = processed_row[idx_detayli_bilgi] if len(processed_row) > idx_detayli_bilgi else None
                             
                             # Komponent MTTR = MTTR (dk)
-                            processed_row[27] = mttr_minutes
+                            processed_row[idx_komp_mttr] = mttr_minutes
                             
                             # Araç MTTR: IF (A or B) OR (Servise Engel) THEN Komponent MTTR ELSE 0
                             if (ariza_sinifi in ['A', 'B']) or (detayli_bilgi and 'Servise Engel' in str(detayli_bilgi)):
-                                processed_row[26] = mttr_minutes
+                                processed_row[idx_arac_mttr] = mttr_minutes
                             else:
-                                processed_row[26] = 0
+                                processed_row[idx_arac_mttr] = 0
                             
                             rows.append(processed_row)
                     
@@ -2037,10 +2057,47 @@ def create_app():
                 wb = load_workbook(fracas_file)
                 ws = wb.active
                 
+                # Header satırından kolon indekslerini otomatik tespit et
+                header_row_data = list(ws.iter_rows(min_row=1, max_row=1))[0] if ws.max_row > 0 else []
+                col_map = {}
+                for ci, cell in enumerate(header_row_data):
+                    if cell.value:
+                        col_map[str(cell.value).lower().strip()] = ci
+                
+                def find_edit_col(keywords, default_idx):
+                    """Header'dan kolon indeksini bul, bulamazsa varsayılanı kullan"""
+                    for key, idx_v in col_map.items():
+                        if all(kw in key for kw in keywords):
+                            return idx_v
+                    return default_idx
+                
+                # Kolon indeksleri (header'dan otomatik, fallback hardcoded)
+                ci_arac_no = find_edit_col(['araç', 'no'], 1)
+                ci_arac_modul = find_edit_col(['araç', 'modül'], 2)
+                ci_km = find_edit_col(['kilometre'], 3) if find_edit_col(['kilometre'], None) is not None else find_edit_col(['km'], 3)
+                ci_fracas_id = find_edit_col(['fracas'], 4)
+                ci_hata_tarih = find_edit_col(['hata', 'tarih'], 5)
+                ci_sistem = find_edit_col(['sistem'], 6)
+                ci_alt_sistem = find_edit_col(['alt', 'sistem'], 7)
+                ci_tedarikci = find_edit_col(['tedarikçi'], 8)
+                ci_ariza_tanimi = find_edit_col(['arıza', 'tanım'], 9)
+                ci_ariza_sinifi = find_edit_col(['arıza', 'sınıf'], 10)
+                ci_ariza_kaynagi = find_edit_col(['arıza', 'kaynak'], 11)
+                ci_yapilan_islem = find_edit_col(['yapılan', 'işlem'], 12)
+                ci_aksiyon = find_edit_col(['aksiyon'], 13)
+                ci_garanti = find_edit_col(['garanti'], 14)
+                ci_tespit_yontemi = find_edit_col(['tespit'], 15)
+                ci_tamir_baslama_tarih = find_edit_col(['tamir', 'başlama', 'tarih'], 17)
+                ci_tamir_baslama_saat = find_edit_col(['tamir', 'başlama', 'saat'], 18)
+                ci_tamir_bitis_tarih = find_edit_col(['tamir', 'bitiş', 'tarih'], 19) if find_edit_col(['tamir', 'bitiş', 'tarih'], None) is not None else find_edit_col(['tamir', 'bitişi', 'tarih'], 19)
+                ci_tamir_bitis_saat = find_edit_col(['tamir', 'bitiş', 'saat'], 20) if find_edit_col(['tamir', 'bitiş', 'saat'], None) is not None else find_edit_col(['tamir', 'bitişi', 'saat'], 20)
+                ci_ariza_tipi = find_edit_col(['arıza', 'tip'], 24)
+                ci_detayli = find_edit_col(['detaylı'], 25)
+                
                 row_found = False
                 for row_num, row in enumerate(ws.iter_rows(min_row=2, max_row=ws.max_row), start=2):
-                    # Kolon E (indeks 4) = FRACAS ID
-                    cell_value = str(row[4].value or '').strip()
+                    # FRACAS ID sütunu
+                    cell_value = str(row[ci_fracas_id].value or '').strip()
                     
                     if cell_value == fracas_id:
                         logger.info(f"[EDIT-FRACAS] Satır bulundu: {row_num}")
@@ -2050,38 +2107,38 @@ def create_app():
                         # J=9: Arıza Tanımı, K=10: Arıza Sınıfı, M=12: Yapılan İşlem
                         
                         try:
-                            # Araç Bilgileri (B, C, D)
-                            row[1].value = arac_no if arac_no else row[1].value                    # B: Araç No
-                            row[2].value = arac_modul if arac_modul else row[2].value              # C: Araç Modülü
-                            row[3].value = kilometre if kilometre else row[3].value                # D: Kilometre
+                            # Araç Bilgileri
+                            row[ci_arac_no].value = arac_no if arac_no else row[ci_arac_no].value
+                            row[ci_arac_modul].value = arac_modul if arac_modul else row[ci_arac_modul].value
+                            row[ci_km].value = kilometre if kilometre else row[ci_km].value
                             
-                            # Arıza Zamanı (F)
+                            # Arıza Zamanı
                             if hata_tarihi:
-                                row[5].value = hata_tarihi                                          # F: Hata Tarihİ
+                                row[ci_hata_tarih].value = hata_tarihi
                             
-                            # Sistem Bilgileri (G, H, I)
-                            row[6].value = sistem if sistem else row[6].value                      # G: Sistem
-                            row[7].value = alt_sistem if alt_sistem else row[7].value              # H: Alt Sistem
-                            row[8].value = tedarikci if tedarikci else row[8].value                # I: Tedarikçi
+                            # Sistem Bilgileri
+                            row[ci_sistem].value = sistem if sistem else row[ci_sistem].value
+                            row[ci_alt_sistem].value = alt_sistem if alt_sistem else row[ci_alt_sistem].value
+                            row[ci_tedarikci].value = tedarikci if tedarikci else row[ci_tedarikci].value
                             
-                            # Arıza Detayları (J, K, L, M, N, O, P)
-                            row[9].value = ariza_tanimi if ariza_tanimi else row[9].value          # J: Arıza Tanımı
-                            row[10].value = ariza_sinifi if ariza_sinifi else row[10].value        # K: Arıza Sınıfı
-                            row[11].value = ariza_kaynagi if ariza_kaynagi else row[11].value      # L: Arıza Kaynağı
-                            row[12].value = yapilan_islem if yapilan_islem else row[12].value      # M: Yapılan İşlem
-                            row[13].value = aksiyon if aksiyon else row[13].value                  # N: Aksiyon
-                            row[14].value = garanti_kapsami if garanti_kapsami else row[14].value  # O: Garanti Kapsamı
-                            row[15].value = ariza_tespit_yontemi if ariza_tespit_yontemi else row[15].value # P: Arıza Tespit Yöntemi
+                            # Arıza Detayları
+                            row[ci_ariza_tanimi].value = ariza_tanimi if ariza_tanimi else row[ci_ariza_tanimi].value
+                            row[ci_ariza_sinifi].value = ariza_sinifi if ariza_sinifi else row[ci_ariza_sinifi].value
+                            row[ci_ariza_kaynagi].value = ariza_kaynagi if ariza_kaynagi else row[ci_ariza_kaynagi].value
+                            row[ci_yapilan_islem].value = yapilan_islem if yapilan_islem else row[ci_yapilan_islem].value
+                            row[ci_aksiyon].value = aksiyon if aksiyon else row[ci_aksiyon].value
+                            row[ci_garanti].value = garanti_kapsami if garanti_kapsami else row[ci_garanti].value
+                            row[ci_tespit_yontemi].value = ariza_tespit_yontemi if ariza_tespit_yontemi else row[ci_tespit_yontemi].value
                             
-                            # Tamir Zamanları (R, S, T, U)
-                            row[17].value = tamir_baslama_tarih if tamir_baslama_tarih else row[17].value # R: Tamir Başlama Tarihi
-                            row[18].value = tamir_baslama_saati if tamir_baslama_saati else row[18].value # S: Tamir Başlama Saati
-                            row[19].value = tamir_bitisi_tarih if tamir_bitisi_tarih else row[19].value   # T: Tamir Bitiş Tarihi
-                            row[20].value = tamir_bitisi_saati if tamir_bitisi_saati else row[20].value   # U: Tamir Bitiş Saati
+                            # Tamir Zamanları
+                            row[ci_tamir_baslama_tarih].value = tamir_baslama_tarih if tamir_baslama_tarih else row[ci_tamir_baslama_tarih].value
+                            row[ci_tamir_baslama_saat].value = tamir_baslama_saati if tamir_baslama_saati else row[ci_tamir_baslama_saat].value
+                            row[ci_tamir_bitis_tarih].value = tamir_bitisi_tarih if tamir_bitisi_tarih else row[ci_tamir_bitis_tarih].value
+                            row[ci_tamir_bitis_saat].value = tamir_bitisi_saati if tamir_bitisi_saati else row[ci_tamir_bitis_saat].value
                             
-                            # Diğer Arıza Bilgileri (Y, Z)
-                            row[24].value = ariza_tipi if ariza_tipi else row[24].value            # Y: Arıza Tipi
-                            row[25].value = detayli_bilgi if detayli_bilgi else row[25].value      # Z: Detaylı Bilgi
+                            # Diğer Arıza Bilgileri
+                            row[ci_ariza_tipi].value = ariza_tipi if ariza_tipi else row[ci_ariza_tipi].value
+                            row[ci_detayli].value = detayli_bilgi if detayli_bilgi else row[ci_detayli].value
                             
                             row_found = True
                             logger.info(f"[EDIT-FRACAS] Satır {row_num} güncellendi - Tamir zamanları: {tamir_baslama_tarih} {tamir_baslama_saati}")

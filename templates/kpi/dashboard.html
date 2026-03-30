@@ -286,9 +286,12 @@
 <!-- KPI KARTLARI -->
 <div class="kpi-grid">
     <div class="kpi-card {% if analysis.kpi.mtbf < 1000 %}danger{% elif analysis.kpi.mtbf < 5000 %}warning{% else %}success{% endif %}">
-        <h4>📍 MTBF</h4>
+        <h4>📍 MTBF (KM)</h4>
         <div class="kpi-value">{{ "%.0f"|format(analysis.kpi.mtbf) }}</div>
         <div class="kpi-unit">km / Ortalama arıza aralığı</div>
+        {% if analysis.kpi.mtbf_time %}
+        <div class="kpi-unit" style="margin-top:4px"><span class="badge bg-info">Zaman: {{ "%.0f"|format(analysis.kpi.mtbf_time) }} dk</span></div>
+        {% endif %}
     </div>
 
     <div class="kpi-card {% if analysis.kpi.mttr > 300 %}danger{% elif analysis.kpi.mttr > 120 %}warning{% else %}success{% endif %}">
@@ -297,15 +300,15 @@
         <div class="kpi-unit">dakika / Ortalama tamir süresi</div>
     </div>
 
-    <div class="kpi-card {% if analysis.kpi.availability < 90 %}danger{% elif analysis.kpi.availability < 95 %}warning{% else %}success{% endif %}">
+    <div class="kpi-card {% if analysis.kpi.availability is none %}secondary{% elif analysis.kpi.availability < 90 %}danger{% elif analysis.kpi.availability < 95 %}warning{% else %}success{% endif %}">
         <h4>🚄 Availability</h4>
-        <div class="kpi-value">{{ "%.1f"|format(analysis.kpi.availability) }}%</div>
+        <div class="kpi-value">{% if analysis.kpi.availability is not none %}{{ "%.1f"|format(analysis.kpi.availability) }}%{% else %}N/A{% endif %}</div>
         <div class="kpi-unit">Sistem kullanılabilirliği</div>
     </div>
 
-    <div class="kpi-card {% if analysis.kpi.reliability < 90 %}danger{% elif analysis.kpi.reliability < 95 %}warning{% else %}success{% endif %}">
+    <div class="kpi-card {% if analysis.kpi.reliability is none %}secondary{% elif analysis.kpi.reliability < 90 %}danger{% elif analysis.kpi.reliability < 95 %}warning{% else %}success{% endif %}">
         <h4>🛡️ Reliability</h4>
-        <div class="kpi-value">{{ "%.1f"|format(analysis.kpi.reliability) }}%</div>
+        <div class="kpi-value">{% if analysis.kpi.reliability is not none %}{{ "%.1f"|format(analysis.kpi.reliability) }}%{% else %}N/A{% endif %}</div>
         <div class="kpi-unit">Sistem güvenilirliği</div>
     </div>
 
@@ -333,6 +336,23 @@
         <div class="kpi-unit">dakika / Toplam bakım süresi</div>
     </div>
 </div>
+
+<!-- Veri Kalitesi Göstergesi -->
+{% if data_quality is defined and data_quality %}
+<div class="kpi-grid" style="margin-bottom: 30px;">
+    <div class="kpi-card">
+        <h4>📊 Veri Kalitesi</h4>
+        <div class="kpi-value {% if data_quality.score >= 80 %}text-success{% elif data_quality.score >= 50 %}text-warning{% else %}text-danger{% endif %}">%{{ "%.0f"|format(data_quality.score) }}</div>
+        <div class="kpi-unit">
+            {% for detail in data_quality.details %}
+                <span class="badge {% if not detail.found %}bg-secondary{% elif detail.fill_rate >= 80 %}bg-success{% elif detail.fill_rate >= 50 %}bg-warning{% else %}bg-danger{% endif %} me-1" title="{{ detail.column }}: %{{ detail.fill_rate }}">
+                    {{ detail.column }}
+                </span>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- ANALIZ GRAFIKLERI VE TABLOLARI -->
 <div class="grid-2">

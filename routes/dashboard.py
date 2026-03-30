@@ -418,47 +418,36 @@ def calculate_fleet_mttr():
                 mttr_col = None
                 is_hours = False  # Saat mi dakika mı?
                 
-                # 1. AC sütununu önce kontrol et (Kocaeli, İasi, Timisoara): "Tamir Süresi (dakika)"
-                if len(df.columns) > 28:
-                    ac_col = df.columns[28]
-                    col_str = str(ac_col).lower()
-                    
+                # Kolon isimlerinden otomatik tespit - hardcoded index yerine
+                for col in df.columns:
+                    col_str = str(col).lower()
+                    # 1. Tamir Süresi (dakika) sütunu
                     if 'tamir' in col_str and ('dakika' in col_str or 'repair' in col_str):
-                        mttr_col = ac_col
-                        for val in df.iloc[:, 28].dropna():
-                            try:
-                                if isinstance(val, (int, float)) and val > 0:
-                                    mttr_values.append(float(val))
-                            except:
-                                continue
+                        mttr_col = col
                         is_hours = False
-                
-                # 2. AB sütununu kontrol et (Gebze): "Tamir Süresi (saat)"
-                if not mttr_values and len(df.columns) > 27:
-                    ab_col = df.columns[27]
-                    col_str = str(ab_col).lower()
-                    
-                    if 'tamir' in col_str and ('saat' in col_str or 'hour' in col_str):
-                        mttr_col = ab_col
-                        for val in df.iloc[:, 27].dropna():
-                            try:
-                                if isinstance(val, (int, float)) and val > 0:
-                                    mttr_values.append(float(val))
-                            except:
-                                continue
+                        break
+                    # 2. Tamir Süresi (saat) sütunu
+                    elif 'tamir' in col_str and ('saat' in col_str or 'hour' in col_str):
+                        mttr_col = col
                         is_hours = True
+                        break
                 
-                # 3. V sütununu kontrol et (Belgrad): header'a bakılmadan direkt index 21
-                if not mttr_values and len(df.columns) > 21:
-                    v_col = df.columns[21]
-                    mttr_col = v_col
-                    for val in df.iloc[:, 21].dropna():
+                # 3. Sadece "tamir süresi" içeren herhangi bir sütun (fallback)
+                if not mttr_col:
+                    for col in df.columns:
+                        col_str = str(col).lower()
+                        if 'tamir' in col_str and 'süresi' in col_str:
+                            mttr_col = col
+                            is_hours = 'saat' in col_str
+                            break
+                
+                if mttr_col:
+                    for val in df[mttr_col].dropna():
                         try:
                             if isinstance(val, (int, float)) and val > 0:
                                 mttr_values.append(float(val))
                         except:
                             continue
-                    is_hours = False  # V'nin base var mı kontrol et
                 
                 # Saat değerleri dakikaya çevir
                 if is_hours and mttr_values:
