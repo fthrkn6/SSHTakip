@@ -153,6 +153,12 @@
         <div>
         </div>
         <div>
+            <form action="{{ url_for('tramvay_km_excel_sync') }}" method="POST" class="d-inline me-2"
+                  onsubmit="return confirm('Excel dosyasından KM verilerini senkronize etmek istediğinize emin misiniz?')">
+                <button type="submit" class="btn btn-outline-success">
+                    <i class="bi bi-file-earmark-excel me-1"></i>Excel'den Senkronize Et
+                </button>
+            </form>
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#topluGuncelleModal">
                 <i class="bi bi-pencil-square me-2"></i>Toplu Güncelle
             </button>

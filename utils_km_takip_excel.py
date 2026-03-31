@@ -246,3 +246,54 @@ def log_km_takip(project_code, tram_id, km_value):
 def get_km_takip_path(project_code):
     """Dışarıdan erişim için dosya yolu döndür."""
     return _get_takip_path(project_code)
+
+
+def read_latest_km_from_takip(project_code):
+    """
+    Takip Excel'inden her aracın en son (en sağdaki) KM değerini oku.
+
+    Returns:
+        dict: {tram_id: latest_km_value, ...}
+        Dosya yoksa veya boşsa boş dict döner.
+    """
+    path = _get_takip_path(project_code)
+    if not os.path.exists(path):
+        return {}
+
+    try:
+        wb = load_workbook(path, data_only=True)
+        ws = wb['KM Takip']
+
+        result = {}
+        for row_idx in range(2, ws.max_row + 1):
+            tram_id = ws.cell(row=row_idx, column=1).value
+            if tram_id is None:
+                continue
+            tram_id = str(tram_id).strip()
+
+            # En sağdaki (en güncel) dolu hücreyi bul
+            latest_km = None
+            latest_col = None
+            for col_idx in range(ws.max_column, 1, -1):
+                val = ws.cell(row=row_idx, column=col_idx).value
+                if val is not None:
+                    try:
+                        latest_km = int(float(val))
+                        latest_col = col_idx
+                        break
+                    except (ValueError, TypeError):
+                        continue
+
+            if latest_km is not None:
+                # Hangi tarih sütunundaydı
+                date_str = ws.cell(row=1, column=latest_col).value or ''
+                result[tram_id] = {
+                    'km': latest_km,
+                    'date': str(date_str).strip()
+                }
+
+        return result
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f'KM takip okuma hatasi: {e}')
+        return {}

@@ -27,7 +27,7 @@ from utils.backup_manager import BackupManager
 from utils.auth_decorators import require_admin, require_project_access, check_project_in_session
 from utils_km_logger import log_km_change
 from utils_km_excel_logger import KMExcelLogger
-from utils_km_takip_excel import log_km_takip
+from utils_km_takip_excel import log_km_takip, read_latest_km_from_takip
 from utils_km_manager import KMDataManager
 from utils_daily_service_logger import log_service_status
 from utils_equipment_sync import sync_equipment_with_excel
@@ -3553,6 +3553,65 @@ def create_app():
                 db.session.rollback()
                 logger.error(f"Toplu guncelle error: {e}")
                 return jsonify({'success': False, 'message': f'❌ Hata: {str(e)}'}), 500
+
+        @app.route('/tramvay-km/excel-sync', methods=['POST'])
+        @login_required
+        def tramvay_km_excel_sync():
+            """KM Takip Excel'inden DB'ye senkronizasyon (iki yönlü)"""
+            try:
+                project_code = session.get('current_project', 'belgrad').lower()
+                excel_data = read_latest_km_from_takip(project_code)
+
+                if not excel_data:
+                    flash('Excel dosyası bulunamadı veya boş.', 'warning')
+                    return redirect(url_for('tramvay_km'))
+
+                updated = 0
+                skipped = 0
+                for tram_id, info in excel_data.items():
+                    excel_km = info['km']
+                    equipment = Equipment.query.filter_by(
+                        equipment_code=str(tram_id),
+                        project_code=project_code
+                    ).first()
+
+                    if not equipment:
+                        equipment = Equipment(
+                            equipment_code=str(tram_id),
+                            name=f'Tramvay {tram_id}',
+                            equipment_type='Tramvay',
+                            current_km=0,
+                            monthly_km=0,
+                            notes='',
+                            project_code=project_code
+                        )
+                        db.session.add(equipment)
+
+                    old_km = equipment.current_km or 0
+                    if excel_km != old_km:
+                        equipment.current_km = excel_km
+                        # Değişikliği logla
+                        log_km_change(
+                            tram_id=str(tram_id),
+                            old_km=old_km,
+                            new_km=excel_km,
+                            user=current_user.username if current_user else 'system',
+                            project_code=project_code,
+                            notes='Excel senkronizasyonu'
+                        )
+                        updated += 1
+                    else:
+                        skipped += 1
+
+                db.session.commit()
+                flash(f'✅ Excel senkronizasyonu tamamlandı: {updated} güncellendi, {skipped} değişmedi', 'success')
+
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f'Excel sync error: {e}')
+                flash(f'❌ Senkronizasyon hatası: {str(e)}', 'danger')
+
+            return redirect(url_for('tramvay_km'))
 
         @app.route('/servis-durumu', methods=['GET', 'POST'])
         @login_required
