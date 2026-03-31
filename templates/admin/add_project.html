@@ -14,15 +14,16 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <form method="POST">
+                    <form method="POST" enctype="multipart/form-data">
                         <!-- Proje Kodu -->
                         <div class="form-group">
                             <label for="code">
                                 <i class="fas fa-code"></i> Proje Kodu <span class="text-danger">*</span>
                             </label>
                             <input type="text" class="form-control" id="code" name="code" placeholder="örn: ankara"
+                                pattern="[a-z0-9_-]+" title="Sadece küçük harf, rakam, tire ve alt çizgi"
                                 required>
-                            <small class="form-text text-muted">Küçük harfler ve tire(-) ile</small>
+                            <small class="form-text text-muted">Küçük harfler, rakam ve tire(-) ile</small>
                         </div>
 
                         <!-- Proje Adı -->
@@ -53,8 +54,25 @@
                                 <option value="Türkiye">🇹🇷 Türkiye</option>
                                 <option value="Sırbistan">🇷🇸 Sırbistan</option>
                                 <option value="Romanya">🇷🇴 Romanya</option>
+                                <option value="İtalya">🇮🇹 İtalya</option>
                                 <option value="Diğer">🌍 Diğer</option>
                             </select>
+                        </div>
+
+                        <!-- Veriler.xlsx Upload -->
+                        <hr>
+                        <h6 class="mb-3"><i class="fas fa-file-excel text-success"></i> Veriler.xlsx Yükleme</h6>
+                        
+                        <div class="form-group">
+                            <label for="veriler_file">
+                                <i class="fas fa-upload"></i> Veriler.xlsx
+                            </label>
+                            <input type="file" class="form-control" id="veriler_file" name="veriler_file"
+                                accept=".xlsx">
+                            <small class="form-text text-muted">
+                                Tramvay/ekipman listesini içeren Excel dosyası. Yüklemezseniz proje oluşturulur ama 
+                                ekipman verisi olmaz — daha sonra <code>data/{proje_kodu}/Veriler.xlsx</code> olarak ekleyebilirsiniz.
+                            </small>
                         </div>
 
                         <!-- İletişim Bilgileri (İsteğe bağlı) -->
@@ -90,10 +108,10 @@
                             <small>
                                 Proje oluşturulduktan sonra otomatik olarak klasör yapısı oluşturulacaktır:
                                 <ul class="mb-0 mt-2">
-                                    <li><code>logs/{proje_kodu}/veriler/</code></li>
-                                    <li><code>logs/{proje_kodu}/ariza_listesi/</code></li>
-                                    <li><code>logs/{proje_kodu}/config/</code></li>
-                                    <li><code>logs/{proje_kodu}/archive/</code></li>
+                                    <li><code>data/{proje_kodu}/</code> — Veriler.xlsx buraya kaydedilir</li>
+                                    <li><code>logs/{proje_kodu}/ariza_listesi/</code> — FRACAS verileri</li>
+                                    <li><code>logs/{proje_kodu}/HBR/</code> — HBR raporları</li>
+                                    <li><code>logs/{proje_kodu}/reports/</code> — Dışa aktarılan raporlar</li>
                                 </ul>
                             </small>
                         </div>

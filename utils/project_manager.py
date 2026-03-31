@@ -189,11 +189,13 @@ class ProjectManager:
         return structure
     
     @staticmethod
-    def add_project(project_code, name, description="", location=""):
+    def add_project(project_code, name, description="", location="", veriler_file=None):
         """
         Yeni proje ekle
         - projects_config.json'a kaydını ekle
         - logs/{project}/ klasör yapısını oluştur
+        - data/{project}/ klasörünü oluştur
+        - Veriler.xlsx yüklenmişse data/{project}/ altına kaydet
         """
         # Zaten var mı kontrol et
         if ProjectManager.get_project(project_code):
@@ -221,12 +223,23 @@ class ProjectManager:
             with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(config, f, indent=2, ensure_ascii=False)
             
-            # Klasör yapısını oluştur
+            # logs/ klasör yapısını oluştur
             project_path = ProjectManager.get_project_path(project_code)
             os.makedirs(os.path.join(project_path, 'veriler'), exist_ok=True)
             os.makedirs(os.path.join(project_path, 'ariza_listesi'), exist_ok=True)
             os.makedirs(os.path.join(project_path, 'config'), exist_ok=True)
             os.makedirs(os.path.join(project_path, 'archive'), exist_ok=True)
+            os.makedirs(os.path.join(project_path, 'HBR'), exist_ok=True)
+            os.makedirs(os.path.join(project_path, 'reports'), exist_ok=True)
+            
+            # data/ klasörünü oluştur (Veriler.xlsx burada olmalı)
+            data_path = os.path.join(current_app.root_path, 'data', project_code)
+            os.makedirs(data_path, exist_ok=True)
+            
+            # Veriler.xlsx yüklenmişse kaydet
+            if veriler_file:
+                veriler_dest = os.path.join(data_path, 'Veriler.xlsx')
+                veriler_file.save(veriler_dest)
             
             return True, f"Proje '{name}' başarıyla oluşturuldu"
         

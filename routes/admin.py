@@ -255,12 +255,28 @@ def projects():
 def add_project():
     """Yeni Proje Ekle"""
     if request.method == 'POST':
-        code = request.form.get('code').lower().strip()
-        name = request.form.get('name')
+        code = request.form.get('code', '').lower().strip()
+        name = request.form.get('name', '').strip()
         description = request.form.get('description', '')
         location = request.form.get('location', '')
         
-        success, message = ProjectManager.add_project(code, name, description, location)
+        # Güvenlik: proje kodu sadece alfanumerik ve tire
+        code = ''.join(c for c in code if c.isalnum() or c in ('_', '-'))
+        
+        if not code or not name:
+            flash('Proje kodu ve adı zorunludur', 'danger')
+            return render_template('admin/add_project.html')
+        
+        # Veriler.xlsx dosyası (opsiyonel)
+        veriler_file = request.files.get('veriler_file')
+        if veriler_file and veriler_file.filename:
+            if not veriler_file.filename.endswith('.xlsx'):
+                flash('Sadece .xlsx dosyası yüklenebilir', 'danger')
+                return render_template('admin/add_project.html')
+        else:
+            veriler_file = None
+        
+        success, message = ProjectManager.add_project(code, name, description, location, veriler_file)
         
         if success:
             flash(message, 'success')

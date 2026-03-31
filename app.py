@@ -1867,27 +1867,45 @@ def create_app():
 
         @app.route('/api/projects')
         def get_projects():
-            """Systemde mevcut tüm projeleri döndür (data/ klasöründen oku)"""
+            """Systemde mevcut tüm projeleri döndür (data/ + projects_config.json birleştir)"""
             import os
             try:
-                projects_dir = os.path.join(os.path.dirname(__file__), 'data')
-                projects = []
+                projects_map = {}
                 
+                # 1) projects_config.json'dan aktif projeleri oku
+                try:
+                    config_path = os.path.join(os.path.dirname(__file__), 'projects_config.json')
+                    if os.path.exists(config_path):
+                        with open(config_path, 'r', encoding='utf-8') as f:
+                            config = json.load(f)
+                        for p in config.get('projects', []):
+                            if p.get('status') == 'aktif':
+                                projects_map[p['code']] = {
+                                    'code': p['code'],
+                                    'name': p.get('name', p['code'].capitalize()),
+                                    'has_veriler': False
+                                }
+                except Exception:
+                    pass
+                
+                # 2) data/ klasöründen Veriler.xlsx olan projeleri ekle
+                projects_dir = os.path.join(os.path.dirname(__file__), 'data')
                 if os.path.exists(projects_dir):
                     for item in os.listdir(projects_dir):
                         item_path = os.path.join(projects_dir, item)
-                        # Klasör ve Veriler.xlsx var mı kontrol et
                         if os.path.isdir(item_path):
                             excel_path = os.path.join(item_path, 'Veriler.xlsx')
-                            if os.path.exists(excel_path):
-                                projects.append({
+                            has_veriler = os.path.exists(excel_path)
+                            if item in projects_map:
+                                projects_map[item]['has_veriler'] = has_veriler
+                            elif has_veriler:
+                                projects_map[item] = {
                                     'code': item,
-                                    'name': item.capitalize()
-                                })
+                                    'name': item.capitalize(),
+                                    'has_veriler': True
+                                }
                 
-                # Alfabetik sıralama
-                projects.sort(key=lambda x: x['code'])
-                
+                projects = sorted(projects_map.values(), key=lambda x: x['code'])
                 return jsonify(projects)
             except Exception as e:
                 print(f'[ERROR] /api/projects: {e}')
