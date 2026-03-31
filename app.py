@@ -27,6 +27,7 @@ from utils.backup_manager import BackupManager
 from utils.auth_decorators import require_admin, require_project_access, check_project_in_session
 from utils_km_logger import log_km_change
 from utils_km_excel_logger import KMExcelLogger
+from utils_km_takip_excel import log_km_takip
 from utils_km_manager import KMDataManager
 from utils_daily_service_logger import log_service_status
 from utils_equipment_sync import sync_equipment_with_excel
@@ -3431,6 +3432,12 @@ def create_app():
                 except Exception as excel_err:
                     logger.warning(f'KM Excel logging failed for {tram_code}: {excel_err}')
                 
+                # KM takip matrisine yaz (satır=araç, sütun=tarih)
+                try:
+                    log_km_takip(project_code, tram_code, new_km)
+                except Exception as takip_err:
+                    logger.warning(f'KM takip Excel hatasi {tram_code}: {takip_err}')
+                
                 # NOTE: Excel senkronizasyonu kaldırıldı - Equipment tablosu tek kaynak
                 # Excel'in Database'i override etmesini önlemek için burada sync yapılmıyor
                 
@@ -3511,6 +3518,12 @@ def create_app():
                                     )
                                 except Exception as excel_err:
                                     logger.warning(f'KM Excel logging failed for {tram_code}: {excel_err}')
+                                
+                                # KM takip matrisine yaz
+                                try:
+                                    log_km_takip(project_code, tram_code, new_km)
+                                except Exception as takip_err:
+                                    logger.warning(f'KM takip Excel hatasi {tram_code}: {takip_err}')
                                 
                             except Exception as km_err:
                                 errors.append(f"{tram_id}: Geçersiz KM değeri ({km_err})")

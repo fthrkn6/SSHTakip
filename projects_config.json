@@ -1,75 +1,84 @@
 {
-    "projects": [
-        {
-            "code": "belgrad",
-            "name": "Belgrad",
-            "description": "Belgrad",
-            "status": "aktif",
-            "location": "Belgrad, Sırbistan",
-            "created": "2025-01-01",
-            "admin": "admin@bozankaya.com"
-        },
-        {
-            "code": "gebze",
-            "name": "Gebze",
-            "description": "Gebze",
-            "status": "aktif",
-            "location": "Gebze, Türkiye",
-            "created": "2025-01-01",
-            "admin": "admin@bozankaya.com"
-        },
-        {
-            "code": "iasi",
-            "name": "Iași",
-            "description": "Iași",
-            "status": "aktif",
-            "location": "Iași, Romanya",
-            "created": "2025-01-01",
-            "admin": "admin@bozankaya.com"
-        },
-        {
-            "code": "kayseri",
-            "name": "Kayseri",
-            "description": "Kayseri",
-            "status": "aktif",
-            "location": "Kayseri, Türkiye",
-            "created": "2025-01-01",
-            "admin": "admin@bozankaya.com"
-        },
-        {
-            "code": "kocaeli",
-            "name": "Kocaeli",
-            "description": "Kocaeli",
-            "status": "aktif",
-            "location": "Kocaeli, Türkiye",
-            "created": "2025-01-01",
-            "admin": "admin@bozankaya.com"
-        },
-        {
-            "code": "timisoara",
-            "name": "Timișoara",
-            "description": "Timișoara",
-            "status": "aktif",
-            "location": "Timișoara, Romanya",
-            "created": "2025-01-01",
-            "admin": "admin@bozankaya.com"
-        },
-        {
-            "code": "samsun",
-            "name": "Samsun",
-            "description": "Samsun",
-            "status": "aktif",
-            "location": "Samsun, Türkiye",
-            "created": "2026-03-03",
-            "admin": "admin@bozankaya.com"
-        }
-    ],
-    "defaults": {
-        "default_project": "belgrad",
-        "backup_schedule": "daily_05:00",
-        "backup_on_form_submit": true,
-        "operational_days_per_year": 300,
-        "operational_hours_per_day": 16
+  "projects": [
+    {
+      "code": "belgrad",
+      "name": "Belgrad",
+      "description": "Belgrad",
+      "status": "aktif",
+      "location": "Belgrad, Sırbistan",
+      "created": "2025-01-01",
+      "admin": "admin@bozankaya.com"
     },
-    "last_backup": "2025-12-17 00:00:00"
+    {
+      "code": "gebze",
+      "name": "Gebze",
+      "description": "Gebze",
+      "status": "aktif",
+      "location": "Gebze, Türkiye",
+      "created": "2025-01-01",
+      "admin": "admin@bozankaya.com"
+    },
+    {
+      "code": "iasi",
+      "name": "Iași",
+      "description": "Iași",
+      "status": "aktif",
+      "location": "Iași, Romanya",
+      "created": "2025-01-01",
+      "admin": "admin@bozankaya.com"
+    },
+    {
+      "code": "kayseri",
+      "name": "Kayseri",
+      "description": "Kayseri",
+      "status": "aktif",
+      "location": "Kayseri, Türkiye",
+      "created": "2025-01-01",
+      "admin": "admin@bozankaya.com"
+    },
+    {
+      "code": "kocaeli",
+      "name": "Kocaeli",
+      "description": "Kocaeli",
+      "status": "aktif",
+      "location": "Kocaeli, Türkiye",
+      "created": "2025-01-01",
+      "admin": "admin@bozankaya.com"
+    },
+    {
+      "code": "timisoara",
+      "name": "Timișoara",
+      "description": "Timișoara",
+      "status": "aktif",
+      "location": "Timișoara, Romanya",
+      "created": "2025-01-01",
+      "admin": "admin@bozankaya.com"
+    },
+    {
+      "code": "samsun",
+      "name": "Samsun",
+      "description": "Samsun",
+      "status": "aktif",
+      "location": "Samsun, Türkiye",
+      "created": "2026-03-03",
+      "admin": "admin@bozankaya.com"
+    },
+    {
+      "code": "nap20",
+      "name": "Napoli",
+      "description": "",
+      "location": "İtalya",
+      "status": "aktif",
+      "created": "2026-03-31",
+      "admin": "admin@bozankaya.com"
+    }
+  ],
+  "defaults": {
+    "default_project": "belgrad",
+    "backup_schedule": "daily_05:00",
+    "backup_on_form_submit": true,
+    "operational_days_per_year": 300,
+    "operational_hours_per_day": 16
+  },
+  "last_backup": "2025-12-17 00:00:00"
 }
