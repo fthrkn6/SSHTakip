@@ -190,7 +190,7 @@ def safe_numeric(value, default=0):
         if pd.isna(value):
             return default
         return float(value)
-    except:
+    except (ValueError, TypeError):
         return default
 
 
@@ -955,16 +955,16 @@ def fracas_filter():
             start = pd.to_datetime(start_date)
             filtered_df[date_col] = pd.to_datetime(filtered_df[date_col], errors='coerce')
             filtered_df = filtered_df[filtered_df[date_col] >= start]
-        except:
-            pass
+        except (ValueError, TypeError) as e:
+            logger.warning(f'Tarih filtresi hatası (start_date): {e}')
     
     if end_date and date_col:
         try:
             end = pd.to_datetime(end_date)
             filtered_df[date_col] = pd.to_datetime(filtered_df[date_col], errors='coerce')
             filtered_df = filtered_df[filtered_df[date_col] <= end]
-        except:
-            pass
+        except (ValueError, TypeError) as e:
+            logger.warning(f'Tarih filtresi hatası (end_date): {e}')
     
     # Arıza sınıfı filtresi
     if failure_class:
@@ -1021,16 +1021,16 @@ def export_excel():
             start = pd.to_datetime(start_date)
             filtered_df[date_col] = pd.to_datetime(filtered_df[date_col], errors='coerce')
             filtered_df = filtered_df[filtered_df[date_col] >= start]
-        except:
-            pass
+        except (ValueError, TypeError) as e:
+            logger.warning(f'Tarih filtresi hatası (start_date): {e}')
     
     if end_date and date_col:
         try:
             end = pd.to_datetime(end_date)
             filtered_df[date_col] = pd.to_datetime(filtered_df[date_col], errors='coerce')
             filtered_df = filtered_df[filtered_df[date_col] <= end]
-        except:
-            pass
+        except (ValueError, TypeError) as e:
+            logger.warning(f'Tarih filtresi hatası (end_date): {e}')
     
     if failure_class:
         class_col = get_column(filtered_df, ['arıza sınıfı', 'failure class'])
@@ -1091,7 +1091,7 @@ def export_pdf():
                 start = pd.to_datetime(start_date)
                 filtered_df[date_col] = pd.to_datetime(filtered_df[date_col], errors='coerce')
                 filtered_df = filtered_df[filtered_df[date_col] >= start]
-            except:
+            except (ValueError, TypeError):
                 pass
         
         if end_date and date_col:
@@ -1099,7 +1099,7 @@ def export_pdf():
                 end = pd.to_datetime(end_date)
                 filtered_df[date_col] = pd.to_datetime(filtered_df[date_col], errors='coerce')
                 filtered_df = filtered_df[filtered_df[date_col] <= end]
-            except:
+            except (ValueError, TypeError):
                 pass
         
         # PDF oluştur

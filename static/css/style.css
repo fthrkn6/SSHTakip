@@ -895,7 +895,7 @@ body {
 /* ===== QUICK ACTIONS ===== */
 .quick-actions {
     position: fixed;
-    bottom: 24px;
+    top: 80px;
     right: 24px;
     z-index: 1000;
 }
@@ -927,7 +927,7 @@ body {
 
 .quick-actions-menu {
     position: absolute;
-    bottom: 68px;
+    top: 68px;
     right: 0;
     display: none;
     flex-direction: column;
@@ -941,7 +941,7 @@ body {
 }
 
 @keyframes qa-pop {
-    from { transform: scale(0.8) translateY(10px); opacity: 0; }
+    from { transform: scale(0.8) translateY(-10px); opacity: 0; }
     to { transform: scale(1) translateY(0); opacity: 1; }
 }
 
@@ -1039,7 +1039,7 @@ body {
     }
 
     .quick-actions {
-        bottom: 16px;
+        top: 70px;
         right: 16px;
     }
 

@@ -14,7 +14,8 @@ import sys
 logger = logging.getLogger(__name__)
 from utils_availability import (
     log_service_status_change,
-    AvailabilityCalculator
+    AvailabilityCalculator,
+    ExcelReportGenerator as AvailabilityExcelGenerator
 )
 from utils_service_status import AvailabilityAnalyzer, ExcelReportGenerator as EnhancedExcelGenerator
 from utils_daily_service_logger import log_service_status as log_service_to_file
@@ -703,12 +704,15 @@ def export_availability_excel():
         filename = f"Availability_Raporu_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.xlsx"
         filepath = os.path.join(output_dir, filename)
         
-        # Excel oluştur
-        ExcelReportGenerator.create_availability_report_excel(tram_ids, start_date, end_date, filepath)
+        if not tram_ids:
+            return jsonify({'error': 'Araç bulunamadı'}), 400
+        
+        # Excel oluştur (utils_availability.ExcelReportGenerator)
+        AvailabilityExcelGenerator.create_availability_report_excel(tram_ids, start_date, end_date, filepath)
         
         logger.info(f"Availability report exported to {filepath}")
         
-        return send_file(filepath, as_attachment=True, download_name=filename)
+        return send_file(filepath, as_attachment=True, download_name=filename, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     
     except Exception as e:
         logger.error(f"Error exporting availability report: {str(e)}")
@@ -730,12 +734,15 @@ def export_rootcause_excel():
         filename = f"Root_Cause_Analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         filepath = os.path.join(output_dir, filename)
         
-        # Excel oluştur
-        ExcelReportGenerator.create_root_cause_analysis_excel(tram_ids, filepath)
+        if not tram_ids:
+            return jsonify({'error': 'Araç bulunamadı'}), 400
+        
+        # Excel oluştur (utils_availability.ExcelReportGenerator)
+        AvailabilityExcelGenerator.create_root_cause_analysis_excel(tram_ids, filepath)
         
         logger.info(f"Root cause analysis report exported to {filepath}")
         
-        return send_file(filepath, as_attachment=True, download_name=filename)
+        return send_file(filepath, as_attachment=True, download_name=filename, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     
     except Exception as e:
         logger.error(f"Error exporting root cause analysis report: {str(e)}")
@@ -794,11 +801,15 @@ def export_comprehensive_report():
     """Kapsamlı availability ve root cause raporu"""
     try:
         project = session.get('current_project', 'belgrad')
+        # Güvenlik: project adı sadece alfanumerik ve alt çizgi olabilir
+        project = ''.join(c for c in project if c.isalnum() or c in ('_', '-')).lower() or 'belgrad'
         # Sadece aktif projenin araçlarını al
         tram_ids = [eq.equipment_code for eq in Equipment.query.filter_by(project_code=project).all()]
         
+        if not tram_ids:
+            return jsonify({'error': 'Araç bulunamadı'}), 400
+        
         # Projeden klasör oluştur
-        project = session.get('current_project', 'belgrad')
         output_dir = os.path.join('logs', project, 'reports')
         os.makedirs(output_dir, exist_ok=True)
         
@@ -824,8 +835,13 @@ def export_root_cause_report():
     """Root cause analysis raporu"""
     try:
         project = session.get('current_project', 'belgrad')
+        # Güvenlik: project adı sadece alfanumerik ve alt çizgi olabilir
+        project = ''.join(c for c in project if c.isalnum() or c in ('_', '-')).lower() or 'belgrad'
         # Sadece aktif projenin araçlarını al
         tram_ids = [eq.equipment_code for eq in Equipment.query.filter_by(project_code=project).all()]
+        
+        if not tram_ids:
+            return jsonify({'error': 'Araç bulunamadı'}), 400
         
         # Klasör oluştur
         output_dir = os.path.join('logs', project, 'reports')
@@ -853,6 +869,20 @@ def export_daily_report(tram_id):
     """Günlük servis durumu raporu"""
     try:
         project = session.get('current_project', 'belgrad')
+        # Güvenlik: project ve tram_id sanitize
+        project = ''.join(c for c in project if c.isalnum() or c in ('_', '-')).lower() or 'belgrad'
+        tram_id = ''.join(c for c in str(tram_id) if c.isalnum() or c in ('_', '-'))
+        
+        if not tram_id:
+            return jsonify({'error': 'Geçersiz tram_id'}), 400
+        
+        # tram_id veritabanında var mı kontrol et
+        equipment = Equipment.query.filter(
+            (Equipment.equipment_code == tram_id) | (Equipment.id_tram == tram_id)
+        ).filter_by(project_code=project).first()
+        if not equipment:
+            return jsonify({'error': 'Araç bulunamadı'}), 404
+        
         # Klasör oluştur
         output_dir = os.path.join('logs', project, 'reports')
         os.makedirs(output_dir, exist_ok=True)

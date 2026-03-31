@@ -4,7 +4,7 @@ Bozankaya Hafif Raylı Sistem için Kapsamlı Bakım Yönetimi
 EN 13306, ISO 55000, EN 15341, ISO 27001 Standartlarına Uygun
 """
 
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, after_this_request
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from datetime import datetime
 from models import db, User, Equipment, Failure, WorkOrder, MaintenancePlan, SparePartInventory, ServiceStatus
@@ -1464,6 +1464,7 @@ def create_app():
         def hbr_download():
             """HBR dosyasını indir"""
             from flask import send_file
+            from werkzeug.utils import secure_filename
             import os
             
             filename = request.args.get('filename', '')
@@ -1475,7 +1476,7 @@ def create_app():
             
             project = session.get('current_project', 'belgrad')
             hbr_dir = os.path.join(app.root_path, 'logs', project, 'HBR')
-            filepath = os.path.join(hbr_dir, filename)
+            filepath = os.path.join(hbr_dir, secure_filename(filename))
             
             # Güvenlik: path traversal kontrol et
             if not filepath.startswith(hbr_dir) or not os.path.exists(filepath):
@@ -1845,14 +1846,21 @@ def create_app():
                 # Dosya adını belirle (Fracas_BELGRAD.xlsx, Fracas_ISTANBUL.xlsx, vb.)
                 filename = os.path.basename(fracas_file)
                 
-                response = send_file(
+                @after_this_request
+                def cleanup(response):
+                    try:
+                        if os.path.exists(temp_file):
+                            os.remove(temp_file)
+                    except OSError:
+                        pass
+                    return response
+                
+                return send_file(
                     temp_file,
                     as_attachment=True,
                     download_name=filename,
                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 )
-                
-                return response
             except Exception as e:
                 flash(f'[ERROR] İndirme hatas: {str(e)}', 'danger')
                 return redirect(url_for('ariza_listesi_veriler'))

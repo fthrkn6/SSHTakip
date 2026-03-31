@@ -1072,6 +1072,9 @@
 
     <!-- Quick Actions FAB -->
     <div class="quick-actions" id="quickActions">
+        <button class="quick-actions-trigger" id="quickActionsTrigger" aria-label="Hızlı işlemler">
+            <i class="bi bi-plus-lg"></i>
+        </button>
         <div class="quick-actions-menu" id="quickActionsMenu">
             <a href="{{ url_for('yeni_ariza_bildir') }}" class="quick-action-item">
                 <span class="qa-label">Yeni Arıza Bildir</span>
@@ -1086,9 +1089,6 @@
                 <span class="qa-icon bg-primary"><i class="bi bi-speedometer2"></i></span>
             </a>
         </div>
-        <button class="quick-actions-trigger" id="quickActionsTrigger" aria-label="Hızlı işlemler">
-            <i class="bi bi-plus-lg"></i>
-        </button>
     </div>
     {% else %}
     {% block public_content %}{% endblock %}

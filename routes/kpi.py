@@ -70,15 +70,15 @@ def apply_filters(df, start_date=None, end_date=None, vehicle=None, system=None,
             filtered_df[date_col] = pd.to_datetime(filtered_df[date_col], errors='coerce')
             start = pd.to_datetime(start_date)
             filtered_df = filtered_df[filtered_df[date_col] >= start]
-        except:
-            pass
+        except (ValueError, TypeError) as e:
+            logger.warning(f'Tarih filtresi hatası (start_date): {e}')
     
     if date_col and end_date:
         try:
             end = pd.to_datetime(end_date)
             filtered_df = filtered_df[filtered_df[date_col] <= end]
-        except:
-            pass
+        except (ValueError, TypeError) as e:
+            logger.warning(f'Tarih filtresi hatası (end_date): {e}')
     
     # Araç filtresi
     if vehicle:
@@ -126,7 +126,7 @@ def calculate_mtbf_mttr(df):
             if len(valid_mttr) > 0:
                 result['mttr'] = round(valid_mttr.mean(), 2)
                 result['total_downtime'] = round(valid_mttr.sum(), 1)
-        except:
+        except (ValueError, TypeError):
             pass
     
     # MTBF - Araç KM bazında
@@ -151,7 +151,7 @@ def calculate_mtbf_mttr(df):
                         vehicle_mtbf.append(mtbf_val)
             if vehicle_mtbf:
                 result['mtbf'] = round(sum(vehicle_mtbf) / len(vehicle_mtbf), 0)
-        except:
+        except (ValueError, TypeError):
             pass
     
     # MTBF - Zaman bazlı (tarihlerden hesapla)
@@ -171,7 +171,7 @@ def calculate_mtbf_mttr(df):
                     # Araç başına operasyon dakikası / toplam arıza sayısı
                     total_op_minutes = date_range_days * 16 * 60 * total_vehicles
                     result['mtbf_time'] = round(total_op_minutes / len(df), 2)
-        except:
+        except (ValueError, TypeError):
             pass
     
     return result
@@ -343,7 +343,7 @@ def get_analysis_data(df):
                 df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
                 monthly = df[date_col].dt.to_period('M').value_counts().sort_index().tail(12)
                 result['monthly_trend'] = [{'month': str(m), 'count': int(c)} for m, c in monthly.items()]
-            except:
+            except (ValueError, TypeError):
                 pass
         
         # Tamir için gerekli personel
@@ -353,7 +353,7 @@ def get_analysis_data(df):
                     df[col] = pd.to_numeric(df[col], errors='coerce')
                     personnel_counts = df[col].value_counts().head(5).to_dict()
                     result['repair_personnel'] = {str(int(k)): int(v) for k, v in personnel_counts.items() if pd.notna(k)}
-                except:
+                except (ValueError, TypeError):
                     pass
                 break
         
