@@ -303,35 +303,40 @@ def create_app():
             Navbar proje seçicisinden gelen project query parametresini session'a kaydet
             """
             if current_user.is_authenticated:
-                # Query parameter'dan proje kodunu al
-                project_code = request.args.get('project')
-                
-                if project_code:
-                    # Kullanıcının bu projeye erişim yetkisi var mı kontrol et
-                    if current_user.can_access_project(project_code):
-                        session['current_project'] = project_code
-                        # Proje adını da sessionda sakla
-                        projects = ProjectManager.get_all_projects()
-                        for p in projects:
-                            if p['code'] == project_code:
-                                session['project_name'] = p['name']
-                                break
-                
-                # Session'da proje kodu yoksa varsayılan ayarla
-                if 'current_project' not in session:
-                    # Admin ise belgrad, saha ise ilk atanan projeyi al
-                    if current_user.is_admin():
-                        session['current_project'] = 'belgrad'
-                        session['project_name'] = 'Belgrad'
-                    else:
-                        assigned = current_user.get_assigned_projects()
-                        if assigned:
-                            session['current_project'] = assigned[0]
+                try:
+                    # Query parameter'dan proje kodunu al
+                    project_code = request.args.get('project')
+                    
+                    if project_code:
+                        # Kullanıcının bu projeye erişim yetkisi var mı kontrol et
+                        if current_user.can_access_project(project_code):
+                            session['current_project'] = project_code
+                            # Proje adını da sessionda sakla
                             projects = ProjectManager.get_all_projects()
                             for p in projects:
-                                if p['code'] == assigned[0]:
+                                if p['code'] == project_code:
                                     session['project_name'] = p['name']
                                     break
+                    
+                    # Session'da proje kodu yoksa varsayılan ayarla
+                    if 'current_project' not in session:
+                        # Admin ise belgrad, saha ise ilk atanan projeyi al
+                        if current_user.is_admin():
+                            session['current_project'] = 'belgrad'
+                            session['project_name'] = 'Belgrad'
+                        else:
+                            assigned = current_user.get_assigned_projects()
+                            if assigned:
+                                session['current_project'] = assigned[0]
+                                projects = ProjectManager.get_all_projects()
+                                for p in projects:
+                                    if p['code'] == assigned[0]:
+                                        session['project_name'] = p['name']
+                                        break
+                except Exception as e:
+                    logger.error(f'set_project_session error: {e}')
+                    session.setdefault('current_project', 'belgrad')
+                    session.setdefault('project_name', 'Belgrad')
         
         # ========== GLOBAL SYNC MIDDLEWARE (OPTIMIZED) ==========
         # Sync time tracking (her project için ayrı)
@@ -3343,7 +3348,6 @@ def create_app():
         @login_required
         def tramvay_km():
             """Tram kilometer tracking - Single source of truth: Equipment DB"""
-            
             project_code = session.get('current_project', 'belgrad').lower()
             
             # Use centralized helper function - handles all KM logic
@@ -4212,31 +4216,30 @@ def create_app():
         @app.errorhandler(500)
         def internal_error(error):
             import traceback
-            # Log the full error
-            print("\n" + "="*80)
-            logger.info("\1")
-            print("="*80)
-            logger.info(f"\1")
-            logger.info(f"\1")
-            logger.info(f"\1")
-            print(traceback.format_exc())
-            print("="*80 + "\n")
+            # Log the full error to file for debugging
+            tb = traceback.format_exc()
+            error_msg = f"500 ERROR: {error}\nURL: {request.url if request else 'N/A'}\nTraceback:\n{tb}\n"
+            try:
+                os.makedirs('logs', exist_ok=True)
+                with open('logs/500_error.log', 'a', encoding='utf-8') as f:
+                    from datetime import datetime as dt_err
+                    f.write(f"\n{'='*80}\n{dt_err.now()}\n{error_msg}\n")
+            except Exception:
+                pass
+            logger.error(error_msg)
+            # In debug mode, re-raise to show werkzeug debugger
+            if app.debug:
+                raise error
             
-            db.session.rollback()
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
             
-            # Try to render the error template, if that fails, show plain text
             try:
                 return render_template('500.html'), 500
-            except:
-                return f"""
-                <html>
-                    <body>
-                        <h1>500 - Internal Server Error</h1>
-                        <p>An error occurred. Check the server logs for details.</p>
-                        <p><a href="/">Go back</a></p>
-                    </body>
-                </html>
-                """, 500
+            except Exception:
+                return '<html><body><h1>500 - Sunucu Hatası</h1><p>Bir hata oluştu.</p><a href="/">Ana Sayfa</a></body></html>', 500
 
         @app.before_request
         def log_request():
@@ -4322,4 +4325,5 @@ if __name__ == '__main__':
     logger.info(f"\1")
     logger.info(f"\1")
     logger.info(f"\1")
+    
     app.run(host='0.0.0.0', port=port, debug=debug_mode, threaded=True)
