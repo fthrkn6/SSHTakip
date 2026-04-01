@@ -1385,8 +1385,8 @@ def create_app():
                     logger.info(f"\1")
                     
                     for filename in files_found:
-                        # Tüm -NCR- formatındaki .xlsx dosyalarını al
-                        if filename.endswith('.xlsx') and '-NCR-' in filename:
+                        # Tüm -NCR- formatındaki dosyaları al (.xlsx veya .htm)
+                        if (filename.endswith('.xlsx') or filename.endswith('.htm')) and '-NCR-' in filename:
                             filepath = os.path.join(hbr_dir, filename)
                             
                             try:
@@ -1465,39 +1465,71 @@ def create_app():
                 logger.info(f"\1")
                 return {'error': f'Silme hatası: {str(e)}'}, 500
 
-        @app.route('/hbr-download')
+        @app.route('/hbr-download/<filename>')
         @login_required
-        def hbr_download():
-            """HBR dosyasını indir"""
+        def hbr_download(filename):
+            """HBR dosyasını XLSX formatında indir"""
             from flask import send_file
             from werkzeug.utils import secure_filename
             import os
             
-            filename = request.args.get('filename', '')
+            safe_filename = secure_filename(filename)
             
-            # Güvenlik: sadece {CODE}-NCR-{NUMBER}.xlsx formatındaki dosyaları izin ver
-            if not (filename.endswith('.xlsx') and '-NCR-' in filename):
+            # Dosya adı güvenliği ve format kontrolü
+            if not safe_filename or '-NCR-' not in safe_filename:
                 flash('❌ Geçersiz dosya adı', 'danger')
                 return redirect(url_for('hbr_listesi'))
             
             project = session.get('current_project', 'belgrad')
             hbr_dir = os.path.join(app.root_path, 'logs', project, 'HBR')
-            filepath = os.path.join(hbr_dir, secure_filename(filename))
+            
+            # Dosyayı ara - .xlsx veya .htm uzantısıyla
+            filepath = None
+            actual_filename = None
+            
+            # Önce tam adıyla ara
+            full_path = os.path.join(hbr_dir, safe_filename)
+            if os.path.exists(full_path):
+                filepath = full_path
+                actual_filename = safe_filename
+            else:
+                # .xlsx istiyorsa .htm'i ara
+                if safe_filename.endswith('.xlsx'):
+                    htm_file = safe_filename.replace('.xlsx', '.htm')
+                    htm_path = os.path.join(hbr_dir, htm_file)
+                    if os.path.exists(htm_path):
+                        filepath = htm_path
+                        actual_filename = htm_file
+                # .htm istiyorsa .xlsx'i ara
+                elif safe_filename.endswith('.htm'):
+                    xlsx_file = safe_filename.replace('.htm', '.xlsx')
+                    xlsx_path = os.path.join(hbr_dir, xlsx_file)
+                    if os.path.exists(xlsx_path):
+                        filepath = xlsx_path
+                        actual_filename = xlsx_file
             
             # Güvenlik: path traversal kontrol et
-            if not filepath.startswith(hbr_dir) or not os.path.exists(filepath):
+            if not filepath or not filepath.startswith(hbr_dir) or not os.path.exists(filepath):
+                logger.error(f"HBR file not found: {safe_filename} in {hbr_dir}")
                 flash('❌ Dosya bulunamadı', 'danger')
                 return redirect(url_for('hbr_listesi'))
             
             try:
+                # İndirme adını her zaman .xlsx olarak ayarla
+                download_name = actual_filename
+                if not download_name.endswith('.xlsx'):
+                    download_name = download_name.rsplit('.', 1)[0] + '.xlsx'
+                
+                logger.info(f"HBR download: {actual_filename} as {download_name}")
+                
                 return send_file(
-                    filepath, 
-                    as_attachment=True, 
-                    download_name=filename,
+                    filepath,
+                    as_attachment=True,
+                    download_name=download_name,
                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 )
             except Exception as e:
-                logger.info(f"\1")
+                logger.error(f"HBR download error: {str(e)}")
                 flash(f'❌ İndirme başarısız: {str(e)}', 'danger')
                 return redirect(url_for('hbr_listesi'))
 

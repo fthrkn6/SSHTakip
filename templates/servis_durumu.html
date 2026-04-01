@@ -272,6 +272,15 @@
         padding-left: 24px;
     }
 
+    /* Bootstrap Tooltip Styling */
+    .tooltip-inner {
+        max-width: 300px;
+        text-align: left;
+        padding: 12px;
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
+
     .tabs-container {
         margin-top: 2rem;
         border-top: 2px solid #e5e7eb;
@@ -853,12 +862,22 @@
                             targetCell.classList.add(statusClass);
                         }
                         
+                        // Tooltip'i ekle (temel bilgi, sayfa yenilemede tam hale gelecek)
+                        const tooltipText = status + ' - ' + new Date().toLocaleTimeString('tr-TR');
+                        targetCell.setAttribute('title', tooltipText);
+                        targetCell.setAttribute('data-bs-toggle', 'tooltip');
+                        targetCell.setAttribute('data-bs-placement', 'top');
+                        
                         // Animasyon efekti
                         targetCell.style.transition = 'background-color 0.3s ease';
                         targetCell.style.backgroundColor = 'rgba(255, 193, 7, 0.3)';
                         
                         setTimeout(() => {
                             targetCell.style.backgroundColor = '';
+                            // Yeni hücre için Bootstrap Tooltip'i reinitialize et
+                            if (window.bootstrap && window.bootstrap.Tooltip) {
+                                new bootstrap.Tooltip(targetCell);
+                            }
                         }, 500);
                         
                         console.log(`✓ Hücre başarıyla güncellendi: ${tramId} / ${formattedDateForHeader}`);
@@ -890,12 +909,12 @@
             if (durum) {
                 durum.addEventListener('change', function() {
                     if (this.value === 'Servis Dışı') {
-                        // Servis Dışı → Sistem REQUIRED
+                        // Servis Dışı → Sistem VE Alt-Sistem REQUIRED
                         sistem.disabled = false;
                         sistem.required = true;
                         sistem.classList.add('is-invalid');
-                        altSistem.disabled = true; // Alt-sistem otomatik populate olabilir
-                        console.log('✓ Sistem zorunlu yapıldı (Durum: Servis Dışı)');
+                        altSistem.disabled = false; // Alt-sistem aktif edildi
+                        console.log('✓ Sistem ve Alt-Sistem zorunlu yapıldı (Durum: Servis Dışı)');
                     } else if (this.value === 'İşletme Kaynaklı Servis Dışı') {
                         // İşletme Kaynaklı → Sistem DISABLED (opsiyonel açıklama)
                         sistem.disabled = true;
@@ -1136,43 +1155,6 @@
                 alert('❌ İşlem sırasında hata oluştu: ' + error);
             });
     }
-
-    document.getElementById('durum').addEventListener('change', function () {
-        const sistem = document.getElementById('sistem');
-        const alt_sistem = document.getElementById('alt_sistem');
-        const aciklama = document.getElementById('aciklama');
-        const durum_value = this.value;
-
-        if (durum_value === 'Servis') {
-            // Servis seçilirse: sistem, alt sistem ve açıklama devre dışı
-            sistem.disabled = true;
-            sistem.value = '';
-            alt_sistem.disabled = true;
-            alt_sistem.value = '';
-            aciklama.disabled = true;
-            aciklama.value = '';
-        } else if (durum_value === 'Servis Dışı') {
-            // Servis Dışı seçilirse: sistem ve alt sistem aktivDe, açıklama da aktif
-            sistem.disabled = false;
-            alt_sistem.disabled = false;
-            aciklama.disabled = false;
-        } else if (durum_value === 'İşletme Kaynaklı Servis Dışı') {
-            // İşletme Kaynaklı seçilirse: sistem ve alt sistem devre dışı, açıklama aktif
-            sistem.disabled = true;
-            sistem.value = '';
-            alt_sistem.disabled = true;
-            alt_sistem.value = '';
-            aciklama.disabled = false;
-        } else {
-            // Seçim yapılmamışsa: hepsi devre dışı
-            sistem.disabled = true;
-            sistem.value = '';
-            alt_sistem.disabled = true;
-            alt_sistem.value = '';
-            aciklama.disabled = true;
-            aciklama.value = '';
-        }
-    });
 
     // Sistem seçildiğinde Alt Sistemleri doldur
     document.getElementById('sistem').addEventListener('change', function () {

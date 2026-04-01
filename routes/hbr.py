@@ -78,7 +78,16 @@ def indir():
             return redirect(url_for('hbr.listesi'))
         
         logger.info(f"HBR dosyası indirildi: {project_code}")
-        return send_file(excel_path, as_attachment=True)
+        
+        # Dosya adını belirle
+        filename = f'HBR_{project_code}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+        
+        return send_file(
+            excel_path,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
         
     except Exception as e:
         logger.error(f"HBR indirme hatası: {e}")

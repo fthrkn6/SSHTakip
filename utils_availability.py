@@ -488,6 +488,7 @@ def log_service_status_change(tram_id, new_status, sistem=None, alt_sistem=None,
         # Mevcut kaydı güncelle
         status_record.status = new_status
         status_record.sistem = sistem
+        status_record.alt_sistem = alt_sistem
         status_record.aciklama = reason
         status_record.created_by = user_id
         status_record.updated_at = datetime.utcnow()
@@ -498,6 +499,7 @@ def log_service_status_change(tram_id, new_status, sistem=None, alt_sistem=None,
             date=target_date,
             status=new_status,
             sistem=sistem,
+            alt_sistem=alt_sistem,
             aciklama=reason,
             created_by=user_id,
             project_code=project_code
@@ -516,7 +518,7 @@ def log_service_status_change(tram_id, new_status, sistem=None, alt_sistem=None,
             date=target_date,
             status=new_status,
             sistem=sistem,
-            alt_sistem='',
+            alt_sistem=alt_sistem or '',
             aciklama=reason,
             user_id=user_id
         )
