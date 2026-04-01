@@ -357,11 +357,18 @@
             });
         }
 
-        const colors = ['#FF6B6B', '#FFC700', '#4472C4', '#70AD47', '#FFC7CE', '#BDD7EE', '#C5E0B4'];
-        subsystemChart.data.labels = Object.keys(stats);
+        const colors = [
+            '#FF6B6B', '#FFC700', '#4472C4', '#70AD47', '#FFC7CE', '#BDD7EE', '#C5E0B4',
+            '#ED7D31', '#A5A5A5', '#9B59B6', '#1ABC9C', '#E74C3C', '#3498DB', '#2ECC71',
+            '#F39C12', '#8E44AD', '#16A085', '#D35400', '#7F8C8D', '#2C3E50'
+        ];
+        const topN = 10;
+        const keys = Object.keys(stats).slice(0, topN);
+        const values = keys.map(k => stats[k]);
+        subsystemChart.data.labels = keys;
         subsystemChart.data.datasets = [{
-            data: Object.values(stats),
-            backgroundColor: colors.slice(0, Object.keys(stats).length)
+            data: values,
+            backgroundColor: colors.slice(0, keys.length)
         }];
         subsystemChart.update();
     }

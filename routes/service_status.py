@@ -21,6 +21,7 @@ from utils_service_status import AvailabilityAnalyzer, ExcelReportGenerator as E
 from utils_daily_service_logger import log_service_status as log_service_to_file
 from utils_service_status_excel_logger import log_service_status_to_excel
 from utils_excel_grid_manager import ExcelGridManager, RCAExcelManager
+from openpyxl import load_workbook
 import os
 import json
 import logging
@@ -388,7 +389,7 @@ def log_service_status():
             grid_manager.update_status(current_app.root_path, tram_id, grid_date, status_code)
             
             # RCA kaydı ekle (eğer servis dışı ise)
-            if status_code in ['servis_disi', 'isletme_kaynakli'] and sistem and alt_sistem:
+            if status_code in ['servis_disi', 'isletme_kaynakli'] and sistem:
                 rca_manager = RCAExcelManager(project_code.lower())
                 rca_manager.add_rca_record(
                     current_app.root_path,
@@ -722,27 +723,24 @@ def export_availability_excel():
 @bp.route('/excel/rootcause', methods=['GET', 'POST'])
 @login_required
 def export_rootcause_excel():
-    """Root Cause Analysis raporunu Excel'e aktar"""
+    """Root Cause Analysis raporunu RCA Excel'den indir"""
     try:
-        tram_ids = [eq.id_tram for eq in Equipment.query.all()]
+        project = session.get('current_project', 'belgrad')
+        rca_manager = RCAExcelManager(project)
+        rca_path = rca_manager.get_rca_path(current_app.root_path)
         
-        # Klasör oluştur
-        output_dir = 'availability_analiz'
-        os.makedirs(output_dir, exist_ok=True)
+        if not os.path.exists(rca_path):
+            rca_manager.init_rca(current_app.root_path)
+            rca_path = rca_manager.get_rca_path(current_app.root_path)
         
-        # Dosya adı
-        filename = f"Root_Cause_Analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-        filepath = os.path.join(output_dir, filename)
+        filename = f"RCA_Analiz_{project}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         
-        if not tram_ids:
-            return jsonify({'error': 'Araç bulunamadı'}), 400
-        
-        # Excel oluştur (utils_availability.ExcelReportGenerator)
-        AvailabilityExcelGenerator.create_root_cause_analysis_excel(tram_ids, filepath)
-        
-        logger.info(f"Root cause analysis report exported to {filepath}")
-        
-        return send_file(filepath, as_attachment=True, download_name=filename, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        return send_file(
+            rca_path,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
     
     except Exception as e:
         logger.error(f"Error exporting root cause analysis report: {str(e)}")
@@ -793,6 +791,224 @@ def root_cause_analysis():
     except Exception as e:
         logger.error(f"Error in root cause analysis: {str(e)}")
         return jsonify({'error': str(e)}), 400
+
+
+@bp.route('/rca/veriler', methods=['GET'])
+@login_required
+def rca_list_data():
+    """RCA Excel verilerini JSON olarak listele"""
+    try:
+        project = session.get('current_project', 'belgrad')
+        period = request.args.get('period', 'toplam')
+        
+        rca_manager = RCAExcelManager(project)
+        
+        today = date.today()
+        start_date = None
+        end_date = None
+        if period == 'haftalik':
+            start_date = today - timedelta(days=7)
+            end_date = today
+        elif period == 'aylik':
+            start_date = today - timedelta(days=30)
+            end_date = today
+        elif period == 'ucaylik':
+            start_date = today - timedelta(days=90)
+            end_date = today
+        
+        data = rca_manager.get_rca_data(current_app.root_path, start_date, end_date)
+        
+        # Satır index'ini ekle (güncelleme/silme için)
+        for idx, record in enumerate(data):
+            record['row_index'] = idx
+        
+        return jsonify({'success': True, 'data': data, 'total': len(data)})
+    except Exception as e:
+        logger.error(f"RCA veriler hatası: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
+@bp.route('/rca/ekle', methods=['POST'])
+@login_required
+def rca_add():
+    """Yeni RCA kaydı ekle (App → Excel)"""
+    try:
+        data = request.get_json()
+        project = session.get('current_project', 'belgrad')
+        
+        rca_manager = RCAExcelManager(project)
+        result = rca_manager.add_rca_record(
+            current_app.root_path,
+            tram_id=data.get('arac'),
+            system=data.get('sistem'),
+            subsystem=data.get('alt_sistem', ''),
+            category=data.get('kategori', 'servis_disi'),
+            description=data.get('aciklama', '')
+        )
+        
+        return jsonify({'success': result, 'message': 'RCA kaydı eklendi'})
+    except Exception as e:
+        logger.error(f"RCA ekleme hatası: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
+@bp.route('/rca/guncelle', methods=['POST'])
+@login_required
+def rca_update():
+    """Excel'deki RCA kaydını güncelle"""
+    try:
+        data = request.get_json()
+        project = session.get('current_project', 'belgrad')
+        row_index = data.get('row_index')
+        
+        if row_index is None:
+            return jsonify({'success': False, 'error': 'row_index gerekli'}), 400
+        
+        rca_manager = RCAExcelManager(project)
+        update_data = {}
+        field_map = {
+            'tarih': 'Tarih', 'arac': 'Arac', 'sistem': 'Sistem',
+            'alt_sistem': 'Alt Sistem', 'kategori': 'Kategori', 'aciklama': 'Aciklama'
+        }
+        for key, excel_key in field_map.items():
+            if key in data:
+                update_data[excel_key] = data[key]
+        
+        result = rca_manager.update_rca_record(current_app.root_path, int(row_index), update_data)
+        return jsonify({'success': result, 'message': 'RCA kaydı güncellendi' if result else 'Güncelleme başarısız'})
+    except Exception as e:
+        logger.error(f"RCA güncelleme hatası: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
+@bp.route('/rca/sil', methods=['POST'])
+@login_required
+def rca_delete():
+    """Excel'deki RCA kaydını sil"""
+    try:
+        data = request.get_json()
+        project = session.get('current_project', 'belgrad')
+        row_index = data.get('row_index')
+        
+        if row_index is None:
+            return jsonify({'success': False, 'error': 'row_index gerekli'}), 400
+        
+        rca_manager = RCAExcelManager(project)
+        result = rca_manager.delete_rca_record(current_app.root_path, int(row_index))
+        return jsonify({'success': result, 'message': 'RCA kaydı silindi' if result else 'Silme başarısız'})
+    except Exception as e:
+        logger.error(f"RCA silme hatası: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
+@bp.route('/rca/sync', methods=['POST'])
+@login_required
+def rca_sync():
+    """İki yönlü Excel ↔ DB senkronizasyonu"""
+    try:
+        project = session.get('current_project', 'belgrad')
+        direction = request.get_json().get('direction', 'full') if request.is_json else 'full'
+        
+        rca_manager = RCAExcelManager(project)
+        
+        if direction == 'excel_to_db':
+            result = rca_manager.sync_excel_to_db(current_app.root_path, db.session, RootCauseAnalysis, project)
+        elif direction == 'db_to_excel':
+            result = rca_manager.sync_db_to_excel(current_app.root_path, db.session, RootCauseAnalysis, project)
+        else:
+            result = rca_manager.full_sync(current_app.root_path, db.session, RootCauseAnalysis, project)
+        
+        return jsonify({'success': True, 'result': result})
+    except Exception as e:
+        logger.error(f"RCA senkronizasyon hatası: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
+@bp.route('/rca/indir', methods=['GET'])
+@login_required
+def rca_download():
+    """RCA Excel dosyasını indir"""
+    try:
+        project = session.get('current_project', 'belgrad')
+        rca_manager = RCAExcelManager(project)
+        rca_path = rca_manager.get_rca_path(current_app.root_path)
+        
+        if not os.path.exists(rca_path):
+            return jsonify({'success': False, 'error': 'RCA dosyası bulunamadı'}), 404
+        
+        return send_file(
+            rca_path,
+            as_attachment=True,
+            download_name=f'RCA_Analiz_{project}_{date.today().strftime("%Y%m%d")}.xlsx',
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    except Exception as e:
+        logger.error(f"RCA indirme hatası: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
+@bp.route('/rca/yukle', methods=['POST'])
+@login_required
+def rca_upload():
+    """Harici RCA Excel dosyasını yükle ve mevcut veriye birleştir"""
+    try:
+        project = session.get('current_project', 'belgrad')
+        
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'Dosya seçilmedi'}), 400
+        
+        file = request.files['file']
+        if not file.filename.endswith('.xlsx'):
+            return jsonify({'success': False, 'error': 'Sadece .xlsx dosyaları kabul edilir'}), 400
+        
+        # Güvenli geçici dosyaya kaydet
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+            file.save(tmp.name)
+            tmp_path = tmp.name
+        
+        try:
+            wb = load_workbook(tmp_path, data_only=True)
+            ws = wb.active
+            
+            # Başlıkları kontrol et
+            headers = [ws.cell(row=1, column=c).value for c in range(1, ws.max_column + 1)]
+            required = ['Tarih', 'Arac', 'Sistem']
+            # Türkçe/ASCII uyumu: esnek eşleştirme
+            header_lower = [str(h).lower().strip() if h else '' for h in headers]
+            
+            rca_manager = RCAExcelManager(project)
+            added = 0
+            
+            for row_idx in range(2, ws.max_row + 1):
+                tarih = ws.cell(row=row_idx, column=1).value
+                arac = ws.cell(row=row_idx, column=2).value
+                sistem = ws.cell(row=row_idx, column=3).value
+                alt_sistem = ws.cell(row=row_idx, column=4).value or ''
+                kategori = ws.cell(row=row_idx, column=5).value or 'servis_disi'
+                aciklama = ws.cell(row=row_idx, column=6).value or ''
+                
+                if not arac or not sistem:
+                    continue
+                
+                rca_manager.add_rca_record(
+                    current_app.root_path,
+                    tram_id=str(arac),
+                    system=str(sistem),
+                    subsystem=str(alt_sistem),
+                    category=str(kategori),
+                    description=str(aciklama)
+                )
+                added += 1
+            
+            wb.close()
+            return jsonify({'success': True, 'message': f'{added} kayıt eklendi', 'added': added})
+        finally:
+            os.unlink(tmp_path)
+    
+    except Exception as e:
+        logger.error(f"RCA yükleme hatası: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 400
 
 
 @bp.route('/excel/comprehensive-report', methods=['GET', 'POST'])

@@ -420,9 +420,9 @@ class RCAExcelManager:
     
     def get_rca_path(self, base_path):
         """RCA Excel dosyasının yolunu al"""
-        data_dir = os.path.join(base_path, 'data', self.project_code)
-        os.makedirs(data_dir, exist_ok=True)
-        return os.path.join(data_dir, 'rca_analysis.xlsx')
+        rca_dir = os.path.join(base_path, 'logs', self.project_code, 'rca')
+        os.makedirs(rca_dir, exist_ok=True)
+        return os.path.join(rca_dir, 'rca_analysis.xlsx')
     
     def init_rca(self, base_path):
         """RCA Excel dosyasını oluştur (ilk kez)
@@ -586,6 +586,220 @@ class RCAExcelManager:
             stats[subsystem] = stats.get(subsystem, 0) + 1
         
         return dict(sorted(stats.items(), key=lambda x: x[1], reverse=True))
+    
+    def update_rca_record(self, base_path, row_index, data):
+        """Excel'deki belirli bir RCA kaydını güncelle
+        
+        Args:
+            row_index: Güncellenecek satır (0-tabanlı, başlık hariç)
+            data: dict {'Tarih', 'Arac', 'Sistem', 'Alt Sistem', 'Kategori', 'Aciklama'}
+        """
+        rca_path = self.get_rca_path(base_path)
+        if not os.path.exists(rca_path):
+            return False
+        
+        wb = load_workbook(rca_path)
+        ws = wb.active
+        
+        excel_row = row_index + 2  # +1 başlık, +1 zero-index
+        if excel_row < 2 or excel_row > ws.max_row:
+            wb.close()
+            return False
+        
+        col_map = {'Tarih': 1, 'Arac': 2, 'Sistem': 3, 'Alt Sistem': 4, 'Kategori': 5, 'Aciklama': 6}
+        for key, col_idx in col_map.items():
+            if key in data and data[key] is not None:
+                ws.cell(row=excel_row, column=col_idx).value = data[key]
+                # Kategori renk kodlama
+                if key == 'Kategori':
+                    cell = ws.cell(row=excel_row, column=col_idx)
+                    if data[key] == 'servis_disi':
+                        cell.fill = PatternFill(start_color='FFFF0000', end_color='FFFF0000', fill_type='solid')
+                        cell.font = Font(color='FFFFFFFF', bold=True)
+                    elif data[key] == 'isletme_kaynakli':
+                        cell.fill = PatternFill(start_color='FFFFC000', end_color='FFFFC000', fill_type='solid')
+                        cell.font = Font(bold=False)
+        
+        wb.save(rca_path)
+        logger.info(f'RCA kaydı güncellendi: satır {row_index}')
+        return True
+    
+    def delete_rca_record(self, base_path, row_index):
+        """Excel'deki belirli bir RCA kaydını sil
+        
+        Args:
+            row_index: Silinecek satır (0-tabanlı, başlık hariç)
+        """
+        rca_path = self.get_rca_path(base_path)
+        if not os.path.exists(rca_path):
+            return False
+        
+        wb = load_workbook(rca_path)
+        ws = wb.active
+        
+        excel_row = row_index + 2
+        if excel_row < 2 or excel_row > ws.max_row:
+            wb.close()
+            return False
+        
+        ws.delete_rows(excel_row, 1)
+        wb.save(rca_path)
+        logger.info(f'RCA kaydı silindi: satır {row_index}')
+        return True
+    
+    def sync_excel_to_db(self, base_path, db_session, RootCauseAnalysis, project_code=None):
+        """Excel'deki RCA verilerini veritabanına senkronize et (Excel → DB)
+        
+        Excel'deki kayıtları okur, DB'de olmayanları ekler.
+        """
+        from datetime import datetime as dt
+        
+        if not project_code:
+            project_code = self.project_code
+        
+        rca_data = self.get_rca_data(base_path)
+        if not rca_data:
+            return {'added': 0, 'skipped': 0}
+        
+        added = 0
+        skipped = 0
+        
+        for record in rca_data:
+            tarih_str = record.get('Tarih', '')
+            arac = str(record.get('Arac', ''))
+            sistem = record.get('Sistem', '')
+            alt_sistem = record.get('Alt Sistem', '')
+            kategori = record.get('Kategori', '')
+            aciklama = record.get('Aciklama', '') or ''
+            
+            if not arac or not sistem:
+                skipped += 1
+                continue
+            
+            # Tarih parse
+            analysis_date = None
+            if tarih_str:
+                try:
+                    if isinstance(tarih_str, str):
+                        analysis_date = dt.strptime(tarih_str[:16], '%Y-%m-%d %H:%M')
+                    elif hasattr(tarih_str, 'strftime'):
+                        analysis_date = tarih_str
+                except Exception:
+                    analysis_date = dt.now()
+            
+            # Duplicate kontrolü: aynı araç + sistem + tarih
+            existing = RootCauseAnalysis.query.filter_by(
+                tram_id=arac,
+                sistem=sistem,
+                alt_sistem=alt_sistem or None
+            ).filter(
+                db_session.func.date(RootCauseAnalysis.analysis_date) == (analysis_date.date() if analysis_date else dt.now().date())
+            ).first()
+            
+            if existing:
+                skipped += 1
+                continue
+            
+            # Severity belirle
+            severity = 'high' if kategori == 'servis_disi' else 'medium'
+            
+            rca = RootCauseAnalysis(
+                tram_id=arac,
+                sistem=sistem,
+                alt_sistem=alt_sistem or None,
+                root_cause=aciklama or f'{sistem} arızası',
+                severity=severity,
+                status='submitted',
+                analysis_date=analysis_date or dt.now(),
+                notes=f'Excel senkronizasyonu - Kategori: {kategori}'
+            )
+            db_session.add(rca)
+            added += 1
+        
+        if added > 0:
+            db_session.commit()
+        
+        logger.info(f'Excel→DB senkronizasyonu: {added} eklendi, {skipped} atlandı')
+        return {'added': added, 'skipped': skipped}
+    
+    def sync_db_to_excel(self, base_path, db_session, RootCauseAnalysis, project_code=None):
+        """Veritabanındaki RCA kayıtlarını Excel'e senkronize et (DB → Excel)
+        
+        DB'deki kayıtları okur, Excel'de olmayanları ekler.
+        """
+        if not project_code:
+            project_code = self.project_code
+        
+        # DB'den kayıtları çek
+        db_records = RootCauseAnalysis.query.filter(
+            RootCauseAnalysis.tram_id.isnot(None),
+            RootCauseAnalysis.sistem.isnot(None)
+        ).order_by(RootCauseAnalysis.analysis_date).all()
+        
+        if not db_records:
+            return {'added': 0, 'skipped': 0}
+        
+        # Mevcut Excel verilerini oku (duplicate kontrolü için)
+        existing_data = self.get_rca_data(base_path)
+        existing_keys = set()
+        for rec in existing_data:
+            key = (
+                str(rec.get('Arac', '')),
+                str(rec.get('Sistem', '')),
+                str(rec.get('Alt Sistem', '')),
+                str(rec.get('Tarih', ''))[:10]
+            )
+            existing_keys.add(key)
+        
+        added = 0
+        skipped = 0
+        
+        for record in db_records:
+            tarih_str = record.analysis_date.strftime('%Y-%m-%d') if record.analysis_date else ''
+            key = (
+                str(record.tram_id),
+                str(record.sistem),
+                str(record.alt_sistem or ''),
+                tarih_str[:10]
+            )
+            
+            if key in existing_keys:
+                skipped += 1
+                continue
+            
+            # Kategoriyi severity'den türet
+            kategori = 'servis_disi' if record.severity in ('high', 'critical') else 'isletme_kaynakli'
+            
+            self.add_rca_record(
+                base_path,
+                tram_id=record.tram_id,
+                system=record.sistem,
+                subsystem=record.alt_sistem or '',
+                category=kategori,
+                description=record.root_cause or ''
+            )
+            added += 1
+        
+        logger.info(f'DB→Excel senkronizasyonu: {added} eklendi, {skipped} atlandı')
+        return {'added': added, 'skipped': skipped}
+    
+    def full_sync(self, base_path, db_session, RootCauseAnalysis, project_code=None):
+        """Tam iki yönlü senkronizasyon (Excel ↔ DB)
+        
+        1. Excel → DB (önce Excel'deki yeni kayıtları DB'ye aktar)
+        2. DB → Excel (sonra DB'deki yeni kayıtları Excel'e aktar)
+        """
+        excel_to_db = self.sync_excel_to_db(base_path, db_session, RootCauseAnalysis, project_code)
+        db_to_excel = self.sync_db_to_excel(base_path, db_session, RootCauseAnalysis, project_code)
+        
+        result = {
+            'excel_to_db': excel_to_db,
+            'db_to_excel': db_to_excel,
+            'total_added': excel_to_db['added'] + db_to_excel['added'],
+            'total_skipped': excel_to_db['skipped'] + db_to_excel['skipped']
+        }
+        logger.info(f'Tam senkronizasyon tamamlandı: {result}')
+        return result
 
 
 def init_excel_files(app, project_code, equipment_codes):
