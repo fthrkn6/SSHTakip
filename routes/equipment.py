@@ -79,7 +79,7 @@ def api_sync():
         if not current_user.can_access_project(project_code):
             return jsonify({'error': 'Unauthorized'}), 403
         
-        from utils_equipment_sync import sync_equipment_with_excel
+        from utils.utils_equipment_sync import sync_equipment_with_excel
         created, updated = sync_equipment_with_excel(project_code)
         
         logger.info(f"Equipment senkronize: {created} yeni, {updated} güncellenmiş")
@@ -104,7 +104,7 @@ def api_km() -> Dict[str, Any]:
         if not current_user.can_access_project(project_code):
             return jsonify({'error': 'Unauthorized'}), 403
         
-        from utils_km_manager import KMDataManager
+        from utils.utils_km_manager import KMDataManager
         km_data = KMDataManager.get_all_tram_kms(project_code)
         
         logger.info(f"KM verileri yüklendi: {len(km_data)} araç")

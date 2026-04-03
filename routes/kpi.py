@@ -8,7 +8,7 @@ from flask import Blueprint, render_template, request, jsonify, flash, redirect,
 from flask_login import login_required, current_user
 from models import db, Equipment, WorkOrder, Failure
 from datetime import datetime, timedelta
-from utils_performance import CacheManager, CacheConfig
+from utils.utils_performance import CacheManager, CacheConfig
 import os
 import json
 import pandas as pd

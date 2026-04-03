@@ -12,15 +12,15 @@ import logging
 import sys
 
 logger = logging.getLogger(__name__)
-from utils_availability import (
+from utils.utils_availability import (
     log_service_status_change,
     AvailabilityCalculator,
     ExcelReportGenerator as AvailabilityExcelGenerator
 )
-from utils_service_status import AvailabilityAnalyzer, ExcelReportGenerator as EnhancedExcelGenerator
-from utils_daily_service_logger import log_service_status as log_service_to_file
-from utils_service_status_excel_logger import log_service_status_to_excel
-from utils_excel_grid_manager import ExcelGridManager, RCAExcelManager
+from utils.utils_service_status import AvailabilityAnalyzer, ExcelReportGenerator as EnhancedExcelGenerator
+from utils.utils_daily_service_logger import log_service_status as log_service_to_file
+from utils.utils_service_status_excel_logger import log_service_status_to_excel
+from utils.utils_excel_grid_manager import ExcelGridManager, RCAExcelManager
 from openpyxl import load_workbook
 import os
 import json
@@ -1543,7 +1543,7 @@ def analiz_alt_sistem():
             return jsonify({'success': False, 'error': 'Yıl ve ay parametreleri gerekli'}), 400
         
         # Excel logger'ı kullanarak aylık analizi çek
-        from utils_service_status_excel_logger import ServiceStatusExcelLogger
+        from utils.utils_service_status_excel_logger import ServiceStatusExcelLogger
         logger_obj = ServiceStatusExcelLogger(project_code)
         analysis = logger_obj.get_monthly_analysis(yil, ay)
         

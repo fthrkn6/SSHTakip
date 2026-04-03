@@ -18,11 +18,11 @@ from reportlab.lib.units import cm
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
 from reportlab.lib.enums import TA_CENTER
 
-from utils_reporting import (
+from utils.utils_reporting import (
     ReportSystem, DashboardReport, MaintenanceReport, KMReport,
     ScenarioAnalysis, init_reporting_system
 )
-from utils_excel_grid_manager import ExcelGridManager, RCAExcelManager
+from utils.utils_excel_grid_manager import ExcelGridManager, RCAExcelManager
 from models import Equipment, db, WorkOrder, Failure
 
 logger = logging.getLogger(__name__)

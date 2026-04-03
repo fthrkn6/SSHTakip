@@ -32,7 +32,7 @@ class TestStatusLogger(BaseTestCase):
     @pytest.mark.unit
     def test_log_status_change(self, test_equipment):
         """Test logging status change"""
-        from utils_service_status_consolidated import ServiceStatusLogger
+        from utils.utils_service_status_consolidated import ServiceStatusLogger
         
         logger = ServiceStatusLogger()
         result = logger.log_status_change(
@@ -48,7 +48,7 @@ class TestStatusLogger(BaseTestCase):
     @pytest.mark.unit
     def test_get_status_history(self, test_equipment):
         """Test retrieving status history"""
-        from utils_service_status_consolidated import ServiceStatusLogger
+        from utils.utils_service_status_consolidated import ServiceStatusLogger
         
         logger = ServiceStatusLogger()
         history = logger.get_status_history(test_equipment.tram_id)
@@ -63,7 +63,7 @@ class TestEquipmentSync(BaseTestCase):
     @pytest.mark.unit
     def test_sync_equipment_result_format(self):
         """Test equipment sync returns correct format"""
-        # from utils_equipment_sync import sync_equipment_with_excel
+        # from utils.utils_equipment_sync import sync_equipment_with_excel
         # Sync should return tuple (added, updated)
         pass
 
@@ -163,7 +163,7 @@ class TestReportGeneration(BaseTestCase):
     @pytest.mark.unit
     def test_report_template_loading(self):
         """Test loading report templates"""
-        from utils_report_manager import report_builder, template_manager
+        from utils.utils_report_manager import report_builder, template_manager
         
         templates = template_manager.list_templates()
         assert len(templates) > 0
@@ -171,7 +171,7 @@ class TestReportGeneration(BaseTestCase):
     @pytest.mark.unit
     def test_report_building(self):
         """Test building report from template"""
-        from utils_report_manager import report_builder
+        from utils.utils_report_manager import report_builder
         
         report = report_builder.build_report('daily_ops', {})
         assert 'title' in report
@@ -229,7 +229,7 @@ class TestCachingUtilities(BaseTestCase):
     @pytest.mark.unit
     def test_cache_manager_init(self):
         """Test cache manager initialization"""
-        from utils_performance import CacheManager
+        from utils.utils_performance import CacheManager
         
         cache = CacheManager()
         assert cache is not None
@@ -237,7 +237,7 @@ class TestCachingUtilities(BaseTestCase):
     @pytest.mark.unit
     def test_cache_set_get(self):
         """Test cache set and get"""
-        from utils_performance import CacheManager
+        from utils.utils_performance import CacheManager
         
         cache = CacheManager()
         cache.set('test_key', {'value': 'test'})
@@ -248,7 +248,7 @@ class TestCachingUtilities(BaseTestCase):
     @pytest.mark.unit
     def test_cache_delete(self):
         """Test cache deletion"""
-        from utils_performance import CacheManager
+        from utils.utils_performance import CacheManager
         
         cache = CacheManager()
         cache.set('test_key', 'value')
@@ -264,7 +264,7 @@ class TestUIConfiguration(BaseTestCase):
     @pytest.mark.unit
     def test_ui_config_colors(self):
         """Test UI color configuration"""
-        from utils_ui_config import UIConfig
+        from utils.utils_ui_config import UIConfig
         
         colors = UIConfig.COLORS
         assert 'primary' in colors
@@ -273,7 +273,7 @@ class TestUIConfiguration(BaseTestCase):
     @pytest.mark.unit
     def test_status_colors(self):
         """Test status color mapping"""
-        from utils_ui_config import UIConfig
+        from utils.utils_ui_config import UIConfig
         
         status_colors = UIConfig.STATUS_COLORS
         assert status_colors['operational'] == '#00B050'

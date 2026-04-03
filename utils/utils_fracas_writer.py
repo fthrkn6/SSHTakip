@@ -1,0 +1,661 @@
+"""
+FracasWriter - Yeni arıza verilerini Fracas_BELGRAD.xlsx template'ine yazmak için utility
+Özellikler:
+- Form verilerini Fracas columns'larıyla eşleştirme
+- Template'i yükleme ve yeni satırlar ekleme
+- Otomatik next FRACAS ID belirleme
+- Verileri validate etme
+- Excel formatting'i koruma
+"""
+
+import os
+from datetime import datetime
+from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
+from copy import copy
+import logging
+
+logger = logging.getLogger(__name__)
+
+class FracasWriter:
+    """Fracas_BELGRAD.xlsx template'ine yeni arıza verisi yazma"""
+    
+    # Form alanları -> Fracas Excel Sütunları eşlemesi 
+    FORM_TO_FRACAS_MAPPING = {
+        # Araç Bilgileri
+        'fracas_id': 'E',              # FRACAS ID
+        'arac_numarasi': 'B',          # Araç Numarası
+        'arac_module': 'C',            # Araç Module (multiple -> virgülle birleş)
+        'arac_km': 'D',                # Araç Kilometresi
+        
+        # Arıza Zamanı
+        'hata_tarih': 'F',             # Hata Tarih (datetime format oluşturulacak)
+        'hata_saat': 'F',              # Hata Saat (combine with hata_tarih)
+        
+        # Sistem Bilgileri
+        'sistem': 'G',                 # Sistem
+        'alt_sistem': 'H',             # Alt Sistem
+        'tedarikci': 'I',              # İlgili Tedarikçi
+        
+        # Arıza Detayları
+        'ariza_tanimi': 'J',           # Arıza Tanımı
+        'ariza_sinifi': 'K',           # Arıza Sınıfı
+        'ariza_kaynagi': 'L',          # Arıza Kaynağı
+        'yapilan_islem': 'M',          # Arıza Tespitini Takiben Yapılan İşlem
+        'aksiyon': 'N',                # Aksiyon
+        'garanti_kapsami': 'O',        # Garanti Kapsamı
+        'ariza_tespit_yontemi': 'P',   # Arıza Tespit Yöntemi
+        'personel_sayisi': 'Q',        # Tamir için Gerekli Personel Sayısı
+        
+        # Tamir Zamanları
+        'tamir_baslama_tarih': 'R',    # Tamir Başlama Tarihi
+        'tamir_baslama_saati': 'S',    # Tamir Başlama Saati
+        'tamir_bitisi_tarih': 'T',     # Tamir Bitiş Tarihi
+        'tamir_bitisi_saati': 'U',     # Tamir Bitiş Saati
+        'tamir_suresi': 'V',           # Tamir Süresi (dakika)
+        
+        # Servise Veriliş
+        'servise_verilis_tarih': 'W',  # Servise Veriliş Tarih
+        'servise_verilis_saati': 'X',  # Servise Veriliş Saati
+        
+        # Diğer Arıza Bilgileri
+        'ariza_tipi': 'Y',             # Arıza Tipi
+        'detayli_bilgi': 'Z',          # Detaylı Bilgi (Servise Engel / Değil) (YENİ)
+        
+        # MTTR/MDT Hesaplamaları (otomatik hesaplanacak)
+        # 'mttr_araç': 'AA',           # Araç MTTR / MDT
+        # 'mttr_komponent': 'AB',      # Kompanent MTTR / MDT
+        
+        # Parça Bilgileri
+        'parca_kodu': 'AC',            # Parça Kodu
+        'parca_seri_no': 'AD',         # Seri Numarası
+        'parca_adi': 'AE',             # Parça Adı
+        'adet': 'AF',                  # Adeti
+        'iscilik_maliyeti': 'AG',      # İşçilik Maliyeti
+    }
+    
+    # Header satır numarası
+    HEADER_ROW = 4
+    # İlk veri satırı
+    FIRST_DATA_ROW = 5
+    
+    # Üretim / Test ortamı (dynamic olacak)
+    PROJECT_NAME = 'Bozankaya'  # Fracas template'de bu sabit oluyor
+    
+    def __init__(self, base_path=None, project='belgrad'):
+        """FracasWriter'ı başlat
+        
+        Args:
+            base_path: Root workspace path (eğer None ise otomatik tespit et)
+            project: Proje adı (belgrad, kayseri, iasi, vb.) - FRACAS dosya yolunu belirler
+        """
+        self.base_path = base_path
+        self.project = project.lower() if project else 'belgrad'
+        self.workbook = None
+        self.worksheet = None
+        self.file_path = self.get_fracas_file_path()
+        self._style_cache = {}  # Template satırının stillerini cache'lemek için
+    
+    def _copy_cell_style(self, source_cell, target_cell):
+        """Hücrenin biçimini (style) diğer hücreye kopyala
+        
+        Kopyalanan özellikler:
+        - Font (yazı tipi, boyutu, rengi, vb.)
+        - Fill (arka plan rengi)
+        - Border (kenarlıklar)
+        - Alignment (hizalama)
+        - Number format (sayı formatı)
+        """
+        if source_cell.font:
+            target_cell.font = copy(source_cell.font)
+        if source_cell.fill:
+            target_cell.fill = copy(source_cell.fill)
+        if source_cell.border:
+            target_cell.border = copy(source_cell.border)
+        if source_cell.alignment:
+            target_cell.alignment = copy(source_cell.alignment)
+        if source_cell.number_format:
+            target_cell.number_format = source_cell.number_format
+    
+    def _cache_template_styles(self):
+        """Template satırının stillerini bellekte cache'le (hızlandırma için)
+        
+        Her sütunun biçim (font, fill, border, vb.) bilgisini bir kez oku,
+        sonra loop içinde teker teker okumak yerine cache'ten al.
+        """
+        if self._style_cache:
+            return  # Zaten cache'lenmiş
+        
+        if not self.worksheet:
+            return
+        
+        # Template satırından (header) tüm sütunları tarayıp stil cache'le
+        for col_idx in range(1, 40):  # Yeterli sütun sayısı
+            col_letter = get_column_letter(col_idx)
+            template_cell = self.worksheet[f'{col_letter}{self.HEADER_ROW}']
+            
+            # Style dictionary'si oluştur
+            style_dict = {
+                'font': copy(template_cell.font) if template_cell.font else None,
+                'fill': copy(template_cell.fill) if template_cell.fill else None,
+                'border': copy(template_cell.border) if template_cell.border else None,
+                'alignment': copy(template_cell.alignment) if template_cell.alignment else None,
+                'number_format': template_cell.number_format if template_cell.number_format else None,
+            }
+            self._style_cache[col_letter] = style_dict
+    
+    def _apply_cached_style(self, col_letter, target_cell):
+        """Cache'lenmiş stili hücreye uygula (hızlı style kopyalama)"""
+        if col_letter not in self._style_cache:
+            return
+        
+        style = self._style_cache[col_letter]
+        if style['font']:
+            target_cell.font = copy(style['font'])
+        if style['fill']:
+            target_cell.fill = copy(style['fill'])
+        if style['border']:
+            target_cell.border = copy(style['border'])
+        if style['alignment']:
+            target_cell.alignment = copy(style['alignment'])
+        if style['number_format']:
+            target_cell.number_format = style['number_format']
+    
+    def get_fracas_file_path(self):
+        """Fracas template dosya yolunu al (project'e göre dinamik)"""
+        # Dosya adını oluştur - Fracas_BELGRAD.xlsx, Fracas_KAYSERI.xlsx, vb.
+        # Project adının ilk harfini büyüt: belgrad -> BELGRAD
+        project_upper = self.project.upper()
+        fracas_file_name = f'Fracas_{project_upper}.xlsx'
+        fracas_file_path = f'logs/{self.project}/ariza_listesi/{fracas_file_name}'
+        
+        if self.base_path:
+            # Eğer base_path verilmişse onu kullan
+            file_path = os.path.join(self.base_path, fracas_file_path)
+            if os.path.exists(file_path):
+                return os.path.abspath(file_path)
+        
+        # Auto-detect: workspace root'u bul (app.py veya utils_fracas_writer.py'in bulunduğu yer)
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(current_dir, fracas_file_path)
+        
+        # Eğer dosya bulunamadıysa, bir üst klasöre bak
+        if not os.path.exists(file_path):
+            parent_dir = os.path.dirname(current_dir)
+            alt_path = os.path.join(parent_dir, fracas_file_path)
+            if os.path.exists(alt_path):
+                file_path = alt_path
+        
+        return os.path.abspath(file_path)
+    
+    def load_template(self):
+        """Fracas_BELGRAD.xlsx template'i yükle"""
+        try:
+            if not os.path.exists(self.file_path):
+                raise FileNotFoundError(f"Fracas template bulunamadı: {self.file_path}")
+            
+            self.workbook = load_workbook(self.file_path)
+            self.worksheet = self.workbook['FRACAS']
+            logger.info(f"Fracas template yüklendi: {self.file_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Template yükleme hatası: {e}")
+            raise
+    
+    def get_next_data_row(self):
+        """Bir sonraki boş satırı bul (veri yazılacak satır)"""
+        row = self.FIRST_DATA_ROW
+        # FRACAS ID sütununu kontrol ederek boş satırı bul
+        while self.worksheet[f'E{row}'].value is not None:
+            row += 1
+        return row
+    
+    def generate_next_fracas_id(self):
+        """BOZ-{FRACAS_CODE}-FF-NNN formatında FRACAS ID oluştur (Fracas TEMPLATE'ten oku - DOĞRU KAYNAK)"""
+        from openpyxl import load_workbook
+        import os
+        
+        # Aktif projeyi al - init'de belirlenmiş project'i kullan
+        project = self.project
+        
+        # Veriler.xlsx'in Sayfa2 B2'sinden FRACAS kodunu oku
+        fracas_code = None
+        
+        # Base path kullanarak data_dir'i oluştur (self.base_path varsa kullan)
+        if self.base_path:
+            data_dir = os.path.join(self.base_path, 'data', project)
+        else:
+            data_dir = os.path.join(os.path.dirname(__file__), 'data', project)
+        
+        if os.path.exists(data_dir):
+            for file in os.listdir(data_dir):
+                if 'veriler' in file.lower() and file.endswith('.xlsx'):
+                    veriler_path = os.path.join(data_dir, file)
+                    try:
+                        wb_veriler = load_workbook(veriler_path)
+                        if 'Sayfa2' in wb_veriler.sheetnames:
+                            ws_sayfa2 = wb_veriler['Sayfa2']
+                            fracas_code = ws_sayfa2['B2'].value
+                        wb_veriler.close()
+                    except Exception as e:
+                        print(f"⚠️ Veriler.xlsx'ten FRACAS kodu okunamadı: {e}")
+                    break
+        
+        # Fallback
+        if not fracas_code:
+            project_code_map = {
+                'belgrad': 'BEL25',
+                'iasi': 'IAS25',
+                'timisoara': 'TIM25',
+                'kayseri': 'KAY25',
+                'kocaeli': 'KOC25',
+                'gebze': 'GEB25'
+            }
+            fracas_code = project_code_map.get(project, 'BOZ')
+        
+        # KAYNAK DÜZELTME: Fracas_{PROJECT}.xlsx template'inin E sütunundan oku (write destination'ı ile senkronize!)
+        relative_path = f'logs/{project}/ariza_listesi/Fracas_{project.upper()}.xlsx'
+        
+        if self.base_path:
+            fracas_template_file = os.path.join(self.base_path, relative_path)
+        else:
+            fracas_template_file = os.path.join(os.path.dirname(__file__), relative_path)
+        
+        next_num = 1
+        if os.path.exists(fracas_template_file):
+            try:
+                wb = load_workbook(fracas_template_file, data_only=True)
+                ws = wb['FRACAS']
+                ids = []
+                # E sütununda (FRACAS ID column) FF numaralarını ara
+                for row in range(5, ws.max_row + 1):
+                    cell_val = ws.cell(row=row, column=5).value  # E = column 5
+                    if cell_val and 'FF-' in str(cell_val):
+                        try:
+                            num = int(str(cell_val).split('FF-')[-1])
+                            ids.append(num)
+                        except:
+                            pass
+                wb.close()
+                if ids:
+                    next_num = max(ids) + 1
+                print(f"   ✓ FRACAS ID (Fracas_{project.upper()}.xlsx Column E'nden): Son: {next_num - 1}, Yeni: {next_num}")
+            except Exception as e:
+                print(f"⚠️ Fracas template'nden FRACAS ID hesaplanamadı: {fracas_template_file}")
+                print(f"   Error: {e}")
+                pass
+        else:
+            print(f"⚠️ Fracas template bulunamadı: {fracas_template_file}")
+        
+        fracas_id = f'BOZ-{fracas_code}-FF-{next_num:03d}'
+        return fracas_id
+    
+    def validate_form_data(self, form_data):
+        """Form verilerini valide et"""
+        errors = []
+        
+        # Zorunlu alanlar
+        required_fields = ['arac_numarasi', 'sistem', 'hata_tarih', 'hata_saat', 'ariza_tanimi', 'ariza_sinifi']
+        for field in required_fields:
+            if field not in form_data or not form_data[field]:
+                errors.append(f"Zorunlu alan boş: {field}")
+        
+        return errors
+    
+    def prepare_datetime(self, date_str, time_str):
+        """Tarih ve saati datetime formatında birleştir"""
+        try:
+            if not date_str or not time_str:
+                return None
+            datetime_str = f"{date_str} {time_str}"
+            dt = datetime.strptime(datetime_str, '%Y-%m-%d %H:%M')
+            return dt.strftime('%Y-%m-%d %H:%M')
+        except Exception as e:
+            logger.warning(f"DateTime birleştirme hatası: {e}")
+            return None
+    
+    def prepare_form_data(self, form_data):
+        """Form verilerini Excel yazılımına hazırla"""
+        from openpyxl import load_workbook
+        prepared = {}
+        
+        # Proje kodunu Veriler.xlsx B2'nden oku
+        project_code = None
+        data_dir = None
+        if self.base_path:
+            data_dir = os.path.join(self.base_path, 'data', self.project)
+        else:
+            data_dir = os.path.join(os.path.dirname(__file__), 'data', self.project)
+        
+        print(f"   [PROJECT_CODE] data_dir: {data_dir}")
+        print(f"   [PROJECT_CODE] exists: {os.path.exists(data_dir)}")
+        
+        if os.path.exists(data_dir):
+            files_in_dir = os.listdir(data_dir)
+            print(f"   [PROJECT_CODE] files: {files_in_dir}")
+            for file in files_in_dir:
+                if 'veriler' in file.lower() and file.endswith('.xlsx'):
+                    veriler_path = os.path.join(data_dir, file)
+                    print(f"   [PROJECT_CODE] Found veriler file: {veriler_path}")
+                    try:
+                        wb_veriler = load_workbook(veriler_path)
+                        if 'Sayfa2' in wb_veriler.sheetnames:
+                            ws_sayfa2 = wb_veriler['Sayfa2']
+                            project_code = ws_sayfa2['B2'].value
+                            print(f"   [PROJECT_CODE] Read from B2: {project_code}")
+                        wb_veriler.close()
+                    except Exception as e:
+                        print(f"   [PROJECT_CODE] Error reading: {e}")
+                    break
+        
+        if not project_code:
+            print(f"   [PROJECT_CODE] Using fallback mapping for project: {self.project}")
+            project_code_map = {
+                'belgrad': 'BEL25',
+                'iasi': 'IAS25',
+                'timisoara': 'TIM25',
+                'kayseri': 'KAY5+6',
+                'kocaeli': 'KOC25',
+                'gebze': 'GEB25'
+            }
+            project_code = project_code_map.get(self.project, 'BOZ')
+            print(f"   [PROJECT_CODE] Fallback value: {project_code}")
+        
+        # Hata tarihini ve saatini birleştir
+        if 'hata_tarih' in form_data and 'hata_saat' in form_data:
+            prepared['F'] = self.prepare_datetime(form_data['hata_tarih'], form_data['hata_saat'])
+        
+        # Tamir başlama zamanını birleştir
+        if 'tamir_baslama_tarih' in form_data and 'tamir_baslama_saati' in form_data:
+            prepared['R'] = form_data.get('tamir_baslama_tarih', '')
+            prepared['S'] = form_data.get('tamir_baslama_saati', '')
+        
+        # Tamir bitiş zamanını birleştir
+        if 'tamir_bitisi_tarih' in form_data and 'tamir_bitisi_saati' in form_data:
+            prepared['T'] = form_data.get('tamir_bitisi_tarih', '')
+            prepared['U'] = form_data.get('tamir_bitisi_saati', '')
+        
+        # Servise veriliş zamanını birleştir
+        if 'servise_verilis_tarih' in form_data and 'servise_verilis_saati' in form_data:
+            prepared['W'] = form_data.get('servise_verilis_tarih', '')
+            prepared['X'] = form_data.get('servise_verilis_saati', '')
+        
+        # Araç module'ü virgülle birleştir (multiple select)
+        if 'arac_module' in form_data and form_data['arac_module']:
+            modules = form_data['arac_module']
+            if isinstance(modules, list):
+                prepared['C'] = ', '.join(modules)
+            else:
+                prepared['C'] = str(modules)
+        
+        # Diğer alanları harita kullanarak at
+        for form_field, fracas_col in self.FORM_TO_FRACAS_MAPPING.items():
+            # Yukarıda özel işlem yapılanları atla
+            if form_field in ['hata_tarih', 'hata_saat', 'tamir_baslama_tarih', 'tamir_baslama_saati',
+                             'tamir_bitisi_tarih', 'tamir_bitisi_saati', 'servise_verilis_tarih',
+                             'servise_verilis_saati', 'arac_module']:
+                continue
+            
+            # Eğer sütun zaten atandıysa atla
+            if fracas_col in prepared:
+                continue
+            
+            value = form_data.get(form_field, '')
+            if value:
+                prepared[fracas_col] = value
+        
+        # Project alanını dinamik olarak set (Veriler.xlsx B2'den okunan kod)
+        prepared['A'] = project_code
+        print(f"   [PROJECT_CODE] Setting Column A to: {project_code}")
+        
+        # MTTR hesapla (Araç MTTR ve Komponent MTTR)
+        tamir_suresi_text = form_data.get('tamir_suresi', '0 dakika')
+        saat = 0
+        dakika = 0
+        parts = tamir_suresi_text.lower().split()
+        for i, part in enumerate(parts):
+            if 'saat' in part and i > 0:
+                try:
+                    saat = int(parts[i-1])
+                except:
+                    pass
+            if 'dakika' in part and i > 0:
+                try:
+                    dakika = int(parts[i-1])
+                except:
+                    pass
+        
+        mttr_minutes = saat * 60 + dakika
+        
+        # Komponent MTTR = MTTR (dk)
+        prepared['AB'] = mttr_minutes
+        
+        # Araç MTTR (şartlı)
+        ariza_sinifi = form_data.get('ariza_sinifi', '')
+        detayli_bilgi = form_data.get('detayli_bilgi', '')
+        
+        if (ariza_sinifi in ['A', 'B']) or ('Servise Engel' in str(detayli_bilgi)):
+            prepared['AA'] = mttr_minutes
+        else:
+            prepared['AA'] = 0
+        
+        print(f"   [MTTR] Tamir Süresi: {tamir_suresi_text} → {mttr_minutes} dakika")
+        print(f"   [MTTR] Arıza Sınıfı: {ariza_sinifi}")
+        print(f"   [MTTR] AA (Araç MTTR): {prepared['AA']}")
+        print(f"   [MTTR] AB (Komponent MTTR): {prepared['AB']}")
+        
+        # İşçilik Maliyeti hesapla (Saatlik Ücret × Personel Sayısı × MTTR dakika / 60)
+        hourly_rate = 0
+        personnel_count = 1  # Default: 1 personel
+        if data_dir and os.path.exists(data_dir):
+            for file in os.listdir(data_dir):
+                if 'veriler' in file.lower() and file.endswith('.xlsx'):
+                    veriler_path = os.path.join(data_dir, file)
+                    try:
+                        wb_veriler = load_workbook(veriler_path)
+                        if 'Sayfa2' in wb_veriler.sheetnames:
+                            ws_sayfa2 = wb_veriler['Sayfa2']
+                            hourly_rate = ws_sayfa2['G2'].value or 0
+                            personnel_count = ws_sayfa2['H2'].value or 1
+                            # String'leri float'a çevir
+                            try:
+                                hourly_rate = float(hourly_rate) if hourly_rate else 0
+                                personnel_count = float(personnel_count) if personnel_count else 1
+                            except (ValueError, TypeError):
+                                hourly_rate = 0
+                                personnel_count = 1
+                            print(f"   [LABOR_COST] Saatlik Ücret (G2): {hourly_rate}")
+                            print(f"   [LABOR_COST] Personel Sayısı (H2): {personnel_count}")
+                        wb_veriler.close()
+                    except Exception as e:
+                        print(f"   [LABOR_COST] Error reading labor data: {e}")
+                    break
+        
+        # İşçilik maliyeti = (Saatlik Ücret × Personel Sayısı × MTTR dakika) / 60
+        # mttr_minutes'ı de float'a çevir
+        try:
+            mttr_minutes_float = float(mttr_minutes) if mttr_minutes else 0
+        except (ValueError, TypeError):
+            mttr_minutes_float = 0
+        
+        if hourly_rate and mttr_minutes_float and personnel_count:
+            labor_cost = (hourly_rate * personnel_count * mttr_minutes_float) / 60
+            prepared['AG'] = round(labor_cost, 2)
+            print(f"   [LABOR_COST] AG (İşçilik Maliyeti): {prepared['AG']} = ({hourly_rate} × {personnel_count} × {mttr_minutes_float}) / 60")
+        else:
+            prepared['AG'] = 0
+            print(f"   [LABOR_COST] AG (İşçilik Maliyeti): 0 (Saatlik Ücret: {hourly_rate}, Personel: {personnel_count}, MTTR: {mttr_minutes_float})")
+        
+        # FRACAS ID'yi otomatik oluştur (eğer verilmediyse)
+        if 'E' not in prepared or not prepared['E']:
+            prepared['E'] = self.generate_next_fracas_id()
+        
+        return prepared
+    
+    def write_failure_data(self, form_data):
+        """
+        Form verilerini Fracas template'ine yaz
+        
+        Args:
+            form_data: dict - Form'tan gelen veriler
+        
+        Returns:
+            dict - Yazılan veri satırı numarası ve FRACAS ID
+        
+        Raises:
+            ValueError: Validasyon hatası
+            IOError: File write hatası
+        """
+        import tempfile
+        import shutil
+        import time
+        
+        try:
+            # Verileri valide et
+            errors = self.validate_form_data(form_data)
+            if errors:
+                raise ValueError(f"Validasyon hatası: {', '.join(errors)}")
+            
+            # Temp dosya konumu
+            temp_dir = tempfile.gettempdir()
+            temp_file = os.path.join(temp_dir, f"Fracas_write_{int(time.time() * 1000)}.xlsx")
+            
+            # Ana dosyayı temp'e kopyala (lock'u çözmek için)
+            if not os.path.exists(self.file_path):
+                raise FileNotFoundError(f"Fracas template bulunamadı: {self.file_path}")
+            
+            shutil.copy(self.file_path, temp_file)
+            time.sleep(0.2)
+            logger.debug(f"Template temp'e kopyalandı: {temp_file}")
+            
+            # Temp dosyayı aç ve modify et
+            wb = load_workbook(temp_file)
+            ws = wb['FRACAS']
+            
+            # Template'in Header satırını reset et (Template'de sabit değerler olabilir)
+            ws[f'A{self.HEADER_ROW}'].value = 'Project'  # Reset header
+            print(f"   [RESET] Header A{self.HEADER_ROW} = 'Project'")
+            
+            # Template'i self.'e ataprogramlanewsheet olarak ayarla (generate_next_fracas_id için)
+            self.worksheet = ws
+            self.workbook = wb
+            
+            # Template stillerini cache'le (başlık satırından bir kez oku)
+            self._cache_template_styles()
+            
+            # Bir sonraki satırı bul
+            next_row = self.FIRST_DATA_ROW
+            while ws[f'E{next_row}'].value is not None:
+                next_row += 1
+            
+            # Form verilerini hazırla
+            prepared_data = self.prepare_form_data(form_data)
+            
+            print(f"   [WRITE] prepared_data['A'] (Project Code) = {prepared_data.get('A', 'NOT SET')}")
+            
+            # Hazırlanan verileri Excel'e yaz (veri satırlarına)
+            for col_letter, value in prepared_data.items():
+                if value:  # Sadece boş olmayan değerleri yaz
+                    cell = ws[f'{col_letter}{next_row}']
+                    
+                    # Cache'lenmiş stili uygula (hızlı - template satırını okumaz)
+                    self._apply_cached_style(col_letter, cell)
+                    
+                    # Değeri yaz
+                    cell.value = value
+                    print(f"   [WRITE] {col_letter}{next_row} = {value} (format cached)")
+                    logger.debug(f"Yazıldı: {col_letter}{next_row} = {value} (format korundu)")
+            
+            # Temp dosyayı kaydet
+            wb.save(temp_file)
+            wb.close()
+            time.sleep(0.3)
+            logger.debug(f"Temp dosya kaydedildi: {temp_file}")
+            
+            # Eski dosyayı sil, temp'i ana konuma taşı (atomic)
+            # Windows dosya lock problemi için retry ekle
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    if os.path.exists(self.file_path):
+                        os.remove(self.file_path)
+                        logger.debug(f"Eski dosya silindi: {self.file_path}")
+                    
+                    shutil.move(temp_file, self.file_path)
+                    time.sleep(0.2)
+                    break
+                    
+                except (PermissionError, OSError) as e:
+                    if attempt < max_retries - 1:
+                        logger.warning(f"Dosya işlemi retry {attempt + 1}/{max_retries}: {e}")
+                        time.sleep(1 + attempt)  # Progressively increase wait
+                    else:
+                        raise
+            
+            logger.info(f"Fracas verileri yazıldı - Satır: {next_row}, FRACAS ID: {prepared_data.get('E', 'N/A')}")
+            
+            return {
+                'success': True,
+                'row': next_row,
+                'fracas_id': prepared_data.get('E', 'N/A'),
+                'file_path': self.file_path
+            }
+            
+        except Exception as e:
+            logger.error(f"Fracas yazma hatası: {e}")
+            # Temp dosyayı temizle eğer varsa
+            try:
+                if 'temp_file' in locals() and os.path.exists(temp_file):
+                    os.remove(temp_file)
+            except:
+                pass
+            raise
+    
+    def get_current_excel_file(self):
+        """Güncel Excel dosyasının yolunu döndür (download için)"""
+        return self.file_path
+
+
+# Test
+if __name__ == '__main__':
+    # Test verileri
+    test_data = {
+        'arac_numarasi': 'T01',
+        'arac_module': ['Wheel', 'Brake'],
+        'arac_km': '1500',
+        'hata_tarih': '2024-02-17',
+        'hata_saat': '14:30',
+        'sistem': 'Traksiyon',
+        'alt_sistem': 'Motor',
+        'tedarikci': 'Siemens',
+        'ariza_tanimi': 'Motor arızası',
+        'ariza_sinifi': 'Kritik',
+        'ariza_kaynagi': 'Mekanik',
+        'yapilan_islem': 'Motor tamir edildi',
+        'aksiyon': 'Tamir Edildi',
+        'garanti_kapsami': 'Evet',
+        'ariza_tespit_yontemi': 'Bozankaya',
+        'tamir_baslama_tarih': '2024-02-17',
+        'tamir_baslama_saati': '15:00',
+        'tamir_bitisi_tarih': '2024-02-17',
+        'tamir_bitisi_saati': '18:00',
+        'tamir_suresi': '3 saat 0 dakika',
+        'mttr': '180 dk',
+        'personel_sayisi': '2',
+        'parca_kodu': 'M001',
+        'parca_adi': 'Motor Assembly',
+        'parca_seri_no': 'SN12345',
+        'adet': '1',
+        'iscilik_maliyeti': '50.00',
+        'servise_verilis_tarih': '2024-02-17',
+        'servise_verilis_saati': '18:00',
+        'ariza_tipi': 'Mekanik',
+    }
+    
+    writer = FracasWriter()
+    try:
+        result = writer.write_failure_data(test_data)
+        print(f"✅ Başarılı: {result}")
+    except Exception as e:
+        print(f"❌ Hata: {e}")

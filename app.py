@@ -20,18 +20,18 @@ from routes.hbr import bp as hbr_bp
 from routes.equipment import bp as equipment_bp
 from routes.maintenance import bp as maintenance_bp
 from routes.api import bp as api_bp
-from utils_service_status_logger import ServiceStatusLogger
-from utils_root_cause_analysis import RootCauseAnalyzer
+from utils.utils_service_status_logger import ServiceStatusLogger
+from utils.utils_root_cause_analysis import RootCauseAnalyzer
 from utils.project_manager import ProjectManager
 from utils.backup_manager import BackupManager
 from utils.auth_decorators import require_admin, require_project_access, check_project_in_session
-from utils_km_logger import log_km_change
-from utils_km_excel_logger import KMExcelLogger
-from utils_km_takip_excel import log_km_takip, read_latest_km_from_takip
-from utils_km_manager import KMDataManager
-from utils_daily_service_logger import log_service_status
-from utils_equipment_sync import sync_equipment_with_excel
-from utils_project_excel_store import (
+from utils.utils_km_logger import log_km_change
+from utils.utils_km_excel_logger import KMExcelLogger
+from utils.utils_km_takip_excel import log_km_takip, read_latest_km_from_takip
+from utils.utils_km_manager import KMDataManager
+from utils.utils_daily_service_logger import log_service_status
+from utils.utils_equipment_sync import sync_equipment_with_excel
+from utils.utils_project_excel_store import (
     read_all_km,
     upsert_km,
     sync_km_excel_to_equipment,
@@ -39,7 +39,7 @@ from utils_project_excel_store import (
     upsert_service_status,
     sync_service_excel_to_db,
 )
-from utils_excel_grid_manager import ExcelGridManager, RCAExcelManager, init_excel_files
+from utils.utils_excel_grid_manager import ExcelGridManager, RCAExcelManager, init_excel_files
 import os
 import shutil
 import tempfile
@@ -47,9 +47,9 @@ import logging
 from datetime import timedelta
 
 # Infrastructure: Caching & Performance
-from utils_performance import init_cache, CacheManager, CacheConfig, cache_result
-from utils_report_manager import template_manager, report_builder, ReportTemplateManager
-from utils_ui_config import UIConfig, DARK_MODE_SCRIPT, CUSTOM_CSS
+from utils.utils_performance import init_cache, CacheManager, CacheConfig, cache_result
+from utils.utils_report_manager import template_manager, report_builder, ReportTemplateManager
+from utils.utils_ui_config import UIConfig, DARK_MODE_SCRIPT, CUSTOM_CSS
 
 # Celery for async tasks
 try:
@@ -62,7 +62,7 @@ except ImportError:
     logger_module.warning("Celery not installed - async tasks disabled")
 
 # Initialize reporting system
-from utils_reporting import init_reporting_system
+from utils.utils_reporting import init_reporting_system
 
 # Initialize logger at module level
 logger = logging.getLogger('ssh_takip')
@@ -992,7 +992,7 @@ def create_app():
                         
                         # YENI: Fracas_BELGRAD.xlsx template'ine de yaz
                         try:
-                            from utils_fracas_writer import FracasWriter
+                            from utils.utils_fracas_writer import FracasWriter
                             
                             # Form verilerini FracasWriter'a hazırla
                             fracas_data = form_data.copy()
@@ -2333,7 +2333,7 @@ def create_app():
             
             # Equipment verilerini yükle (KM bilgileri)
             try:
-                from utils_project_excel_store import get_tramvay_list_with_km
+                from utils.utils_project_excel_store import get_tramvay_list_with_km
                 equipments = get_tramvay_list_with_km(project_code)
             except Exception as e:
                 logger.error(f"bakim_planlari equipment error: {e}")
@@ -3384,7 +3384,7 @@ def create_app():
             
             # Use centralized helper function - handles all KM logic
             try:
-                from utils_project_excel_store import get_tramvay_list_with_km
+                from utils.utils_project_excel_store import get_tramvay_list_with_km
                 equipments = get_tramvay_list_with_km(project_code)
             except Exception as e:
                 logger.error(f"tramvay_km error: {e}")

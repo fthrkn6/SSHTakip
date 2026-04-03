@@ -6,7 +6,7 @@ Report generation, template management, scheduled exports
 from flask import Blueprint, jsonify, render_template, request, send_file, current_app
 from flask_login import login_required, current_user
 from datetime import datetime
-from utils_report_manager import template_manager, report_builder, ReportTemplate, ReportTemplateManager
+from utils.utils_report_manager import template_manager, report_builder, ReportTemplate, ReportTemplateManager
 import logging
 import io
 import os

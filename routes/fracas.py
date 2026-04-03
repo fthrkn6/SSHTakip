@@ -13,7 +13,7 @@ import json
 import logging
 import sys
 from utils.project_manager import ProjectManager
-from utils_performance import CacheConfig
+from utils.utils_performance import CacheConfig
 from utils.backup_manager import BackupManager
 
 logger = logging.getLogger(__name__)
