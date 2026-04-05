@@ -379,6 +379,7 @@ def create_app():
                         # Kullanıcının bu projeye erişim yetkisi var mı kontrol et
                         if current_user.can_access_project(project_code):
                             session['current_project'] = project_code
+                            session['project_code'] = project_code
                             # Proje adını da sessionda sakla
                             projects = ProjectManager.get_all_projects()
                             for p in projects:
@@ -391,11 +392,13 @@ def create_app():
                         # Admin ise belgrad, saha ise ilk atanan projeyi al
                         if current_user.is_admin():
                             session['current_project'] = 'belgrad'
+                            session['project_code'] = 'belgrad'
                             session['project_name'] = 'Belgrad'
                         else:
                             assigned = current_user.get_assigned_projects()
                             if assigned:
                                 session['current_project'] = assigned[0]
+                                session['project_code'] = assigned[0]
                                 projects = ProjectManager.get_all_projects()
                                 for p in projects:
                                     if p['code'] == assigned[0]:
@@ -404,6 +407,7 @@ def create_app():
                 except Exception as e:
                     logger.error(f'set_project_session error: {e}')
                     session.setdefault('current_project', 'belgrad')
+                    session.setdefault('project_code', 'belgrad')
                     session.setdefault('project_name', 'Belgrad')
         
         # ========== GLOBAL SYNC MIDDLEWARE (OPTIMIZED) ==========
@@ -1335,10 +1339,10 @@ def create_app():
                                 # Tespit Yöntemi (Bozankaya ise F8, Müşteri ise H8)
                                 ariza_tespit_yontemi = form_data.get('ariza_tespit_yontemi', '')
                                 if 'bozankaya' in current_user.username.lower() or 'Bozankaya' in ariza_tespit_yontemi:
-                                    write_cell(ws, 'F8', '[X]', append=True, font_color='FFFFFF')
+                                    write_cell(ws, 'F8', '[X]', append=True, font_color='000000')
                                     logger.info(f"\1")
                                 elif 'müşteri' in ariza_tespit_yontemi.lower():
-                                    write_cell(ws, 'H8', '[X]', append=True, font_color='FFFFFF')
+                                    write_cell(ws, 'H8', '[X]', append=True, font_color='000000')
                                     logger.info(f"\1")
                                 
                                 # NOT: muslteri_bildirimi form'da olmadığı için bu alan yazılmıyor
@@ -1356,7 +1360,7 @@ def create_app():
                                     sinif_mapping = {'cell': 'G11', 'type': 'Düşük'}
                                 
                                 if sinif_mapping and 'cell' in sinif_mapping:
-                                    write_cell(ws, sinif_mapping['cell'], '[X]', append=True, font_color='FFFFFF')
+                                    write_cell(ws, sinif_mapping['cell'], '[X]', append=True, font_color='000000')
                                     logger.info(f"\1")
                                 else:
                                     logger.info(f"\1")
@@ -1369,17 +1373,17 @@ def create_app():
                                     
                                     # İlk Defa
                                     if 'ilk' in ariza_tipi_lower or 'first' in ariza_tipi_lower or 'ilk_defa' in ariza_tipi_lower:
-                                        write_cell(ws, 'H9', '[X]', append=True, font_color='FFFFFF')
+                                        write_cell(ws, 'H9', '[X]', append=True, font_color='000000')
                                         logger.info(f"\1")
                                     
                                     # Aynı araçta tekrarlayan
                                     if ('tekrarlayan' in ariza_tipi_lower or 'repeat' in ariza_tipi_lower) and ('aynı' in ariza_tipi_lower or 'same' in ariza_tipi_lower or 'ayni_arac' in ariza_tipi_lower):
-                                        write_cell(ws, 'A12', '[X]', append=True, font_color='FFFFFF')
+                                        write_cell(ws, 'A12', '[X]', append=True, font_color='000000')
                                         logger.info(f"\1")
                                     
                                     # Farklı araçta tekrarlayan
                                     if ('tekrarlayan' in ariza_tipi_lower or 'repeat' in ariza_tipi_lower) and ('farklı' in ariza_tipi_lower or 'different' in ariza_tipi_lower or 'farkli_arac' in ariza_tipi_lower):
-                                        write_cell(ws, 'E12', '[X]', append=True, font_color='FFFFFF')
+                                        write_cell(ws, 'E12', '[X]', append=True, font_color='000000')
                                         logger.info(f"\1")
                                 else:
                                     logger.info(f"\1")
@@ -1856,6 +1860,11 @@ def create_app():
                                                 pass
                                     
                                     mttr_minutes = saat * 60 + dakika
+                                except:
+                                    mttr_minutes = 0
+                            elif tamir_suresi_text is not None:
+                                try:
+                                    mttr_minutes = int(float(tamir_suresi_text))
                                 except:
                                     mttr_minutes = 0
                             
@@ -2951,11 +2960,11 @@ def create_app():
                 # Equipment tablosundan araçları al
                 current_project = session.get('current_project', 'belgrad').lower()
                 
-                # Sadece mevcut KM verisi olan araçları al (0'dan büyük)
+                # Tüm araçları al (current_km 0 olanlar da dahil)
                 equipments = Equipment.query.filter_by(project_code=current_project)\
-                    .filter(Equipment.current_km > 0)\
+                    .filter(Equipment.parent_id == None)\
                     .order_by(Equipment.equipment_code).all()
-                logger.info(f'[BAKIM] {len(equipments)} araç bulundu (current_km > 0)')
+                logger.info(f'[BAKIM] {len(equipments)} araç bulundu')
                 
                 result = {
                     'km_points': km_points,

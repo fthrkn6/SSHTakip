@@ -386,23 +386,22 @@ def calculate_fleet_mttr():
         current_project = session.get('current_project', 'belgrad')
         
         # FRACAS dosyasını bul
-        # 1. Önce data/{project} klasöründe ara
-        data_dir = os.path.join(current_app.root_path, 'data', current_project)
+        # 1. Önce logs/{project}/ariza_listesi/ klasöründe ara (canonical source)
         fracas_file = None
-        
-        if os.path.exists(data_dir):
-            for file in os.listdir(data_dir):
-                if 'fracas' in file.lower() and file.endswith('.xlsx'):
-                    fracas_file = os.path.join(data_dir, file)
+        logs_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
+        if os.path.exists(logs_dir):
+            for file in os.listdir(logs_dir):
+                if 'fracas' in file.lower() and file.endswith('.xlsx') and not file.startswith('~$'):
+                    fracas_file = os.path.join(logs_dir, file)
                     break
         
-        # 2. Yoksa logs/{project}/ariza_listesi/ klasöründe ara (Kayseri için)
+        # 2. Yoksa data/{project} klasöründe ara (fallback)
         if not fracas_file:
-            logs_dir = os.path.join(current_app.root_path, 'logs', current_project, 'ariza_listesi')
-            if os.path.exists(logs_dir):
-                for file in os.listdir(logs_dir):
-                    if 'fracas' in file.lower() and file.endswith('.xlsx'):
-                        fracas_file = os.path.join(logs_dir, file)
+            data_dir = os.path.join(current_app.root_path, 'data', current_project)
+            if os.path.exists(data_dir):
+                for file in os.listdir(data_dir):
+                    if 'fracas' in file.lower() and file.endswith('.xlsx') and not file.startswith('~$'):
+                        fracas_file = os.path.join(data_dir, file)
                         break
         
         mttr_minutes = 0
@@ -419,26 +418,43 @@ def calculate_fleet_mttr():
                 is_hours = False  # Saat mi dakika mı?
                 
                 # Kolon isimlerinden otomatik tespit - hardcoded index yerine
+                # 1. Önce en spesifik eşleşmeyi ara: "Tamir Süresi (dakika)" veya "Tamir Süresi (saat)"
                 for col in df.columns:
                     col_str = str(col).lower()
-                    # 1. Tamir Süresi (dakika) sütunu
-                    if 'tamir' in col_str and ('dakika' in col_str or 'repair' in col_str):
+                    if 'tamir süresi' in col_str and 'dakika' in col_str:
                         mttr_col = col
                         is_hours = False
                         break
-                    # 2. Tamir Süresi (saat) sütunu
-                    elif 'tamir' in col_str and ('saat' in col_str or 'hour' in col_str):
+                    elif 'tamir süresi' in col_str and 'saat' in col_str:
                         mttr_col = col
                         is_hours = True
                         break
+                
+                # 2. "repair time" sütunu
+                if not mttr_col:
+                    for col in df.columns:
+                        col_str = str(col).lower()
+                        if 'repair time' in col_str:
+                            mttr_col = col
+                            is_hours = 'hour' in col_str
+                            break
                 
                 # 3. Sadece "tamir süresi" içeren herhangi bir sütun (fallback)
                 if not mttr_col:
                     for col in df.columns:
                         col_str = str(col).lower()
-                        if 'tamir' in col_str and 'süresi' in col_str:
+                        if 'tamir süresi' in col_str or 'tamir suresi' in col_str:
                             mttr_col = col
                             is_hours = 'saat' in col_str
+                            break
+                
+                # 4. "Araç MTTR / MDT" sütunu (son çare)
+                if not mttr_col:
+                    for col in df.columns:
+                        col_str = str(col).lower()
+                        if 'araç mttr' in col_str or 'araç mdt' in col_str:
+                            mttr_col = col
+                            is_hours = False
                             break
                 
                 if mttr_col:
@@ -453,9 +469,34 @@ def calculate_fleet_mttr():
                 if is_hours and mttr_values:
                     mttr_values = [v * 60 for v in mttr_values]
                 
+                # Outlier filtresi: IQR yöntemi ile aşırı değerleri çıkar
+                if len(mttr_values) > 10:
+                    import numpy as np
+                    arr = np.array(mttr_values)
+                    q1 = np.percentile(arr, 25)
+                    q3 = np.percentile(arr, 75)
+                    iqr = q3 - q1
+                    upper_limit = q3 + 3.0 * iqr  # 3× IQR (geniş tolerans)
+                    upper_limit = max(upper_limit, 1440)  # En az 24 saat (1440 dk) üst sınır
+                    filtered = [v for v in mttr_values if v <= upper_limit]
+                    if len(filtered) > 0:
+                        removed = len(mttr_values) - len(filtered)
+                        if removed > 0:
+                            logger.debug(f'[MTTR] {current_project}: {removed} outlier filtrelendi (üst sınır: {upper_limit:.0f} dk)')
+                        mttr_values = filtered
+                
+                # MTTR = Toplam Tamir Süresi / Toplam Arıza Sayısı
+                # Toplam arıza sayısı = FRACAS'taki tüm kayıtlar (FRACAS ID dolu olanlar)
+                fracas_id_col = None
+                for col in df.columns:
+                    if 'fracas' in str(col).lower() and 'id' in str(col).lower():
+                        fracas_id_col = col
+                        break
+                total_failures = int(df[fracas_id_col].notna().sum()) if fracas_id_col else len(df)
+                total_failures = max(total_failures, 1)
+                
                 if len(mttr_values) > 0:
                     total_repair_time = sum(mttr_values)
-                    total_failures = len(mttr_values)
                     mttr_minutes = total_repair_time / total_failures
                     mttr_minutes = round(mttr_minutes, 1)
                     logger.debug(f'[MTTR] Proje: {current_project}, Tamir: {total_repair_time:.0f} dk, Arıza: {total_failures}, MTTR: {mttr_minutes} dk (Sütun: {mttr_col})')

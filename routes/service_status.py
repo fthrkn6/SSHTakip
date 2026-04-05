@@ -389,8 +389,8 @@ def log_service_status():
             grid_date = tarih if tarih else date.today().strftime('%Y-%m-%d')
             grid_manager.update_status(current_app.root_path, tram_id, grid_date, status_code)
             
-            # RCA kaydı ekle (eğer servis dışı ise)
-            if status_code in ['servis_disi', 'isletme_kaynakli'] and sistem:
+            # RCA kaydı ekle (sadece servis dışı ise)
+            if status_code == 'servis_disi' and sistem:
                 rca_manager = RCAExcelManager(project_code.lower())
                 rca_manager.add_rca_record(
                     current_app.root_path,

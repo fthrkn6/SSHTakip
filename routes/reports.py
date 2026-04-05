@@ -203,14 +203,11 @@ def scenarios_page():
     try:
         project = session.get('current_project', 'belgrad')
         
-        # Tüm tramvayları getir
-        tramvaylar = Equipment.query.filter(
-            Equipment.equipment_code >= '1531',
-            Equipment.equipment_code <= '1555'
-        ).all()
+        # Projeye ait tramvayları getir
+        tramvaylar = Equipment.query.filter_by(parent_id=None, project_code=project).all()
         
         if not tramvaylar:
-            tramvaylar = Equipment.query.all()
+            tramvaylar = Equipment.query.filter_by(project_code=project).all()
         
         # Veriyi hazırla
         tram_data = []
@@ -279,9 +276,21 @@ def scenarios_status_data():
             end_date
         )
         
+        # Seçilen periyotta veri yoksa, tüm verilere fallback yap
+        fallback_used = False
+        if not availability and period != 'toplam':
+            availability = grid_manager.get_availability_data(
+                current_app.root_path,
+                None,
+                None
+            )
+            fallback_used = True
+        
         # Tarih aralığı metinini oluştur
         if period == 'toplam' or (start_date is None and end_date is None):
             date_range_str = "Tümü"
+        elif fallback_used:
+            date_range_str = f"Seçilen periyotta veri yok — Tüm veriler gösteriliyor"
         else:
             date_range_str = f"{start_date.strftime('%d.%m.%Y')} - {end_date.strftime('%d.%m.%Y')}"
         
@@ -353,6 +362,17 @@ def scenarios_rca_stats():
                 end_date
             )
         
+        # Seçilen periyotta veri yoksa tüm verilere fallback yap
+        if not system_stats and not subsystem_stats and period != 'toplam':
+            if stat_type in ['sistem', 'ikisi']:
+                system_stats = rca_manager.get_system_stats(
+                    current_app.root_path, None, None
+                )
+            if stat_type in ['altsistem', 'ikisi']:
+                subsystem_stats = rca_manager.get_subsystem_stats(
+                    current_app.root_path, None, None
+                )
+        
         return jsonify({
             'success': True,
             'period': period,
@@ -423,8 +443,8 @@ def scenarios_availability_trend():
             'period': period,
             'granularity': granularity,
             'data': {
-                'dates': trend_data['dates'],
-                'averages': trend_data['averages']
+                'dates': trend_data.get('dates', []),
+                'averages': trend_data.get('averages', [])
             }
         })
     
@@ -904,6 +924,101 @@ def get_projects_kpi():
                 
                 availability = round((active_vehicles / total_vehicles * 100) if total_vehicles > 0 else 0)
                 
+                # Bugünkü araç durumu sayıları (grid'den)
+                servis_disi_count = 0
+                isletme_kaynakli_count = 0
+                aktif_count = 0
+                try:
+                    from utils.utils_excel_grid_manager import ExcelGridManager
+                    grid_mgr = ExcelGridManager(project_code)
+                    grid_path = grid_mgr.get_grid_path(current_app.root_path)
+                    if os.path.exists(grid_path):
+                        from openpyxl import load_workbook as _lw
+                        _wb = _lw(grid_path, data_only=True)
+                        _ws = _wb.active
+                        today_str = date.today().strftime('%Y-%m-%d')
+                        today_row = None
+                        for r in range(2, _ws.max_row + 1):
+                            cv = _ws.cell(row=r, column=1).value
+                            if cv and str(cv).startswith(today_str):
+                                today_row = r
+                                break
+                        if today_row:
+                            for c in range(2, _ws.max_column + 1):
+                                v = str(_ws.cell(row=today_row, column=c).value or '').strip()
+                                if v in ('✓', '√'):
+                                    aktif_count += 1
+                                elif v == '✗':
+                                    servis_disi_count += 1
+                                elif v == '⚠':
+                                    isletme_kaynakli_count += 1
+                        # Grid satırı boşsa veya bugün yoksa Equipment'tan fallback
+                        if aktif_count == 0 and servis_disi_count == 0 and isletme_kaynakli_count == 0 and total_vehicles > 0:
+                            aktif_count = active_vehicles
+                            servis_disi_count = total_vehicles - active_vehicles
+                        _wb.close()
+                    else:
+                        aktif_count = active_vehicles
+                        servis_disi_count = total_vehicles - active_vehicles
+                except:
+                    aktif_count = active_vehicles
+                    servis_disi_count = total_vehicles - active_vehicles
+                
+                # Toplam arıza sayısı (tüm FRACAS kayıtları)
+                total_failures_all = 0
+                try:
+                    _fracas = get_fracas_data(project_code)
+                    if _fracas is not None and not _fracas.empty:
+                        total_failures_all = len(_fracas)
+                except:
+                    total_failures_all = 0
+                
+                # Tüm zamanların availability ortalaması (grid'den)
+                avg_availability_all = 0
+                try:
+                    grid_mgr2 = ExcelGridManager(project_code)
+                    avail_data = grid_mgr2.get_availability_data(current_app.root_path, None, None)
+                    if avail_data:
+                        avg_availability_all = round(sum(avail_data.values()) / len(avail_data))
+                    else:
+                        avg_availability_all = availability
+                except:
+                    avg_availability_all = availability
+                
+                # MTTR (FRACAS'tan dakika cinsinden)
+                mttr_minutes = 0
+                try:
+                    _fracas2 = get_fracas_data(project_code)
+                    if _fracas2 is not None and not _fracas2.empty:
+                        repair_col = None
+                        for col in _fracas2.columns:
+                            col_lower = col.lower()
+                            if 'personel' in col_lower:
+                                continue
+                            if ('tamir süresi' in col_lower and 'dakika' in col_lower) or 'repair time' in col_lower:
+                                repair_col = col
+                                break
+                        if not repair_col:
+                            for col in _fracas2.columns:
+                                col_lower = col.lower()
+                                if 'personel' in col_lower:
+                                    continue
+                                if 'tamir süresi' in col_lower or 'tamir suresi' in col_lower:
+                                    repair_col = col
+                                    break
+                        if repair_col:
+                            vals = pd.to_numeric(_fracas2[repair_col], errors='coerce').dropna()
+                            vals = vals[vals > 0]
+                            if len(vals) > 0:
+                                # IQR outlier filter
+                                q1, q3 = vals.quantile(0.25), vals.quantile(0.75)
+                                iqr = q3 - q1
+                                upper = max(q3 + 3 * iqr, 1440)
+                                vals = vals[vals <= upper]
+                                mttr_minutes = round(vals.sum() / max(len(_fracas2), 1))
+                except:
+                    mttr_minutes = 0
+                
                 # Son 30 günde arıza sayısı
                 thirty_days_ago = datetime.now() - timedelta(days=30)
                 failures_30 = 0
@@ -1047,7 +1162,14 @@ def get_projects_kpi():
                     'avg_repair_time': avg_repair_time,
                     'problem_free_vehicles': problem_free_vehicles,
                     'active_vehicles': active_vehicles,
-                    'ariza_arazlari': total_vehicles - active_vehicles
+                    'ariza_arazlari': total_vehicles - active_vehicles,
+                    # Yeni alanlar
+                    'aktif_count': aktif_count,
+                    'servis_disi_count': servis_disi_count,
+                    'isletme_kaynakli_count': isletme_kaynakli_count,
+                    'total_failures_all': total_failures_all,
+                    'avg_availability_all': avg_availability_all,
+                    'mttr_minutes': mttr_minutes
                 }
             except Exception as e:
                 logger.warning(f"Error getting KPI for {project_code}: {e}")
@@ -1065,7 +1187,13 @@ def get_projects_kpi():
                     'avg_repair_time': 0,
                     'problem_free_vehicles': 0,
                     'active_vehicles': 0,
-                    'ariza_arazlari': 0
+                    'ariza_arazlari': 0,
+                    'aktif_count': 0,
+                    'servis_disi_count': 0,
+                    'isletme_kaynakli_count': 0,
+                    'total_failures_all': 0,
+                    'avg_availability_all': 0,
+                    'mttr_minutes': 0
                 }
         
         return jsonify({

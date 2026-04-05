@@ -394,7 +394,7 @@ class FracasWriter:
             # Yukarıda özel işlem yapılanları atla
             if form_field in ['hata_tarih', 'hata_saat', 'tamir_baslama_tarih', 'tamir_baslama_saati',
                              'tamir_bitisi_tarih', 'tamir_bitisi_saati', 'servise_verilis_tarih',
-                             'servise_verilis_saati', 'arac_module']:
+                             'servise_verilis_saati', 'arac_module', 'tamir_suresi']:
                 continue
             
             # Eğer sütun zaten atandıysa atla
@@ -427,6 +427,9 @@ class FracasWriter:
                     pass
         
         mttr_minutes = saat * 60 + dakika
+        
+        # Tamir Süresi sütununa (V) sadece dakika sayısı yaz
+        prepared['V'] = mttr_minutes
         
         # Komponent MTTR = MTTR (dk)
         prepared['AB'] = mttr_minutes

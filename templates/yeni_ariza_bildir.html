@@ -287,6 +287,7 @@ Yeni Arıza Bildir
     </div>
 
     <form method="POST" enctype="multipart/form-data" id="arizaBildirimForm" data-project="{{ session.get('current_project', 'belgrad') }}" data-validate data-loading>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="row">
             <!-- Sol Kolon -->
             <div class="col-lg-6">

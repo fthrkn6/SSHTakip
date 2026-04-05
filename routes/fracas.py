@@ -567,12 +567,20 @@ def calculate_rams_metrics(df):
     mttr_col = get_column(df, ['tamir süresi (dakika)', 'tamir süresi (saat)', 'tamir süresi', 'repair time'])
     if mttr_col:
         valid_data = pd.to_numeric(df[mttr_col], errors='coerce').dropna()
+        valid_data = valid_data[valid_data > 0]
+        # Outlier filtresi: IQR
+        if len(valid_data) > 10:
+            import numpy as np
+            q1, q3 = np.percentile(valid_data, [25, 75])
+            upper_limit = max(q3 + 3.0 * (q3 - q1), 1440)
+            valid_data = valid_data[valid_data <= upper_limit]
         if len(valid_data) > 0:
-            # Eğer sütun "saat" ise dakikaya çevir
+            # MTTR = Toplam Tamir Süresi / Toplam Arıza Sayısı
+            total_failures = max(len(df), 1)
             if 'saat' in str(mttr_col).lower():
-                rams['mttr'] = float(round(valid_data.mean() * 60, 2))  # Saat -> dakika
+                rams['mttr'] = float(round((valid_data.sum() * 60) / total_failures, 2))  # Saat -> dakika
             else:
-                rams['mttr'] = float(round(valid_data.mean(), 2))  # Zaten dakika
+                rams['mttr'] = float(round(valid_data.sum() / total_failures, 2))  # Zaten dakika
     
     # Bekleme süresi
     wait_col = get_column(df, ['bekleme süresi', 'waiting time', 'waiting'])

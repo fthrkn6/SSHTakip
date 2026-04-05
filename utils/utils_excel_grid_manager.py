@@ -40,7 +40,7 @@ class ExcelGridManager:
         return os.path.join(data_dir, 'service_status_grid.xlsx')
     
     def init_grid(self, base_path, equipment_codes):
-        """Grid Excel dosyasını oluştur (ilki kez)
+        """Grid Excel dosyasını oluştur veya sütunlar uyuşmuyorsa yeniden oluştur
         
         Yapı:
         - Satırlar: Tarihler (son 90 gün)
@@ -50,7 +50,46 @@ class ExcelGridManager:
         grid_path = self.get_grid_path(base_path)
         
         if os.path.exists(grid_path):
-            return grid_path  # Zaten var
+            # Mevcut sütunları kontrol et - uyuşmuyorsa yeniden oluştur
+            try:
+                existing_wb = load_workbook(grid_path, data_only=True)
+                existing_ws = existing_wb.active
+                existing_codes = []
+                for col_idx in range(2, existing_ws.max_column + 1):
+                    val = existing_ws.cell(row=1, column=col_idx).value
+                    if val:
+                        existing_codes.append(str(val))
+                
+                expected_codes = [str(c) for c in equipment_codes]
+                
+                if set(existing_codes) == set(expected_codes):
+                    existing_wb.close()
+                    return grid_path  # Kodlar doğru, değişiklik yok
+                
+                # Kodlar uyuşmuyor - mevcut veriyi koru ve yeniden oluştur
+                logger.warning(f'Grid sütunları uyuşmuyor ({self.project_code}): '
+                             f'mevcut={existing_codes[:5]}... beklenen={expected_codes[:5]}...')
+                
+                # Mevcut verileri oku (tarih -> {equipment_code -> value})
+                old_data = {}
+                for row_idx in range(2, existing_ws.max_row + 1):
+                    date_cell = existing_ws.cell(row=row_idx, column=1).value
+                    if date_cell:
+                        date_key = str(date_cell)[:10]
+                        old_data[date_key] = {}
+                        for col_idx, code in enumerate(existing_codes, start=2):
+                            val = existing_ws.cell(row=row_idx, column=col_idx).value
+                            if val:
+                                old_data[date_key][code] = val
+                
+                existing_wb.close()
+                os.remove(grid_path)
+                logger.info(f'Eski grid silindi, yeniden oluşturuluyor: {self.project_code}')
+            except Exception as e:
+                logger.error(f'Grid kontrol hatası: {e}')
+                return grid_path
+        else:
+            old_data = {}
         
         # Workbook oluştur
         wb = Workbook()
@@ -72,6 +111,33 @@ class ExcelGridManager:
         
         # Stil uygula
         self._apply_grid_styles(ws)
+        
+        # Eski verilerden eşleşen kodları geri yükle
+        if old_data:
+            code_to_col = {}
+            for idx, code in enumerate(equipment_codes, start=2):
+                code_to_col[str(code)] = idx
+            
+            date_to_row = {}
+            for row_idx in range(2, ws.max_row + 1):
+                date_cell = ws.cell(row=row_idx, column=1).value
+                if date_cell:
+                    date_to_row[str(date_cell)[:10]] = row_idx
+            
+            migrated = 0
+            for date_key, code_vals in old_data.items():
+                row_idx = date_to_row.get(date_key)
+                if not row_idx:
+                    continue
+                for code, val in code_vals.items():
+                    col_idx = code_to_col.get(str(code))
+                    if col_idx:
+                        cell = ws.cell(row=row_idx, column=col_idx)
+                        cell.value = val
+                        migrated += 1
+            
+            if migrated > 0:
+                logger.info(f'Grid rebuild: {migrated} hücre eski veriden aktarıldı ({self.project_code})')
         
         wb.save(grid_path)
         logger.info(f'Grid Excel oluşturuldu: {grid_path}')

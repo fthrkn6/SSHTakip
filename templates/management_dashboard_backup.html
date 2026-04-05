@@ -1,0 +1,383 @@
+{% extends 'base.html' %}
+
+{% block title %}Yönetim Raporları - Sunumsal Dashboard{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/management_dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<!-- Header Section -->
+<div class="management-container">
+    <h1>📊 Yönetim Raporları Dashboard</h1>
+    <p>Tüm projeler için kapsamlı KPI ve karşılaştırmalı analiz</p>
+</div>
+
+<!-- Raw Data Table -->
+<div class="comparison-section" style="margin-bottom: 30px;">
+    <h3>
+        <i class="bi bi-table"></i>
+        Verileri Burda Gör
+    </h3>
+    <div class="table-responsive">
+        <table class="comparison-table" id="rawDataTable">
+            <thead>
+                <tr>
+                    <th>Proje Kodu</th>
+                    <th>Proje Adı</th>
+                    <th>Toplam Araç</th>
+                    <th>Aktif Araç</th>
+                    <th>Aktif Oranı %</th>
+                    <th>Son 30 Gün Arıza</th>
+                    <th>Kritik (A) Arıza</th>
+                    <th>Ort. MTTR (saat)</th>
+                    <th>Ort. Tamir Suresi</th>
+                    <th>Önleyici Bakım %</th>
+                    <th>Arızasız Araç</th>
+                    <th>Durum</th>
+                </tr>
+            </thead>
+            <tbody id="rawDataBody">
+                <tr>
+                    <td colspan="8" style="text-align: center; padding: 20px;">
+                        <i class="bi bi-hourglass-split"></i> Veriler yükleniyor...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Projects KPI Grid -->
+<div class="kpi-grid" id="projectsGrid">
+    <!-- Dinamik olarak doldurulacak -->
+</div>
+
+<!-- Comparison Section -->
+<div class="comparison-section">
+    <h3>
+        <i class="bi bi-graph-up"></i>
+        Projeler Karşılaştırması
+    </h3>
+    <div class="table-responsive">
+        <table class="comparison-table" id="comparisonTable">
+            <thead>
+                <tr>
+                    <th>Proje</th>
+                    <th>Toplam Araç</th>
+                    <th>Aktif Oranı</th>
+                    <th>Son 30 Gün Arıza</th>
+                    <th>Kritik Arıza</th>
+                    <th>Önleyici Bakım</th>
+                    <th>Ortalama MTTR</th>
+                    <th>İşlem</th>
+                </tr>
+            </thead>
+            <tbody id="comparisonBody">
+                <!-- Dinamik olarak doldurulacak -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Quick Actions Section -->
+<div class="quick-actions">
+    <h3>
+        <i class="bi bi-lightning-fill"></i>
+        Hızlı İşlemler
+    </h3>
+    <div class="action-buttons">
+        <a href="/dashboard/" class="action-btn">
+            <i class="bi bi-file-earmark-pdf"></i>
+            Rapor Oluştur
+        </a>
+        <a href="/dashboard/" class="action-btn action-btn-secondary">
+            <i class="bi bi-clock-history"></i>
+            Son Raporlar
+        </a>
+        <a href="/dashboard/" class="action-btn action-btn-tertiary">
+            <i class="bi bi-speedometer2"></i>
+            Ana Dashboard
+        </a>
+    </div>
+</div>
+
+<!-- Project Data Template (Hidden) -->
+<template id="projectCardTemplate">
+    <div class="project-card" data-project="">
+        <div class="project-header">
+            <h3 class="project-name"></h3>
+            <span class="project-status status-active">Aktif</span>
+        </div>
+        
+        <div class="kpi-row">
+            <div class="kpi-mini">
+                <div class="kpi-mini-label">Toplam Araç</div>
+                <div class="kpi-mini-value vehicle-count">0</div>
+            </div>
+            <div class="kpi-mini">
+                <div class="kpi-mini-label">Aktif Oranı</div>
+                <div class="kpi-mini-value availability">0%</div>
+            </div>
+        </div>
+
+        <div class="kpi-row">
+            <div class="kpi-mini">
+                <div class="kpi-mini-label">Kritik Arıza (A)</div>
+                <div class="kpi-mini-value critical-failures">0</div>
+            </div>
+            <div class="kpi-mini">
+                <div class="kpi-mini-label">Önleyici Bakım</div>
+                <div class="kpi-mini-value preventive-ratio">0%</div>
+            </div>
+        </div>
+
+        <div class="kpi-row">
+            <div class="kpi-mini">
+                <div class="kpi-mini-label">Ort. Tamir Süresi</div>
+                <div class="kpi-mini-value avg-repair-time">-</div>
+                <div class="kpi-mini-unit">Saat</div>
+            </div>
+            <div class="kpi-mini">
+                <div class="kpi-mini-label">Arızasız Araç</div>
+                <div class="kpi-mini-value problem-free">0</div>
+                <div class="kpi-mini-unit">Araç</div>
+            </div>
+        </div>
+
+        <div class="project-actions">
+            <button class="btn btn-primary btn-sm" onclick="generateProjectReport(this)">
+                <i class="bi bi-download"></i> PDF İndir
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="viewProjectDetails(this)">
+                <i class="bi bi-eye"></i> Detay
+            </button>
+        </div>
+    </div>
+</template>
+
+<script>
+    // Tüm projeler için verileri yükle - GERÇEKİ API'DEN
+    // PROJECTS artık dinamik olarak API'den dolduruluyor
+    let projectData = {}; // API'den doldurulacak
+
+    function loadProjects() {
+        const grid = document.getElementById('projectsGrid');
+        const comparisonBody = document.getElementById('comparisonBody');
+        const rawDataBody = document.getElementById('rawDataBody');
+        
+        // Loading state göster
+        grid.innerHTML = '<div style="text-align: center; padding: 40px; grid-column: 1 / -1;"><i class="bi bi-hourglass-split"></i> Veriler yükleniyor...</div>';
+        comparisonBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Veriler yükleniyor...</td></tr>';
+        rawDataBody.innerHTML = '<tr><td colspan="12" style="text-align: center; padding: 20px;">Veriler yükleniyor...</td></tr>';
+
+        // API'den gerçek verileri çek
+        fetch('/reports/api/projects-kpi')
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                return response.json();
+            })
+            .then(result => {
+                console.log('API Response:', result);
+                if (result.success && result.data) {
+                    projectData = result.data;
+                    console.log('Projects loaded:', Object.keys(projectData).length, 'projects');
+                    renderProjects(grid, comparisonBody);
+                } else {
+                    console.error('API Error:', result.message || 'Unknown error');
+                    grid.innerHTML = `<div style="grid-column: 1 / -1; padding: 20px; background: #fee; border-radius: 8px; color: #c00;">❌ Veri yükleme hatası: ${result.message || 'Bilinmeyen hata'}</div>`;
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching projects KPI:', error);
+                grid.innerHTML = `<div style="grid-column: 1 / -1; padding: 20px; background: #fee; border-radius: 8px; color: #c00;">❌ Veri yükleme hatası: ${error.message}</div>`;
+            });
+    }
+
+    function renderProjects(grid, comparisonBody) {
+        const template = document.getElementById('projectCardTemplate');
+        const rawDataBody = document.getElementById('rawDataBody');
+        
+        if (!template) {
+            console.error('Template not found: projectCardTemplate');
+            return;
+        }
+        
+        grid.innerHTML = ''; // Önceki içeriği temizle
+        comparisonBody.innerHTML = ''; // Önceki satırları temizle
+        rawDataBody.innerHTML = ''; // Raw tablo satırlarını temizle
+
+        Object.entries(projectData).forEach(([projectKey, data]) => {
+            try {
+                // RAW DATA TABLOSUNA SATIR EKLE
+                const rawRow = document.createElement('tr');
+                const availColor = data.availability >= 85 ? '#10b981' : data.availability >= 75 ? '#f59e0b' : '#ef4444';
+                const failureColor = data.failures30 <= 10 ? '#10b981' : data.failures30 <= 15 ? '#f59e0b' : '#ef4444';
+                const criticalColor = data.critical_failures <= 5 ? '#10b981' : data.critical_failures <= 10 ? '#f59e0b' : '#ef4444';
+                const preventiveColor = data.preventive_ratio >= 60 ? '#10b981' : data.preventive_ratio >= 40 ? '#f59e0b' : '#ef4444';
+                const statusText = data.status === 'active' ? '✅ Aktif' : data.status === 'maintenance' ? '⚙️ Bakımda' : '⚠️ Sorun';
+                const activeCount = Math.round(data.vehicles * data.availability / 100);
+                
+                rawRow.innerHTML = `
+                    <td><code style="color: #2563eb; font-weight: bold;">${projectKey}</code></td>
+                    <td><strong>${data.name}</strong></td>
+                    <td><strong style="font-size: 1.1em;">${data.vehicles}</strong></td>
+                    <td><strong style="color: ${availColor};">${activeCount}</strong></td>
+                    <td><span style="background: ${availColor}; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold;">${data.availability}%</span></td>
+                    <td><span style="background: ${failureColor}; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold;">${data.failures30}</span></td>
+                    <td><span style="background: ${criticalColor}; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold;">${data.critical_failures}</span></td>
+                    <td><strong>${data.mttr > 0 ? data.mttr : '-'}</strong></td>
+                    <td><strong>${data.avg_repair_time > 0 ? data.avg_repair_time : '-'}</strong></td>
+                    <td><span style="background: ${preventiveColor}; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold;">${data.preventive_ratio}%</span></td>
+                    <td><strong>${data.problem_free_vehicles}/${data.vehicles}</strong></td>
+                    <td>${statusText}</td>
+                `;
+                rawDataBody.appendChild(rawRow);
+
+                // KPI kartı oluştur
+                const card = template.content.cloneNode(true);
+                const cardElement = card.querySelector('.project-card');
+                
+                if (!cardElement) {
+                    console.error('Card element not found in template');
+                    return;
+                }
+                
+                // Safely set content  
+                const safeSetText = (selector, value) => {
+                    const el = card.querySelector(selector);
+                    if (el) el.textContent = value;
+                    else console.warn(`Element not found: ${selector}`);
+                };
+                
+                cardElement.setAttribute('data-project', projectKey);
+                safeSetText('.project-name', data.name);
+                safeSetText('.vehicle-count', data.vehicles);
+                safeSetText('.availability', data.availability + '%');
+                safeSetText('.critical-failures', data.critical_failures);
+                safeSetText('.preventive-ratio', data.preventive_ratio + '%');
+                safeSetText('.avg-repair-time', data.avg_repair_time > 0 ? data.avg_repair_time : '-');
+                safeSetText('.problem-free', data.problem_free_vehicles);
+
+                // Status badge
+                const statusBadge = card.querySelector('.project-status');
+                if (statusBadge) {
+                    statusBadge.className = 'project-status';
+                    if (data.status === 'active') {
+                        statusBadge.classList.add('status-active');
+                        statusBadge.textContent = 'Aktif ✓';
+                    } else if (data.status === 'maintenance') {
+                        statusBadge.classList.add('status-maintenance');
+                        statusBadge.textContent = 'Bakımda ⚙️';
+                    } else {
+                        statusBadge.classList.add('status-issues');
+                        statusBadge.textContent = 'Dikkat ⚠️';
+                    }
+                }
+
+                // Metrik çizim
+                const chart = card.querySelector('.metric-chart');
+                if (chart) {
+                    chart.id = 'chart-' + projectKey;
+                    chart.innerHTML = '';
+                    
+                    const metrics = [
+                        { value: data.availability, label: 'Availability' },
+                        { value: Math.max(0, 100 - data.failures30 * 5), label: 'Reliability' }
+                    ];
+
+                    metrics.forEach(m => {
+                        const bar = document.createElement('div');
+                        bar.className = 'metric-bar';
+                        bar.style.height = Math.max(m.value, 20) + '%';
+                        if (m.value < 70) bar.classList.add('danger');
+                        else if (m.value < 85) bar.classList.add('warning');
+                        else bar.classList.add('active');
+                        chart.appendChild(bar);
+                    });
+                }
+
+                // Buttons
+                const btnPrimary = card.querySelector('.btn-primary');
+                const btnSecondary = card.querySelector('.btn-outline-secondary');
+                if (btnPrimary) btnPrimary.onclick = (e) => generateProjectReport(projectKey);
+                if (btnSecondary) btnSecondary.onclick = (e) => viewProjectDetails(projectKey);
+
+                grid.appendChild(card);
+
+                // Karşılaştırma tablosuna satır ekle
+                const row = document.createElement('tr');
+                
+                row.innerHTML = `
+                    <td><strong class="project-name-col">${data.name}</strong></td>
+                    <td><strong>${data.vehicles}</strong></td>
+                    <td>
+                        <span class="metric-indicator" style="background: ${availColor}"></span>
+                        ${data.availability}%
+                    </td>
+                    <td>
+                        <span class="metric-indicator" style="background: ${failureColor}"></span>
+                        ${data.failures30}
+                    </td>
+                    <td>
+                        <span class="metric-indicator" style="background: ${criticalColor}"></span>
+                        ${data.critical_failures}
+                    </td>
+                    <td>
+                        <span class="metric-indicator" style="background: ${preventiveColor}"></span>
+                        ${data.preventive_ratio}%
+                    </td>
+                    <td>${data.mttr > 0 ? data.mttr + ' saat' : '-'}</td>
+                    <td>
+                        <a href="#" class="btn btn-sm btn-outline-primary" onclick="generateProjectReport('${projectKey}'); return false;">
+                            <i class="bi bi-download"></i> İndir
+                        </a>
+                    </td>
+                `;
+                comparisonBody.appendChild(row);
+                
+                console.log(`✅ Project loaded: ${data.name}`);
+            } catch (e) {
+                console.error(`Error rendering project ${projectKey}:`, e);
+            }
+        });
+        
+        console.log('Render complete. Total projects:', Object.keys(projectData).length);
+    }
+
+    function generateProjectReport(projectKey) {
+        const projectName = projectData[projectKey]?.name || 'Proje';
+        window.location.href = `/reports/management`;
+    }
+
+    function viewProjectDetails(projectKey) {
+        const data = projectData[projectKey];
+        alert(`${data.name} - Proje Detaylı KPI'ları
+        
+📊 TEMEL KPİ'LAR:
+   • Toplam Araç: ${data.vehicles}
+   • Aktif Araçlar: ${data.active_vehicles}
+   • Aktif Oranı: ${data.availability}%
+   • Servis Dışı Araç: ${data.ariza_arazlari}
+
+⚠️  ARIZA ANALIZI:
+   • Son 30 Gün Toplam Arıza: ${data.failures30}
+   • Kritik (Sınıf A) Arıza: ${data.critical_failures}
+   • Arızasız Araç: ${data.problem_free_vehicles}/${data.vehicles}
+
+⏱️  TAMIR KAPASİTESİ:
+   • Ort. MTTR: ${data.mttr > 0 ? data.mttr + ' saat' : 'Veri yok'}
+   • Ort. Tamir Süresi: ${data.avg_repair_time > 0 ? data.avg_repair_time + ' saat' : 'Veri yok'}
+
+🔧 BAKIIM STRATEJİSİ:
+   • Önleyici Bakım Oranı: ${data.preventive_ratio}%
+
+📈 PROJE DURUMU: ${data.status === 'active' ? '✅ Aktif' : data.status === 'maintenance' ? '⚙️ Bakımda' : '⚠️ Sorunlu'}`);
+    }
+
+    // Sayfa yüklendiğinde projeleri yükle
+    document.addEventListener('DOMContentLoaded', loadProjects);
+</script>
+
+{% endblock %}

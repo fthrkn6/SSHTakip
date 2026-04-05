@@ -149,35 +149,46 @@
         /* Top Navbar */
         .top-navbar {
             height: var(--navbar-height);
-            background: white;
-            border-bottom: 1px solid #e2e8f0;
-            padding: 0 24px;
+            background: rgba(255, 255, 255, 0.82);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+            padding: 0 28px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             position: sticky;
             top: 0;
             z-index: 100;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .navbar-search {
             position: relative;
-            width: 300px;
+            width: 320px;
         }
 
         .navbar-search input {
             width: 100%;
-            padding: 8px 16px 8px 40px;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: all 0.2s;
+            padding: 9px 16px 9px 42px;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 12px;
+            font-size: 13.5px;
+            background: rgba(0, 0, 0, 0.03);
+            color: var(--dark-color);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .navbar-search input::placeholder {
+            color: #94a3b8;
+            font-weight: 400;
         }
 
         .navbar-search input:focus {
             outline: none;
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            background: white;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
         }
 
         .navbar-search i {
@@ -185,69 +196,141 @@
             left: 14px;
             top: 50%;
             transform: translateY(-50%);
-            color: var(--secondary-color);
+            color: #94a3b8;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+
+        .navbar-search input:focus + i,
+        .navbar-search:focus-within i {
+            color: var(--primary-color);
         }
 
         .navbar-actions {
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 6px;
         }
 
         .navbar-icon-btn {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
+            width: 38px;
+            height: 38px;
+            border-radius: 11px;
             border: none;
-            background: var(--light-bg);
-            color: var(--secondary-color);
+            background: transparent;
+            color: #64748b;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
+            font-size: 17px;
+            text-decoration: none;
         }
 
         .navbar-icon-btn:hover {
-            background: #e2e8f0;
-            color: var(--dark-color);
+            background: rgba(99, 102, 241, 0.08);
+            color: var(--primary-color);
+            transform: translateY(-1px);
+        }
+
+        .navbar-icon-btn:active {
+            transform: translateY(0) scale(0.95);
         }
 
         .navbar-icon-btn .notification-badge {
             position: absolute;
-            top: 6px;
-            right: 6px;
-            width: 8px;
-            height: 8px;
+            top: 7px;
+            right: 7px;
+            width: 9px;
+            height: 9px;
             background: var(--danger-color);
             border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.3);
+            animation: notifPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes notifPulse {
+            0%, 100% { box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.3); }
+            50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1); }
+        }
+
+        /* Navbar Divider */
+        .navbar-divider {
+            width: 1px;
+            height: 24px;
+            background: rgba(0, 0, 0, 0.08);
+            margin: 0 6px;
+        }
+
+        /* Project Selector Button */
+        .project-selector-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.06), rgba(99, 102, 241, 0.02));
+            color: var(--primary-color);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: capitalize;
+        }
+
+        .project-selector-btn:hover {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(99, 102, 241, 0.06));
+            border-color: rgba(99, 102, 241, 0.35);
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.12);
+        }
+
+        .project-selector-btn i.bi-folder2-open {
+            font-size: 14px;
+        }
+
+        .project-selector-btn::after {
+            content: '';
+            display: inline-block;
+            width: 0;
+            height: 0;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 4px solid currentColor;
+            opacity: 0.6;
+            margin-left: 2px;
         }
 
         .user-dropdown {
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 6px 12px;
-            border-radius: 10px;
+            padding: 5px 10px 5px 5px;
+            border-radius: 12px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .user-dropdown:hover {
-            background: var(--light-bg);
+            background: rgba(0, 0, 0, 0.04);
         }
 
         .user-avatar {
-            width: 36px;
-            height: 36px;
+            width: 34px;
+            height: 34px;
             border-radius: 10px;
-            background: linear-gradient(135deg, var(--primary-color), var(--info-color));
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-weight: 600;
+            font-weight: 700;
+            font-size: 13px;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+        }
             font-size: 14px;
         }
 
@@ -966,7 +1049,7 @@
                 <!-- Proje Seçici (Yalnız Saha Kullanıcıları için) -->
                 {% if current_user.is_saha() or current_user.is_admin() %}
                 <div class="dropdown">
-                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
+                    <button class="project-selector-btn" type="button"
                         data-bs-toggle="dropdown">
                         <i class="bi bi-folder2-open"></i>
                         {% if session.get('project_code') %}
@@ -975,11 +1058,13 @@
                         Proje Seç
                         {% endif %}
                     </button>
-                    <ul class="dropdown-menu" id="projectDropdownMenu">
+                    <ul class="dropdown-menu dropdown-menu-end" id="projectDropdownMenu">
                         <!-- Dinamik olarak doldurulacak -->
                     </ul>
                 </div>
                 {% endif %}
+
+                <div class="navbar-divider d-none d-md-block"></div>
 
                 <!-- Dark Mode Toggle -->
                 <button class="navbar-icon-btn" id="darkModeToggle" title="Karanlık Mod" aria-label="Karanlık mod aç/kapat">
@@ -1007,6 +1092,8 @@
                     <i class="bi bi-shield-lock"></i>
                 </a>
                 {% endif %}
+
+                <div class="navbar-divider d-none d-md-block"></div>
 
                 <div class="dropdown">
                     <div class="user-dropdown" data-bs-toggle="dropdown">

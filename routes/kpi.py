@@ -114,17 +114,34 @@ def calculate_mtbf_mttr(df):
     
     # MTTR - Tamir Süresi (dakika)
     repair_col = None
+    # Önce spesifik "Tamir Süresi (dakika)" ara, sonra genel "Tamir Süresi"
     for col in df.columns:
-        if 'tamir süresi' in col.lower():
+        cl = col.lower()
+        if 'tamir süresi' in cl and ('dakika' in cl or 'repair time' in cl):
             repair_col = col
             break
+    if not repair_col:
+        for col in df.columns:
+            cl = col.lower()
+            if 'tamir süresi' in cl and 'personel' not in cl:
+                repair_col = col
+                break
     
     if repair_col:
         try:
             df[repair_col] = pd.to_numeric(df[repair_col], errors='coerce')
             valid_mttr = df[repair_col].dropna()
+            valid_mttr = valid_mttr[valid_mttr > 0]
+            # Outlier filtresi: IQR
+            if len(valid_mttr) > 10:
+                import numpy as np
+                q1, q3 = np.percentile(valid_mttr, [25, 75])
+                upper_limit = max(q3 + 3.0 * (q3 - q1), 1440)
+                valid_mttr = valid_mttr[valid_mttr <= upper_limit]
             if len(valid_mttr) > 0:
-                result['mttr'] = round(valid_mttr.mean(), 2)
+                # MTTR = Toplam Tamir Süresi / Toplam Arıza Sayısı
+                total_failures = max(len(df), 1)
+                result['mttr'] = round(valid_mttr.sum() / total_failures, 2)
                 result['total_downtime'] = round(valid_mttr.sum(), 1)
         except (ValueError, TypeError):
             pass
