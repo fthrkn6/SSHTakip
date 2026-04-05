@@ -1909,9 +1909,8 @@
         // Seviye değişikliğinden sonra tüm sekmeleri yenile
         loadData();
         loadSchedule();
-        // Tab 2 transpose verisini de sıfırla
-        const tbody = document.getElementById('scheduleTableBody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4"><i class="bi bi-hourglass-split me-2"></i>Yükleniyor...</td></tr>';
+        // Tab 2 transpose verisini de yeniden yükle
+        loadTransposeMaintenance();
     }
 
     function showAddLevelModal() {

@@ -937,25 +937,43 @@ def get_projects_kpi():
                         _wb = _lw(grid_path, data_only=True)
                         _ws = _wb.active
                         today_str = date.today().strftime('%Y-%m-%d')
-                        today_row = None
+                        target_row = None
+                        # Önce bugünkü satırı ara
                         for r in range(2, _ws.max_row + 1):
                             cv = _ws.cell(row=r, column=1).value
                             if cv and str(cv).startswith(today_str):
-                                today_row = r
+                                target_row = r
                                 break
-                        if today_row:
+                        # Bugün yoksa en sondan geriye doğru dolu satır bul
+                        if not target_row and _ws.max_row >= 2:
+                            for r in range(_ws.max_row, 1, -1):
+                                has_data = False
+                                for c in range(2, _ws.max_column + 1):
+                                    v = str(_ws.cell(row=r, column=c).value or '').strip()
+                                    if v in ('✓', '√', '✗', '⚠'):
+                                        has_data = True
+                                        break
+                                if has_data:
+                                    target_row = r
+                                    break
+                        if target_row:
                             for c in range(2, _ws.max_column + 1):
-                                v = str(_ws.cell(row=today_row, column=c).value or '').strip()
+                                v = str(_ws.cell(row=target_row, column=c).value or '').strip()
                                 if v in ('✓', '√'):
                                     aktif_count += 1
                                 elif v == '✗':
                                     servis_disi_count += 1
                                 elif v == '⚠':
                                     isletme_kaynakli_count += 1
-                        # Grid satırı boşsa veya bugün yoksa Equipment'tan fallback
+                        # Grid satırı tamamen boşsa Equipment'tan fallback
                         if aktif_count == 0 and servis_disi_count == 0 and isletme_kaynakli_count == 0 and total_vehicles > 0:
                             aktif_count = active_vehicles
                             servis_disi_count = total_vehicles - active_vehicles
+                        else:
+                            # Grid'de sembolü olmayan araçları servis dışı say
+                            counted = aktif_count + servis_disi_count + isletme_kaynakli_count
+                            if counted < total_vehicles:
+                                servis_disi_count += (total_vehicles - counted)
                         _wb.close()
                     else:
                         aktif_count = active_vehicles

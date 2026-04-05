@@ -8,144 +8,250 @@
 {% endblock %}
 
 {% block content %}
+<style>
+    /* ===== HBR LİSTESİ MODERN STYLES ===== */
+    .hbr-page { --hbr-primary: #ef4444; --hbr-primary-light: rgba(239,68,68,0.08); }
+
+    /* Stat Cards */
+    .hbr-stat-card {
+        border-radius: 16px; padding: 1.5rem;
+        display: flex; align-items: center; gap: 1rem;
+        transition: all 0.3s ease; border: 1px solid;
+    }
+    .hbr-stat-card:hover { transform: translateY(-2px); }
+    .hbr-stat-card.danger  { background: linear-gradient(135deg, rgba(239,68,68,0.08), rgba(239,68,68,0.02)); border-color: rgba(239,68,68,0.15); }
+    .hbr-stat-card.danger:hover  { box-shadow: 0 8px 25px rgba(239,68,68,0.15); }
+    .hbr-stat-card.info    { background: linear-gradient(135deg, rgba(59,130,246,0.08), rgba(59,130,246,0.02)); border-color: rgba(59,130,246,0.15); }
+    .hbr-stat-card.info:hover    { box-shadow: 0 8px 25px rgba(59,130,246,0.15); }
+    .hbr-stat-card.success { background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(16,185,129,0.02)); border-color: rgba(16,185,129,0.15); }
+    .hbr-stat-card.success:hover { box-shadow: 0 8px 25px rgba(16,185,129,0.15); }
+    .hbr-stat-icon {
+        width: 56px; height: 56px; border-radius: 14px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.4rem; color: white; flex-shrink: 0;
+    }
+    .hbr-stat-icon.danger  { background: linear-gradient(135deg, #ef4444, #dc2626); }
+    .hbr-stat-icon.info    { background: linear-gradient(135deg, #3b82f6, #06b6d4); }
+    .hbr-stat-icon.success { background: linear-gradient(135deg, #10b981, #059669); }
+    .hbr-stat-value { font-size: 1.8rem; font-weight: 800; color: #1e1b4b; line-height: 1; }
+    .hbr-stat-label { font-size: 0.78rem; color: #6b7280; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+    /* Table Card */
+    .hbr-table-card {
+        background: white; border: 1px solid #e5e7eb; border-radius: 16px;
+        overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .hbr-table-header {
+        background: linear-gradient(135deg, #991b1b 0%, #b91c1c 100%);
+        color: white; padding: 1rem 1.25rem;
+        display: flex; align-items: center; justify-content: space-between;
+    }
+    .hbr-table-header h5 { margin: 0; font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; }
+    .hbr-table-header .hbr-count {
+        background: rgba(255,255,255,0.2); padding: 2px 10px; border-radius: 20px;
+        font-size: 0.75rem; font-weight: 700;
+    }
+
+    /* Table */
+    .hbr-table thead {
+        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+    }
+    .hbr-table thead th {
+        color: #e0e7ff !important; font-size: 0.72rem; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.5px;
+        padding: 0.8rem 0.75rem; border: none !important; white-space: nowrap;
+    }
+    .hbr-table tbody tr {
+        border-bottom: 1px solid #f3f4f6; transition: all 0.2s ease;
+    }
+    .hbr-table tbody tr:hover {
+        background: linear-gradient(135deg, rgba(239,68,68,0.03) 0%, rgba(239,68,68,0.01) 100%) !important;
+    }
+    .hbr-table tbody td {
+        padding: 0.75rem; vertical-align: middle; font-size: 0.85rem; color: #374151;
+    }
+    .hbr-row-num { font-weight: 800; color: #ef4444; font-size: 0.8rem; }
+    .hbr-filename {
+        display: flex; align-items: center; gap: 8px; font-weight: 600; color: #1f2937;
+    }
+    .hbr-file-icon {
+        width: 32px; height: 32px; border-radius: 8px;
+        background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.9rem; color: #16a34a; flex-shrink: 0;
+    }
+    .hbr-date { color: #6b7280; font-size: 0.82rem; }
+    .hbr-size-badge {
+        background: linear-gradient(135deg, #f3f4f6, #e5e7eb); color: #374151;
+        padding: 3px 10px; border-radius: 8px; font-size: 0.78rem; font-weight: 600;
+        display: inline-block;
+    }
+
+    /* Action Buttons */
+    .hbr-actions { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+    .hbr-btn {
+        border: none; border-radius: 8px; padding: 5px 12px;
+        font-size: 0.78rem; font-weight: 600; cursor: pointer;
+        display: inline-flex; align-items: center; gap: 4px;
+        transition: all 0.2s; text-decoration: none; color: white;
+    }
+    .hbr-btn:hover { transform: translateY(-1px); color: white; }
+    .hbr-btn.download { background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 2px 8px rgba(16,185,129,0.3); }
+    .hbr-btn.download:hover { box-shadow: 0 4px 12px rgba(16,185,129,0.4); }
+    .hbr-btn.view { background: linear-gradient(135deg, #3b82f6, #2563eb); box-shadow: 0 2px 8px rgba(59,130,246,0.3); }
+    .hbr-btn.view:hover { box-shadow: 0 4px 12px rgba(59,130,246,0.4); }
+    .hbr-btn.delete {
+        background: transparent; border: 1.5px solid #fca5a5; color: #ef4444;
+    }
+    .hbr-btn.delete:hover { background: #fef2f2; color: #dc2626; }
+
+    /* Empty State */
+    .hbr-empty {
+        text-align: center; padding: 3rem 1rem; color: #9ca3af;
+    }
+    .hbr-empty i { font-size: 3rem; opacity: 0.3; display: block; margin-bottom: 1rem; }
+    .hbr-empty p { font-size: 0.9rem; margin: 0; }
+    .hbr-empty a { color: #ef4444; font-weight: 600; }
+
+    /* Search */
+    .hbr-search {
+        border-radius: 10px; border: 1.5px solid #e5e7eb; padding: 6px 12px;
+        font-size: 0.82rem; width: 220px; transition: all 0.2s;
+    }
+    .hbr-search:focus { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.1); outline: none; }
+
+    /* Dark mode */
+    [data-bs-theme="dark"] .hbr-stat-card.danger  { background: linear-gradient(135deg, rgba(239,68,68,0.12), rgba(239,68,68,0.04)); border-color: rgba(239,68,68,0.25); }
+    [data-bs-theme="dark"] .hbr-stat-card.info    { background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(59,130,246,0.04)); border-color: rgba(59,130,246,0.25); }
+    [data-bs-theme="dark"] .hbr-stat-card.success { background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(16,185,129,0.04)); border-color: rgba(16,185,129,0.25); }
+    [data-bs-theme="dark"] .hbr-stat-value { color: #e0e7ff; }
+    [data-bs-theme="dark"] .hbr-table-card { background: #1e1e2e; border-color: #2d2d3f; }
+    [data-bs-theme="dark"] .hbr-table tbody tr { border-color: #2d2d3f; }
+    [data-bs-theme="dark"] .hbr-table tbody td { color: #c7d2fe; }
+    [data-bs-theme="dark"] .hbr-filename { color: #e0e7ff; }
+    [data-bs-theme="dark"] .hbr-size-badge { background: #252536; color: #c7d2fe; }
+    [data-bs-theme="dark"] .hbr-search { background: #252536; border-color: #3d3d52; color: #e0e7ff; }
+    [data-bs-theme="dark"] .hbr-btn.delete { border-color: #7f1d1d; color: #fca5a5; }
+    [data-bs-theme="dark"] .hbr-btn.delete:hover { background: rgba(239,68,68,0.1); }
+</style>
+
+<div class="hbr-page">
+
 <!-- İstatistik Kartları -->
 <div class="row g-3 mb-4">
     <div class="col-12 col-md-4">
-        <div class="stat-card">
-            <div class="stat-icon danger">
-                <i class="bi bi-file-earmark-pdf"></i>
-            </div>
-            <div class="stat-content">
-                <h3>{{ hbr_files|length }}</h3>
-                <p>Toplam HBR Dosyası</p>
+        <div class="hbr-stat-card danger">
+            <div class="hbr-stat-icon danger"><i class="bi bi-file-earmark-pdf"></i></div>
+            <div>
+                <div class="hbr-stat-value">{{ hbr_files|length }}</div>
+                <div class="hbr-stat-label">Toplam HBR Dosyası</div>
             </div>
         </div>
     </div>
     <div class="col-12 col-md-4">
-        <div class="stat-card">
-            <div class="stat-icon info">
-                <i class="bi bi-hdd"></i>
-            </div>
-            <div class="stat-content">
-                <h3 style="font-size: 1.2rem;">{{ total_size_mb|round(2) }} MB</h3>
-                <p>Toplam Boyut</p>
+        <div class="hbr-stat-card info">
+            <div class="hbr-stat-icon info"><i class="bi bi-hdd"></i></div>
+            <div>
+                <div class="hbr-stat-value" style="font-size: 1.3rem;">{{ total_size_mb|round(2) }} MB</div>
+                <div class="hbr-stat-label">Toplam Boyut</div>
             </div>
         </div>
     </div>
     <div class="col-12 col-md-4">
-        <div class="stat-card">
-            <div class="stat-icon success">
-                <i class="bi bi-calendar-event"></i>
-            </div>
-            <div class="stat-content">
-                <h3 style="font-size: 1.1rem;">{{ latest_date if latest_date else '-' }}</h3>
-                <p>Son Oluşturulan</p>
+        <div class="hbr-stat-card success">
+            <div class="hbr-stat-icon success"><i class="bi bi-calendar-event"></i></div>
+            <div>
+                <div class="hbr-stat-value" style="font-size: 1.15rem;">{{ latest_date if latest_date else '-' }}</div>
+                <div class="hbr-stat-label">Son Oluşturulan</div>
             </div>
         </div>
     </div>
 </div>
 
 <!-- HBR Dosyaları Tablosu -->
-<div class="card">
-    <div class="card-header bg-danger text-white">
-        <h5 class="mb-0">
-            <i class="bi bi-table"></i> HBR Dosyaları ({{ hbr_files|length }})
-        </h5>
+<div class="hbr-table-card">
+    <div class="hbr-table-header">
+        <h5><i class="bi bi-table"></i> HBR Dosyaları <span class="hbr-count">{{ hbr_files|length }}</span></h5>
+        <input type="text" class="hbr-search" id="hbrSearch" placeholder="Dosya ara..." oninput="filterHBR()">
     </div>
-    <div class="card-body">
-        {% if hbr_files %}
-        <div class="table-responsive">
-            <table class="table table-hover table-striped mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th width="5%" class="text-center">#</th>
-                        <th width="30%">
-                            <i class="bi bi-file-earmark-excel text-success"></i> Dosya Adı
-                        </th>
-                        <th width="20%">
-                            <i class="bi bi-calendar"></i> Oluşturma Tarihi
-                        </th>
-                        <th width="15%">
-                            <i class="bi bi-hdd"></i> Boyut
-                        </th>
-                        <th width="30%" class="text-center">
-                            <i class="bi bi-gear"></i> İşlemler
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for hbr in hbr_files %}
-                    <tr>
-                        <td class="text-center">
-                            <span class="badge bg-danger">{{ loop.index }}</span>
-                        </td>
-                        <td>
-                            <i class="bi bi-file-earmark-excel text-success"></i>
-                            <strong>{{ hbr.name }}</strong>
-                        </td>
-                        <td>
-                            <small class="text-muted">{{ hbr.date }}</small>
-                        </td>
-                        <td>
-                            <small class="badge bg-light text-dark">{{ hbr.size_display }}</small>
-                        </td>
-                        <td class="text-center">
-                            <a href="{{ url_for('hbr_download', filename=hbr.name) }}" 
-                               class="btn btn-sm btn-success"
-                               title="Excel dosyasını indir">
+
+    {% if hbr_files %}
+    <div class="table-responsive">
+        <table class="table hbr-table mb-0" id="hbrTable">
+            <thead>
+                <tr>
+                    <th style="width: 5%;" class="text-center">#</th>
+                    <th style="width: 35%;"><i class="bi bi-file-earmark-excel me-1"></i> Dosya Adı</th>
+                    <th style="width: 18%;"><i class="bi bi-calendar me-1"></i> Oluşturma Tarihi</th>
+                    <th style="width: 12%;"><i class="bi bi-hdd me-1"></i> Boyut</th>
+                    <th style="width: 30%;" class="text-center"><i class="bi bi-gear me-1"></i> İşlemler</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for hbr in hbr_files %}
+                <tr>
+                    <td class="text-center"><span class="hbr-row-num">{{ loop.index }}</span></td>
+                    <td>
+                        <div class="hbr-filename">
+                            <div class="hbr-file-icon"><i class="bi bi-file-earmark-excel"></i></div>
+                            {{ hbr.name }}
+                        </div>
+                    </td>
+                    <td class="hbr-date">{{ hbr.date }}</td>
+                    <td><span class="hbr-size-badge">{{ hbr.size_display }}</span></td>
+                    <td>
+                        <div class="hbr-actions">
+                            <a href="{{ url_for('hbr_download', filename=hbr.name) }}" class="hbr-btn download" title="İndir">
                                 <i class="bi bi-download"></i> İndir
                             </a>
-                            <a href="{{ url_for('hbr_download', filename=hbr.name) }}" 
-                               class="btn btn-sm btn-primary"
-                               title="Excel dosyasını aç"
-                               target="_blank">
+                            <a href="{{ url_for('hbr_download', filename=hbr.name) }}" class="hbr-btn view" title="Aç" target="_blank">
                                 <i class="bi bi-eye"></i> Aç
                             </a>
-                            <button class="btn btn-sm btn-outline-danger"
-                                    onclick="deleteHBR('{{ hbr.name }}')"
-                                    title="Dosyayı sil">
+                            <button class="hbr-btn delete" onclick="deleteHBR('{{ hbr.name }}')" title="Sil">
                                 <i class="bi bi-trash"></i> Sil
                             </button>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <div class="alert alert-info" role="alert">
-            <i class="bi bi-info-circle"></i> 
-            <strong>Henüz HBR dosyası oluşturulmamış.</strong><br>
-            <small class="text-muted">
-                Yeni bir HBR dosyası oluşturmak için 
-                <a href="{{ url_for('yeni_ariza_bildir') }}" class="alert-link">Yeni Arıza Bildir</a> 
-                kısmından arıza bildirimi yapın ve HBR checkbox'ını işaretleyin.
-            </small>
-        </div>
-        {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
+    {% else %}
+    <div class="hbr-empty">
+        <i class="bi bi-inbox"></i>
+        <p><strong>Henüz HBR dosyası oluşturulmamış.</strong></p>
+        <p style="font-size: 0.82rem; margin-top: 0.5rem;">
+            <a href="{{ url_for('yeni_ariza_bildir') }}">Yeni Arıza Bildir</a> kısmından arıza bildirimi yapın ve HBR checkbox'ını işaretleyin.
+        </p>
+    </div>
+    {% endif %}
 </div>
 
+</div> <!-- /hbr-page -->
+
 <script>
+function filterHBR() {
+    const q = document.getElementById('hbrSearch').value.toLowerCase();
+    document.querySelectorAll('#hbrTable tbody tr').forEach(tr => {
+        const name = tr.querySelector('.hbr-filename')?.textContent.toLowerCase() || '';
+        tr.style.display = name.includes(q) ? '' : 'none';
+    });
+}
+
 function deleteHBR(filename) {
-    if (confirm(`⚠️ "${filename}" dosyasını silmek istediğinize emin misiniz?\n\nBu işlem geri alınamaz.`)) {
+    if (confirm(`"${filename}" dosyasını silmek istediğinize emin misiniz?\n\nBu işlem geri alınamaz.`)) {
         fetch(`/hbr-listesi/sil/${encodeURIComponent(filename)}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
+            headers: { 'Content-Type': 'application/json' }
         })
         .then(response => {
-            if (response.ok) {
-                alert('✓ HBR dosyası silindi');
-                location.reload();
-            } else {
-                alert('✗ Silme işlemi başarısız oldu');
-            }
+            if (response.ok) { location.reload(); }
+            else { alert('Silme işlemi başarısız oldu'); }
         })
         .catch(error => {
             console.error('Hata:', error);
-            alert('✗ Bir hata oluştu');
+            alert('Bir hata oluştu');
         });
     }
 }

@@ -2463,9 +2463,12 @@ def create_app():
                 with open(maintenance_file, 'r', encoding='utf-8') as f:
                     maintenance_data = json.load(f)
             
-            # Bakım seviyelerini sırala (70K ve 140K hariç - bunlar sadece specific KM'lerde)
-            sorted_levels = sorted([(k, v['km']) for k, v in maintenance_data.items() 
-                                   if k not in ['70K', '140K']], key=lambda x: x[1])
+            # Belgrad'da 70K/140K özel mantık: normal kat hesabına dahil edilmez, 72000 km'de eklenir
+            belgrad_special_keys = ['70K', '140K'] if current_project == 'belgrad' else []
+            
+            # Bakım seviyelerini sırala (tüm seviyeler KM katı mantığıyla çalışır)
+            sorted_levels = sorted([(k, v['km']) for k, v in maintenance_data.items()
+                                    if k not in belgrad_special_keys], key=lambda x: x[1])
             
             # Tüm KM noktaları için bakımları hesapla
             schedule = []
@@ -2485,16 +2488,17 @@ def create_app():
                             'ratio': km // level_km
                         })
                 
-                # SPECIAL: 72000 KM'de 70K bakımını da ekle
-                if km == 72000:
+                # Belgrad özel: 72000 KM'de 70K bakımını ekle
+                if current_project == 'belgrad' and km == 72000:
                     works = maintenance_data.get('70K', {}).get('works', [])
                     works_count = len([w for w in works if w.startswith('BOZ')])
-                    applicable.append({
-                        'level': '70K',
-                        'km': 70000,
-                        'works': works_count,
-                        'ratio': 1  # Special case olduğu için 1
-                    })
+                    if works_count > 0:
+                        applicable.append({
+                            'level': '70K',
+                            'km': 70000,
+                            'works': works_count,
+                            'ratio': 1
+                        })
                 
                 if applicable:
                     total_works = sum(m['works'] for m in applicable)
@@ -2949,12 +2953,14 @@ def create_app():
                         '210K': 210000, '300K': 300000
                     }
                 
-                # Max KM ve adım otomatik hesapla
+                # Tüm bakım seviyelerinin KM katlarını birleştir (union)
                 max_km_val = max(maintenance_km.values())
-                # En küçük KM aralığını bul (adım)
-                min_km = min(maintenance_km.values())
-                km_step = min_km if min_km > 0 else 6000
-                km_points = list(range(km_step, max_km_val + 1, km_step))
+                km_points_set = set()
+                for level_km in maintenance_km.values():
+                    if level_km > 0:
+                        for multiple in range(level_km, max_km_val + 1, level_km):
+                            km_points_set.add(multiple)
+                km_points = sorted(km_points_set)
                 logger.info(f'[BAKIM] KM noktaları: {len(km_points)} adet')
                 
                 # Equipment tablosundan araçları al
