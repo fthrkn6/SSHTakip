@@ -540,6 +540,12 @@
                         <i class="bi bi-table me-2"></i>Bakım Planı Tablosu
                     </button>
                 </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="bakim-ayarlari-tab" data-bs-toggle="tab" data-bs-target="#bakim-ayarlari"
+                        type="button" role="tab" aria-controls="bakim-ayarlari" aria-selected="false">
+                        <i class="bi bi-gear me-2"></i>Bakım Seviyeleri Ayarları
+                    </button>
+                </li>
             </ul>
         </div>
     </div>
@@ -645,6 +651,41 @@
             </div>
         </div>
         <!-- /TAB 2: Bakım Planı Tablosu -->
+
+        <!-- TAB 3: Bakım Seviyeleri Ayarları -->
+        <div class="tab-pane fade" id="bakim-ayarlari" role="tabpanel" aria-labelledby="bakim-ayarlari-tab">
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="mb-1"><i class="bi bi-sliders me-2"></i>Bakım KM Seviyeleri</h5>
+                            <small class="text-muted">Bu projeye ait bakım aralıklarını yönetin. Değişiklikler sadece <strong>{{ project_name }}</strong> projesini etkiler.</small>
+                        </div>
+                        <button class="btn btn-primary" onclick="showAddLevelModal()">
+                            <i class="bi bi-plus-circle me-2"></i>Yeni Seviye Ekle
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle" id="levelsTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 120px;">Seviye</th>
+                                    <th style="width: 140px;">KM Aralığı</th>
+                                    <th>Açıklama</th>
+                                    <th style="width: 100px;">İş Sayısı</th>
+                                    <th style="width: 180px;">İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody id="levelsTableBody">
+                                <tr><td colspan="5" class="text-center text-muted py-4"><i class="bi bi-hourglass-split me-2"></i>Yükleniyor...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- /TAB 3: Bakım Seviyeleri Ayarları -->
     </div>
     <!-- /Tab Content -->
 </div>
@@ -1820,6 +1861,99 @@
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         const modal = new bootstrap.Modal(document.getElementById('bakimDetailsModal'));
         modal.show();
+    }
+
+    // =============================================
+    // TAB 3: Bakım Seviyeleri Ayarları
+    // =============================================
+    let levelsLoaded = false;
+
+    document.getElementById('bakim-ayarlari-tab').addEventListener('shown.bs.tab', function () {
+        if (!levelsLoaded) loadLevels();
+    });
+
+    function loadLevels() {
+        fetch('/api/bakim-seviyeleri')
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) throw new Error(data.message);
+                levelsLoaded = true;
+                const tbody = document.getElementById('levelsTableBody');
+                if (!data.levels.length) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Bu proje için bakım seviyesi tanımlanmamış.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = data.levels.map(l => `
+                    <tr>
+                        <td><span class="badge bg-primary fs-6">${l.key}</span></td>
+                        <td><strong>${l.km.toLocaleString('tr-TR')}</strong> km</td>
+                        <td>${l.label}</td>
+                        <td><span class="badge bg-secondary">${l.works_count} iş</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="editLevel('${l.key}', ${l.km}, '${l.label.replace(/'/g, "\\'")}')">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteLevel('${l.key}')">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            })
+            .catch(err => {
+                document.getElementById('levelsTableBody').innerHTML = `<tr><td colspan="5" class="text-danger text-center">${err.message}</td></tr>`;
+            });
+    }
+
+    function showAddLevelModal() {
+        const key = prompt('Seviye adı (örn: 6K, 18K, 72K):');
+        if (!key) return;
+        const km = prompt('KM aralığı (örn: 6000, 18000, 72000):');
+        if (!km || isNaN(km) || parseInt(km) <= 0) { alert('Geçerli bir KM değeri girin.'); return; }
+        const label = prompt('Açıklama:', key.toUpperCase() + ' KM Bakımı') || (key.toUpperCase() + ' KM Bakımı');
+
+        fetch('/api/bakim-seviyeleri', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ key: key, km: parseInt(km), label: label, works: [] })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) { loadLevels(); alert(data.message); }
+            else alert('Hata: ' + data.message);
+        })
+        .catch(err => alert('Hata: ' + err.message));
+    }
+
+    function editLevel(key, currentKm, currentLabel) {
+        const km = prompt(`${key} - Yeni KM değeri:`, currentKm);
+        if (!km || isNaN(km) || parseInt(km) <= 0) return;
+        const label = prompt(`${key} - Yeni açıklama:`, currentLabel);
+        if (label === null) return;
+
+        fetch(`/api/bakim-seviyeleri/${key}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ km: parseInt(km), label: label })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) { loadLevels(); alert(data.message); }
+            else alert('Hata: ' + data.message);
+        })
+        .catch(err => alert('Hata: ' + err.message));
+    }
+
+    function deleteLevel(key) {
+        if (!confirm(`${key} seviyesini silmek istediğinize emin misiniz?`)) return;
+
+        fetch(`/api/bakim-seviyeleri/${key}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) { loadLevels(); alert(data.message); }
+            else alert('Hata: ' + data.message);
+        })
+        .catch(err => alert('Hata: ' + err.message));
     }
 </script>
 

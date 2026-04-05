@@ -4,7 +4,7 @@ from openpyxl import Workbook, load_workbook
 
 
 def _project_dir(project_code: str):
-    return os.path.join(os.path.dirname(__file__), 'data', project_code)
+    return os.path.join(os.path.dirname(__file__), '..', 'data', project_code)
 
 
 def _ensure_workbook(path: str, headers):
@@ -261,7 +261,7 @@ def get_tramvay_list_with_km(project_code: str):
     
     # Get tram IDs from Excel
     tram_ids = []
-    project_folder = os.path.join(os.path.dirname(__file__), 'data', project_code)
+    project_folder = os.path.join(os.path.dirname(__file__), '..', 'data', project_code)
     excel_path = os.path.join(project_folder, 'Veriler.xlsx')
     
     if os.path.exists(excel_path):

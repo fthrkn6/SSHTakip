@@ -802,12 +802,61 @@ Yeni Arıza Bildir
         aksiyon_select.addEventListener('change', toggleParcaBilgileri);
     }
 
-    // ============= PARÇA AUTOCOMPLETE SEARCH WITH DEBOUNCING =============
+    // ============= PARÇA AUTOCOMPLETE - CLIENT-SIDE PRELOADED =============
+    // main.js'deki eski HTTP-bazlı autocomplete'i devre dışı bırak
+    window._partsAutocompleteInitialized = true;
+
     // Proje bilgisini al
     const arizaBildirimForm = document.getElementById('arizaBildirimForm');
     const currentProject = arizaBildirimForm ? arizaBildirimForm.dataset.project : 'belgrad';
     
-    // Debounce function for performance optimization
+    // Tüm parça verisini sayfa açıldığında bir kere yükle
+    let allPartsData = [];
+    let partsLoaded = false;
+
+    (async function preloadParts() {
+        try {
+            const response = await fetch(`/api/parts-lookup?all=1&project=${encodeURIComponent(currentProject)}`);
+            allPartsData = await response.json();
+            partsLoaded = true;
+            console.log(`Parça verisi yüklendi: ${allPartsData.length} adet`);
+        } catch (e) {
+            console.error('Parça verisi yüklenemedi:', e);
+        }
+    })();
+
+    // Client-side hızlı arama fonksiyonu
+    function searchPartsLocal(query, maxResults = 15) {
+        if (!partsLoaded || !query || query.length < 2) return [];
+        const q = query.toUpperCase();
+        const results = [];
+        const seen = new Set();
+
+        // 1. Bileşen no başlangıç eşleşmesi
+        for (const p of allPartsData) {
+            if (p.b.startsWith(q) && !seen.has(p.b)) {
+                results.push(p); seen.add(p.b);
+                if (results.length >= maxResults) return results;
+            }
+        }
+        // 2. Nesne metni başlangıç eşleşmesi
+        for (const p of allPartsData) {
+            if (p.n.startsWith(q) && !seen.has(p.b)) {
+                results.push(p); seen.add(p.b);
+                if (results.length >= maxResults) return results;
+            }
+        }
+        // 3. Kısmi eşleşme
+        for (const p of allPartsData) {
+            if ((p.b.includes(q) || p.n.includes(q)) && !seen.has(p.b)) {
+                results.push(p); seen.add(p.b);
+                if (results.length >= maxResults) return results;
+            }
+        }
+        return results;
+    }
+
+    // Debounce (UI render throttle için)
     function debounce(func, delay) {
         let timeout;
         return function executedFunction(...args) {
@@ -825,42 +874,31 @@ Yeni Arıza Bildir
     const parcaAdiList = document.getElementById('parca_adi_list');
 
     if (parcaAdiInput && parcaAdiList) {
-        // Debounced search function
-        const searchParcaAdi = debounce(async function (query) {
+        const searchParcaAdi = debounce(function (query) {
             if (!query || query.length < 2) {
                 parcaAdiList.style.display = 'none';
                 return;
             }
-
-            try {
-                    const response = await fetch(`/api/parts-lookup?q=${encodeURIComponent(query)}&project=${encodeURIComponent(currentProject)}`);
-                    const filteredResults = await response.json();
-                parcaAdiList.innerHTML = '';
-                filteredResults.forEach(item => {
-                    const li = document.createElement('li');
-                    li.className = 'list-group-item autocomplete-item';
-                    li.innerHTML = `<strong>${item.nesne_metni}</strong> <small class="text-muted">(${item.bilesen_no})</small>`;
-
-                    li.addEventListener('click', function () {
-                        parcaAdiInput.value = item.nesne_metni;
-                        document.getElementById('parca_kodu_input').value = item.bilesen_no;
-                        parcaAdiList.style.display = 'none';
-                    });
-
-                    parcaAdiList.appendChild(li);
+            const filteredResults = searchPartsLocal(query);
+            parcaAdiList.innerHTML = '';
+            filteredResults.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item autocomplete-item';
+                li.innerHTML = `<strong>${item.n}</strong> <small class="text-muted">(${item.b})</small>`;
+                li.addEventListener('click', function () {
+                    parcaAdiInput.value = item.n;
+                    document.getElementById('parca_kodu_input').value = item.b;
+                    parcaAdiList.style.display = 'none';
                 });
-
-                parcaAdiList.style.display = 'block';
-            } catch (error) {
-                console.error('Parça arama hatası:', error);
-            }
-        }, 300); // 300ms debounce delay
+                parcaAdiList.appendChild(li);
+            });
+            parcaAdiList.style.display = filteredResults.length ? 'block' : 'none';
+        }, 100);
 
         parcaAdiInput.addEventListener('input', function () {
             searchParcaAdi(this.value);
         });
 
-        // Hide dropdown when clicking outside
         document.addEventListener('click', function (event) {
             if (event.target !== parcaAdiInput && !parcaAdiList.contains(event.target)) {
                 parcaAdiList.style.display = 'none';
@@ -873,42 +911,31 @@ Yeni Arıza Bildir
     const parcaKoduList = document.getElementById('parca_kodu_list');
 
     if (parcaKoduInput && parcaKoduList) {
-        // Debounced search function
-        const searchParcaKodu = debounce(async function (query) {
+        const searchParcaKodu = debounce(function (query) {
             if (!query || query.length < 2) {
                 parcaKoduList.style.display = 'none';
                 return;
             }
-
-            try {
-                    const response = await fetch(`/api/parts-lookup?q=${encodeURIComponent(query)}&project=${encodeURIComponent(currentProject)}`);
-                    const filteredResults = await response.json();
-                parcaKoduList.innerHTML = '';
-                filteredResults.forEach(item => {
-                    const li = document.createElement('li');
-                    li.className = 'list-group-item autocomplete-item';
-                    li.innerHTML = `<strong>${item.bilesen_no}</strong> <small class="text-muted">${item.nesne_metni}</small>`;
-
-                    li.addEventListener('click', function () {
-                        parcaKoduInput.value = item.bilesen_no;
-                        document.getElementById('parca_adi_input').value = item.nesne_metni;
-                        parcaKoduList.style.display = 'none';
-                    });
-
-                    parcaKoduList.appendChild(li);
+            const filteredResults = searchPartsLocal(query);
+            parcaKoduList.innerHTML = '';
+            filteredResults.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item autocomplete-item';
+                li.innerHTML = `<strong>${item.b}</strong> <small class="text-muted">${item.n}</small>`;
+                li.addEventListener('click', function () {
+                    parcaKoduInput.value = item.b;
+                    document.getElementById('parca_adi_input').value = item.n;
+                    parcaKoduList.style.display = 'none';
                 });
-
-                parcaKoduList.style.display = 'block';
-            } catch (error) {
-                console.error('Parça arama hatası:', error);
-            }
-        }, 300); // 300ms debounce delay
+                parcaKoduList.appendChild(li);
+            });
+            parcaKoduList.style.display = filteredResults.length ? 'block' : 'none';
+        }, 100);
 
         parcaKoduInput.addEventListener('input', function () {
             searchParcaKodu(this.value);
         });
 
-        // Hide dropdown when clicking outside
         document.addEventListener('click', function (event) {
             if (event.target !== parcaKoduInput && !parcaKoduList.contains(event.target)) {
                 parcaKoduList.style.display = 'none';

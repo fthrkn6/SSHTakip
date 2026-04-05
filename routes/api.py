@@ -5,7 +5,8 @@ JSON API'ler - Frontend ile veri alışverişi
 
 from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
-from models import db, Equipment, Failure
+from models import db, Equipment, Failure, Notification
+from utils.api_helpers import api_success, api_error
 import logging
 from typing import Dict, Any
 from datetime import datetime
@@ -158,5 +159,122 @@ def statistics(statistic_type: str) -> Dict[str, Any]:
 
 @bp.route('/health', methods=['GET'])
 def health() -> Dict[str, str]:
-    """Health check endpoint - no authentication required"""
+    """Health check endpoint
+    ---
+    tags:
+      - System
+    responses:
+      200:
+        description: Service is healthy
+    """
     return jsonify({'status': 'ok', 'timestamp': datetime.utcnow().isoformat()})
+
+
+# ==================== TOPLU İŞLEMLER API ====================
+
+@bp.route('/failures/bulk-status', methods=['POST'])
+@login_required
+def bulk_update_failure_status():
+    """Toplu arıza durum güncelleme"""
+    data = request.get_json(silent=True)
+    if not data or not data.get('ids') or not data.get('status'):
+        return api_error('ids ve status alanları gerekli', 400)
+    
+    valid_statuses = ['acik', 'devam_ediyor', 'cozuldu']
+    new_status = data['status']
+    if new_status not in valid_statuses:
+        return api_error(f'Geçersiz durum: {new_status}', 400)
+    
+    ids = data['ids']
+    if not isinstance(ids, list) or len(ids) > 100:
+        return api_error('En fazla 100 kayıt güncellenebilir', 400)
+    
+    updated = Failure.query.filter(Failure.id.in_(ids)).update(
+        {'status': new_status, 'updated_at': datetime.utcnow()},
+        synchronize_session='fetch'
+    )
+    db.session.commit()
+    
+    logger.info(f"Bulk status update: {updated} failures -> {new_status} by user {current_user.id}")
+    return api_success({'updated': updated}, f'{updated} arıza güncellendi')
+
+
+@bp.route('/work-orders/bulk-status', methods=['POST'])
+@login_required
+def bulk_update_work_order_status():
+    """Toplu iş emri durum güncelleme"""
+    from models import WorkOrder
+    
+    data = request.get_json(silent=True)
+    if not data or not data.get('ids') or not data.get('status'):
+        return api_error('ids ve status alanları gerekli', 400)
+    
+    valid_statuses = ['beklemede', 'onay_bekliyor', 'devam_ediyor', 'tamamlandi', 'iptal']
+    new_status = data['status']
+    if new_status not in valid_statuses:
+        return api_error(f'Geçersiz durum: {new_status}', 400)
+    
+    ids = data['ids']
+    if not isinstance(ids, list) or len(ids) > 100:
+        return api_error('En fazla 100 kayıt güncellenebilir', 400)
+    
+    update_data = {'status': new_status, 'updated_at': datetime.utcnow()}
+    if new_status == 'tamamlandi':
+        update_data['completed_date'] = datetime.utcnow()
+    
+    updated = WorkOrder.query.filter(WorkOrder.id.in_(ids)).update(
+        update_data, synchronize_session='fetch'
+    )
+    db.session.commit()
+    
+    logger.info(f"Bulk status update: {updated} work orders -> {new_status} by user {current_user.id}")
+    return api_success({'updated': updated}, f'{updated} iş emri güncellendi')
+
+
+# ==================== BİLDİRİM API ====================
+
+@bp.route('/notifications', methods=['GET'])
+@login_required
+def get_notifications():
+    """Kullanıcının okunmamış bildirimlerini getir"""
+    notifications = Notification.query.filter_by(
+        user_id=current_user.id, is_read=False
+    ).order_by(Notification.created_at.desc()).limit(20).all()
+    
+    return jsonify({
+        'success': True,
+        'count': len(notifications),
+        'notifications': [{
+            'id': n.id,
+            'title': n.title,
+            'message': n.message,
+            'category': n.category,
+            'link': n.link,
+            'created_at': n.created_at.isoformat() if n.created_at else None
+        } for n in notifications]
+    })
+
+
+@bp.route('/notifications/<int:notification_id>/read', methods=['POST'])
+@login_required
+def mark_notification_read(notification_id):
+    """Bildirimi okundu olarak işaretle"""
+    notification = Notification.query.filter_by(
+        id=notification_id, user_id=current_user.id
+    ).first()
+    if not notification:
+        return api_error('Bildirim bulunamadı', 404)
+    notification.is_read = True
+    db.session.commit()
+    return api_success(message='Bildirim okundu')
+
+
+@bp.route('/notifications/read-all', methods=['POST'])
+@login_required
+def mark_all_notifications_read():
+    """Tüm bildirimleri okundu olarak işaretle"""
+    Notification.query.filter_by(
+        user_id=current_user.id, is_read=False
+    ).update({'is_read': True})
+    db.session.commit()
+    return api_success(message='Tüm bildirimler okundu')

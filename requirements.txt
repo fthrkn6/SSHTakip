@@ -10,6 +10,16 @@ SQLAlchemy==2.0.21
 # Environment Management
 python-dotenv==1.0.0
 
+# Security
+Flask-Limiter==3.5.0
+Flask-WTF==1.2.1
+
+# API Documentation
+flasgger==0.9.7.1
+
+# Task Scheduling
+APScheduler==3.10.4
+
 # Data Processing & Excel
 pandas==2.0.3
 openpyxl==3.1.2

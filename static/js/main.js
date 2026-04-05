@@ -255,6 +255,8 @@ function downloadCSV(csv, filename) {
 //     };
 // }
 // Parça Kodu - Parça Adı Lookup (Autocomplete)
+// NOT: Bu modül yeni_ariza_bildir.html içindeki client-side preloaded autocomplete tarafından override edilir.
+// Sayfa kendi inline script'ini kullanıyorsa bu çalışmaz (duplicate event listener sorunu önlendi).
 document.addEventListener('DOMContentLoaded', function () {
     const koduInput = document.getElementById('parca_kodu_input');
     const koduList = document.getElementById('parca_kodu_list');
@@ -262,6 +264,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const adiList = document.getElementById('parca_adi_list');
 
     if (!koduInput) return; // Sayfa bileşen bulmamazsa çık
+
+    // Eğer sayfa kendi preloaded autocomplete'ini kullanıyorsa bu modülü devre dışı bırak
+    if (window._partsAutocompleteInitialized) return;
 
     // Proje bilgisini al
     const form = document.getElementById('arizaBildirimForm');

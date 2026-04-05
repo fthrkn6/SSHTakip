@@ -21,6 +21,7 @@ from utils.utils_service_status import AvailabilityAnalyzer, ExcelReportGenerato
 from utils.utils_daily_service_logger import log_service_status as log_service_to_file
 from utils.utils_service_status_excel_logger import log_service_status_to_excel
 from utils.utils_excel_grid_manager import ExcelGridManager, RCAExcelManager
+from utils.utils_project_excel_store import upsert_service_status
 from openpyxl import load_workbook
 import os
 import json
@@ -414,6 +415,22 @@ def log_service_status():
             date_param=tarih,  # Seçili tarih parametrisini geçir
             project_code=project_code  # Proje kodunu geçir
         )
+        
+        # **SERVICE EXCEL SYNC: Ana servis durum Excel'ini güncelle (sync_service_excel_to_db ile uyumlu)**
+        try:
+            status_date = tarih if tarih else date.today().strftime('%Y-%m-%d')
+            upsert_service_status(
+                project_code=project_code,
+                status_date=status_date,
+                tram_id=str(tram_id),
+                status=new_status,
+                sistem=sistem or '',
+                alt_sistem=alt_sistem or '',
+                aciklama=reason or '',
+                updated_by=current_user.username if current_user else 'system'
+            )
+        except Exception as excel_sync_error:
+            logger.warning(f'Service Excel sync hatası (devam et): {excel_sync_error}')
         
         # Günlük availability'i güncelle
         AvailabilityCalculator.calculate_daily_availability(tram_id)

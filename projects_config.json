@@ -64,10 +64,10 @@
       "admin": "admin@bozankaya.com"
     },
     {
-      "code": "nap20",
+      "code": "napoli",
       "name": "Napoli",
-      "description": "",
-      "location": "İtalya",
+      "description": "Napoli",
+      "location": "Napoli, İtalya",
       "status": "aktif",
       "created": "2026-03-31",
       "admin": "admin@bozankaya.com"

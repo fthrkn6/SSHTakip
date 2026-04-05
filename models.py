@@ -188,7 +188,7 @@ class Equipment(db.Model):
     __tablename__ = 'equipment'
     
     id = db.Column(db.Integer, primary_key=True)
-    equipment_code = db.Column(db.String(50), unique=True, nullable=False)
+    equipment_code = db.Column(db.String(50), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     equipment_type = db.Column(db.String(50))
     manufacturer = db.Column(db.String(100))
@@ -245,6 +245,13 @@ class Equipment(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    __table_args__ = (
+        db.UniqueConstraint('equipment_code', 'project_code', name='uq_equipment_code_project'),
+        db.Index('ix_equipment_project_code', 'project_code'),
+        db.Index('ix_equipment_project_status', 'project_code', 'status'),
+        db.Index('ix_equipment_parent_id', 'parent_id'),
+    )
+
     children = db.relationship('Equipment', backref=db.backref('parent', remote_side=[id]), lazy='dynamic')
     failures = db.relationship('Failure', backref='equipment', lazy='dynamic')
     work_orders = db.relationship('WorkOrder', backref='equipment', lazy='dynamic')
@@ -378,6 +385,14 @@ class Failure(db.Model):
     last_updated_by = db.Column(db.Integer, db.ForeignKey('users.id'))
     last_updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    __table_args__ = (
+        db.Index('ix_failure_project_code', 'project_code'),
+        db.Index('ix_failure_project_status', 'project_code', 'status'),
+        db.Index('ix_failure_fracas_id', 'fracas_id'),
+        db.Index('ix_failure_equipment_id', 'equipment_id'),
+        db.Index('ix_failure_failure_date', 'failure_date'),
+    )
+
     reporter = db.relationship('User', foreign_keys=[reported_by], backref='reported_failures')
     assignee = db.relationship('User', foreign_keys=[assigned_to], backref='assigned_failures')
     resolver = db.relationship('User', foreign_keys=[resolved_by], backref='resolved_failures')
@@ -452,6 +467,12 @@ class WorkOrder(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    __table_args__ = (
+        db.Index('ix_work_order_project_code', 'project_code'),
+        db.Index('ix_work_order_project_status', 'project_code', 'status'),
+        db.Index('ix_work_order_equipment_id', 'equipment_id'),
+    )
+
     creator = db.relationship('User', foreign_keys=[created_by], backref='created_orders')
     assignee = db.relationship('User', foreign_keys=[assigned_to], backref='assigned_orders')
     approver = db.relationship('User', foreign_keys=[approved_by], backref='approved_orders')
@@ -1441,6 +1462,26 @@ class MaintenanceTrigger(db.Model):
         return 0
 
 
+class Notification(db.Model):
+    """Uygulama içi bildirim modeli"""
+    __tablename__ = 'notifications'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    message = db.Column(db.Text)
+    category = db.Column(db.String(50), default='info')  # info, warning, danger, success
+    link = db.Column(db.String(500))  # İlgili sayfaya link
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    user = db.relationship('User', backref='notifications')
+    
+    __table_args__ = (
+        db.Index('ix_notification_user_read', 'user_id', 'is_read'),
+    )
+
+
 class MaintenanceAlert(db.Model):
     """Bakım uyarıları - Otomatik bildirimler"""
     __tablename__ = 'maintenance_alerts'
@@ -1653,7 +1694,11 @@ class ServiceStatus(db.Model):
     
     user = db.relationship('User', backref='service_statuses')
     
-    __table_args__ = (db.UniqueConstraint('tram_id', 'date', 'project_code', name='unique_tram_date_project'),)
+    __table_args__ = (
+        db.UniqueConstraint('tram_id', 'date', 'project_code', name='unique_tram_date_project'),
+        db.Index('ix_service_status_project_date', 'project_code', 'date'),
+        db.Index('ix_service_status_project_status', 'project_code', 'status'),
+    )
     
     def __repr__(self):
         return f'<ServiceStatus {self.tram_id} - {self.date}: {self.status}>'

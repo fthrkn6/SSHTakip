@@ -4,6 +4,9 @@ Bozankaya Hafif Raylı Sistem için Kapsamlı Bakım Yönetimi
 EN 13306, ISO 55000, EN 15341, ISO 27001 Standartlarına Uygun
 """
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, after_this_request
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from datetime import datetime
@@ -50,6 +53,7 @@ from datetime import timedelta
 from utils.utils_performance import init_cache, CacheManager, CacheConfig, cache_result
 from utils.utils_report_manager import template_manager, report_builder, ReportTemplateManager
 from utils.utils_ui_config import UIConfig, DARK_MODE_SCRIPT, CUSTOM_CSS
+from utils.validators import sanitize_string
 
 # Celery for async tasks
 try:
@@ -80,12 +84,13 @@ ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'dwg', 'jpg', 'png', 
 PROJECTS = [
     {'code': 'belgrad', 'name': 'Belgrad', 'country': 'Sırbistan', 'flag': '🇷🇸'},
     {'code': 'iasi', 'name': 'Iași', 'country': 'Romanya', 'flag': '🇷🇴'},
-    {'code': 'timisoara', 'name': 'Timișoara', 'country': 'Romanya', 'flag': '�🇴'},
+    {'code': 'timisoara', 'name': 'Timișoara', 'country': 'Romanya', 'flag': '🇷🇴'},
     {'code': 'kayseri', 'name': 'Kayseri', 'country': 'Türkiye', 'flag': '🇹🇷'},
     {'code': 'kocaeli', 'name': 'Kocaeli', 'country': 'Türkiye', 'flag': '🇹🇷'},
     {'code': 'gebze', 'name': 'Gebze', 'country': 'Türkiye', 'flag': '🇹🇷'},
     {'code': 'samsun', 'name': 'Samsun', 'country': 'Türkiye', 'flag': '🇹🇷'},
     {'code': 'istanbul', 'name': 'İstanbul', 'country': 'Türkiye', 'flag': '🇹🇷'},
+    {'code': 'napoli', 'name': 'Napoli', 'country': 'İtalya', 'flag': '🇮🇹'},
 ]
 
 # Sistem üzerindeki tüm sayfalar - Yetkilendirme için
@@ -119,8 +124,7 @@ PAGES = [
     {'id': 16, 'code': 'kullanici_yonetimi', 'name': 'Kullanıcı Yönetimi', 'section': 'Yönetim'},
     {'id': 17, 'code': 'proje_yonetimi', 'name': 'Proje Yönetimi', 'section': 'Yönetim'},
     {'id': 18, 'code': 'yedekleme', 'name': 'Yedekleme', 'section': 'Yönetim'},
-    {'id': 19, 'code': 'denetim', 'name': 'Denetim Günlüğü', 'section': 'Yönetim'},
-    {'id': 20, 'code': 'yetkilendirme', 'name': 'Yetki Yönetimi', 'section': 'Yönetim'},
+    {'id': 19, 'code': 'yetkilendirme', 'name': 'Yetki Yönetimi', 'section': 'Yönetim'},
 ]
 
 
@@ -198,8 +202,8 @@ def create_app():
         app = Flask(__name__, static_folder='static', static_url_path='/static')
         
         # Configuration
-        app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'bozankaya-ssh_takip-2024-gizli')
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ssh_takip_bozankaya.db'
+        app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'change-me-in-production')
+        app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///ssh_takip_bozankaya.db')
         app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'pool_size': 10,
@@ -236,6 +240,32 @@ def create_app():
             Compress(app)
         except ImportError:
             pass  # Flask-Compress not installed, skipping
+        
+        # Rate Limiting (brute-force koruması)
+        try:
+            from flask_limiter import Limiter
+            from flask_limiter.util import get_remote_address
+            limiter = Limiter(
+                app=app,
+                key_func=get_remote_address,
+                default_limits=["200 per hour"],
+                storage_uri="memory://",
+            )
+            app.limiter = limiter
+            logger.info("Rate limiter initialized")
+        except ImportError:
+            limiter = None
+            logger.warning("Flask-Limiter not installed - rate limiting disabled")
+        
+        # CSRF Protection
+        try:
+            from flask_wtf.csrf import CSRFProtect
+            csrf = CSRFProtect(app)
+            app.csrf = csrf
+            logger.info("CSRF protection initialized")
+        except ImportError:
+            csrf = None
+            logger.warning("Flask-WTF not installed - CSRF protection disabled")
         
         # Initialize Cache Manager
         try:
@@ -295,6 +325,44 @@ def create_app():
         
         from routes.reporting import bp as reporting_bp
         app.register_blueprint(reporting_bp)  # Advanced reporting
+        
+        from routes.tramvay_km import bp as tramvay_km_bp
+        app.register_blueprint(tramvay_km_bp)  # Tramvay KM Takip
+        
+        # Swagger API Documentation
+        try:
+            from flasgger import Swagger
+            swagger_config = {
+                "headers": [],
+                "specs": [{
+                    "endpoint": "apispec",
+                    "route": "/apispec.json",
+                }],
+                "static_url_path": "/flasgger_static",
+                "swagger_ui": True,
+                "specs_route": "/apidocs/"
+            }
+            swagger_template = {
+                "info": {
+                    "title": "SSH Takip API",
+                    "description": "Bozankaya Bakım Yönetim Sistemi RESTful API",
+                    "version": "1.4.0",
+                },
+                "securityDefinitions": {
+                    "SessionAuth": {"type": "apiKey", "name": "session", "in": "cookie"}
+                },
+            }
+            Swagger(app, config=swagger_config, template=swagger_template)
+            logger.info("Swagger API docs initialized at /apidocs/")
+        except ImportError:
+            logger.warning("Flasgger not installed - API docs disabled")
+        
+        # Scheduled tasks
+        try:
+            from utils.scheduler import init_scheduler
+            init_scheduler(app)
+        except Exception as e:
+            logger.warning(f"Scheduler init skipped: {e}")
         
         # Project session handler
         @app.before_request
@@ -413,14 +481,18 @@ def create_app():
                 return app.send_static_file('favicon.ico')
             return ('', 204)
 
+        # Rate limit decorator for login
+        _login_rate_limit = limiter.limit("5 per minute", methods=["POST"]) if limiter else (lambda f: f)
+
         @app.route('/login', methods=['GET', 'POST'])
+        @_login_rate_limit
         def login():
             if current_user.is_authenticated:
                 return redirect(url_for('dashboard.index'))
             
             if request.method == 'POST':
                 try:
-                    username = request.form.get('username')
+                    username = sanitize_string(request.form.get('username'), max_length=100)
                     password = request.form.get('password')
                     logger.info(f"\1")
                     
@@ -1905,7 +1977,7 @@ def create_app():
 
         @app.route('/api/projects')
         def get_projects():
-            """Systemde mevcut tüm projeleri döndür (data/ + projects_config.json birleştir)"""
+            """Kullanıcının erişebileceği projeleri döndür (data/ + projects_config.json birleştir)"""
             import os
             try:
                 projects_map = {}
@@ -1943,7 +2015,13 @@ def create_app():
                                     'has_veriler': True
                                 }
                 
-                projects = sorted(projects_map.values(), key=lambda x: x['code'])
+                # Kullanıcının erişim yetkisi olan projeleri filtrele
+                all_projects = sorted(projects_map.values(), key=lambda x: x['code'])
+                if current_user and current_user.is_authenticated:
+                    projects = [p for p in all_projects if current_user.can_access_project(p['code'])]
+                else:
+                    projects = all_projects
+                
                 return jsonify(projects)
             except Exception as e:
                 print(f'[ERROR] /api/projects: {e}')
@@ -2244,9 +2322,7 @@ def create_app():
             
             query = request.args.get('q', '').strip()
             project = request.args.get('project') or session.get('current_project', 'belgrad')
-            
-            if not query or len(query) < 2:
-                return jsonify([])
+            load_all = request.args.get('all', '').strip()
             
             # Cache'i proje için yükle
             parts_cache = load_parts_cache(project)
@@ -2254,7 +2330,14 @@ def create_app():
             if not parts_cache:
                 return jsonify([])
             
-            query_lower = query.lower()
+            # Tüm parçaları döndür (client-side arama için)
+            if load_all == '1':
+                all_parts = [{'b': p['bilesen_no'], 'n': p['nesne_metni']} for p in parts_cache]
+                return jsonify(all_parts)
+            
+            if not query or len(query) < 2:
+                return jsonify([])
+            
             query_upper = query.upper()
             results = []
             
@@ -2846,22 +2929,30 @@ def create_app():
                 
                 logger.info('[BAKIM] Transpoze tablo yükleniyor...')
                 
-                # Bakım seviyeleri ve KM değerleri
-                maintenance_km = {
-                    '6K': 6000,
-                    '18K': 18000,
-                    '24K': 24000,
-                    '36K': 36000,
-                    '60K': 60000,
-                    '70K': 70000,
-                    '100K': 100000,
-                    '140K': 140000,
-                    '210K': 210000,
-                    '300K': 300000
-                }
+                # Bakım seviyeleri ve KM değerleri - maintenance.json'dan dinamik oku
+                current_project = session.get('current_project', 'belgrad')
+                maint_file = os.path.join(os.path.dirname(__file__), 'data', current_project, 'maintenance.json')
+                maintenance_km = {}
+                if os.path.exists(maint_file):
+                    with open(maint_file, 'r', encoding='utf-8') as f:
+                        maint_data = json.load(f)
+                    for key, val in maint_data.items():
+                        maintenance_km[key] = val.get('km', int(key.replace('K', '')) * 1000)
                 
-                # KM noktaları: 6000'ün katları (6000, 12000, 18000... 300000'a kadar)
-                km_points = list(range(6000, 300001, 6000))
+                if not maintenance_km:
+                    # Fallback: varsayılan değerler
+                    maintenance_km = {
+                        '6K': 6000, '18K': 18000, '24K': 24000, '36K': 36000,
+                        '60K': 60000, '72K': 72000, '102K': 102000, '138K': 138000,
+                        '210K': 210000, '300K': 300000
+                    }
+                
+                # Max KM ve adım otomatik hesapla
+                max_km_val = max(maintenance_km.values())
+                # En küçük KM aralığını bul (adım)
+                min_km = min(maintenance_km.values())
+                km_step = min_km if min_km > 0 else 6000
+                km_points = list(range(km_step, max_km_val + 1, km_step))
                 logger.info(f'[BAKIM] KM noktaları: {len(km_points)} adet')
                 
                 # Equipment tablosundan araçları al
@@ -2951,6 +3042,141 @@ def create_app():
                 import traceback
                 logger.error(traceback.format_exc())
                 return jsonify({'error': str(e)}), 500
+
+        @app.route('/api/bakim-seviyeleri', methods=['GET'])
+        @login_required
+        def bakim_seviyeleri_get():
+            """Mevcut projenin bakım seviyelerini döndür"""
+            import json
+            try:
+                current_project = session.get('current_project', 'belgrad').lower()
+                maint_file = os.path.join(os.path.dirname(__file__), 'data', current_project, 'maintenance.json')
+                
+                if os.path.exists(maint_file):
+                    with open(maint_file, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                else:
+                    data = {}
+                
+                # Sıralı liste olarak döndür
+                levels = []
+                for key, val in sorted(data.items(), key=lambda x: x[1].get('km', 0)):
+                    levels.append({
+                        'key': key,
+                        'km': val.get('km', 0),
+                        'label': val.get('label', f'{key} KM Bakımı'),
+                        'works_count': len([w for w in val.get('works', []) if w.startswith('BOZ')])
+                    })
+                
+                return jsonify({'success': True, 'levels': levels, 'project': current_project})
+            except Exception as e:
+                return jsonify({'success': False, 'message': str(e)}), 500
+
+        @app.route('/api/bakim-seviyeleri', methods=['POST'])
+        @login_required
+        def bakim_seviyeleri_ekle():
+            """Yeni bakım seviyesi ekle"""
+            import json
+            try:
+                current_project = session.get('current_project', 'belgrad').lower()
+                maint_file = os.path.join(os.path.dirname(__file__), 'data', current_project, 'maintenance.json')
+                
+                # Mevcut veriyi yükle
+                if os.path.exists(maint_file):
+                    with open(maint_file, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                else:
+                    data = {}
+                
+                req = request.get_json()
+                key = req.get('key', '').strip().upper()
+                km = int(req.get('km', 0))
+                label = req.get('label', f'{key} KM Bakımı').strip()
+                works = req.get('works', [])
+                
+                if not key or km <= 0:
+                    return jsonify({'success': False, 'message': 'Seviye adı ve KM değeri gerekli'}), 400
+                
+                if key in data:
+                    return jsonify({'success': False, 'message': f'{key} seviyesi zaten mevcut'}), 400
+                
+                data[key] = {
+                    'km': km,
+                    'label': label,
+                    'works': works
+                }
+                
+                with open(maint_file, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                
+                logger.info(f'[BAKIM] Yeni seviye eklendi: {key} ({km} km) - {current_project}')
+                return jsonify({'success': True, 'message': f'{key} seviyesi eklendi'})
+            except Exception as e:
+                return jsonify({'success': False, 'message': str(e)}), 500
+
+        @app.route('/api/bakim-seviyeleri/<key>', methods=['PUT'])
+        @login_required
+        def bakim_seviyeleri_guncelle(key):
+            """Bakım seviyesini güncelle"""
+            import json
+            try:
+                current_project = session.get('current_project', 'belgrad').lower()
+                maint_file = os.path.join(os.path.dirname(__file__), 'data', current_project, 'maintenance.json')
+                
+                if not os.path.exists(maint_file):
+                    return jsonify({'success': False, 'message': 'Bakım dosyası bulunamadı'}), 404
+                
+                with open(maint_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                key = key.upper()
+                if key not in data:
+                    return jsonify({'success': False, 'message': f'{key} seviyesi bulunamadı'}), 404
+                
+                req = request.get_json()
+                if 'km' in req:
+                    data[key]['km'] = int(req['km'])
+                if 'label' in req:
+                    data[key]['label'] = req['label'].strip()
+                if 'works' in req:
+                    data[key]['works'] = req['works']
+                
+                with open(maint_file, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                
+                logger.info(f'[BAKIM] Seviye güncellendi: {key} - {current_project}')
+                return jsonify({'success': True, 'message': f'{key} seviyesi güncellendi'})
+            except Exception as e:
+                return jsonify({'success': False, 'message': str(e)}), 500
+
+        @app.route('/api/bakim-seviyeleri/<key>', methods=['DELETE'])
+        @login_required
+        def bakim_seviyeleri_sil(key):
+            """Bakım seviyesini sil"""
+            import json
+            try:
+                current_project = session.get('current_project', 'belgrad').lower()
+                maint_file = os.path.join(os.path.dirname(__file__), 'data', current_project, 'maintenance.json')
+                
+                if not os.path.exists(maint_file):
+                    return jsonify({'success': False, 'message': 'Bakım dosyası bulunamadı'}), 404
+                
+                with open(maint_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                key = key.upper()
+                if key not in data:
+                    return jsonify({'success': False, 'message': f'{key} seviyesi bulunamadı'}), 404
+                
+                del data[key]
+                
+                with open(maint_file, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                
+                logger.info(f'[BAKIM] Seviye silindi: {key} - {current_project}')
+                return jsonify({'success': True, 'message': f'{key} seviyesi silindi'})
+            except Exception as e:
+                return jsonify({'success': False, 'message': str(e)}), 500
 
         @app.route('/api/bakim-pdf/<int:km>')
         @login_required
@@ -3306,38 +3532,16 @@ def create_app():
                 flash(f'❌ Dosya indirme hatası: {str(e)}', 'danger')
                 return redirect(url_for('dokuman_detay', id=id))
 
-        @app.route('/kullanicilar')
-        @login_required
-        def kullanicilar():
-            """Users list"""
-            users = User.query.all()
-            return render_template('kullanicilar.html', users=users)
-
-        @app.route('/kullanici/ekle', methods=['GET', 'POST'])
-        @login_required
-        def kullanici_ekle():
-            """Add user"""
-            if request.method == 'POST':
-                user = User(
-                    username=request.form.get('username'),
-                    email=request.form.get('email'),
-                    full_name=request.form.get('full_name'),
-                    role='user'
-                )
-                user.set_password(request.form.get('password'))
-                db.session.add(user)
-                db.session.commit()
-                flash('User created', 'success')
-                return redirect(url_for('kullanicilar'))
-            return render_template('kullanici-ekle.html')
-
         @app.route('/proje-sec')
+        @login_required
         def proje_sec():
-            """Select project"""
+            """Select project - sadece kullanıcının yetkili olduğu projeler"""
             current_project = session.get('current_project', 'belgrad')
-            # Add metadata to projects
+            # Add metadata to projects - sadece erişim yetkisi olan projeler
             projects_with_data = []
             for project in PROJECTS:
+                if not current_user.can_access_project(project['code']):
+                    continue
                 project_data = project.copy()
                 project_data['has_fracas'] = False
                 project_data['vehicle_count'] = 0
@@ -3350,18 +3554,24 @@ def create_app():
         @app.route('/proje-degistir/<project_code>')
         @login_required
         def proje_degistir(project_code):
-            """Change project"""
+            """Change project - erişim kontrolü ile"""
             logger.info(f"\1")
             project = next((p for p in PROJECTS if p['code'] == project_code), None)
             
-            if project:
-                session['current_project'] = project_code
-                session['project_code'] = project_code.lower()
-                session['project_name'] = f"{project['flag']} {project['name']}"
-                logger.info(f"\1")
-                flash(f"Proje değiştirildi: {project['flag']} {project['name']}", 'success')
-            else:
+            if not project:
                 flash('Geçersiz proje!', 'error')
+                return redirect(url_for('dashboard.index'))
+            
+            if not current_user.can_access_project(project_code):
+                flash('Bu projeye erişim yetkiniz yok!', 'danger')
+                logger.warning(f"Yetkisiz proje erişim denemesi: {current_user.username} -> {project_code}")
+                return redirect(url_for('dashboard.index'))
+            
+            session['current_project'] = project_code
+            session['project_code'] = project_code.lower()
+            session['project_name'] = f"{project['flag']} {project['name']}"
+            logger.info(f"\1")
+            flash(f"Proje değiştirildi: {project['flag']} {project['name']}", 'success')
             
             return redirect(url_for('dashboard.index'))
 
@@ -3370,284 +3580,6 @@ def create_app():
         def profil_guncelle():
             """Update profile"""
             return update_profile()
-
-        @app.route('/audit-log')
-        @login_required
-        def audit_log():
-            """Audit log"""
-            return render_template('audit-log.html')
-        @app.route('/tramvay-km')
-        @login_required
-        def tramvay_km():
-            """Tram kilometer tracking - Single source of truth: Equipment DB"""
-            project_code = session.get('current_project', 'belgrad').lower()
-            
-            # Use centralized helper function - handles all KM logic
-            try:
-                from utils.utils_project_excel_store import get_tramvay_list_with_km
-                equipments = get_tramvay_list_with_km(project_code)
-            except Exception as e:
-                logger.error(f"tramvay_km error: {e}")
-                equipments = Equipment.query.filter_by(project_code=project_code).all()
-            
-            # Calculate stats
-            stats = {
-                'toplam_tramvay': len(equipments),
-                'toplam_km': sum(getattr(e, 'current_km', 0) or 0 for e in equipments),
-                'ortalama_km': sum(getattr(e, 'current_km', 0) or 0 for e in equipments) // len(equipments) if equipments else 0,
-                'max_km': max([getattr(e, 'current_km', 0) or 0 for e in equipments]) if equipments else 0,
-            }
-            
-            return render_template('tramvay_km.html', 
-                                 stats=stats,
-                                 equipments=equipments,
-                                 project_name=session.get('project_name', 'Belgrad'))
-
-        @app.route('/tramvay-km/guncelle', methods=['POST'])
-        @login_required
-        def tramvay_km_guncelle():
-            """Update tram km - Single source: Equipment table
-            Sync (bootstrap/sync) handles all propagation to Excel/JSON
-            """
-            logger.info(f"\1")
-            try:
-                tram_id = request.form.get('tram_id')
-                current_km = request.form.get('current_km', 0)
-                notes = request.form.get('notes', '')
-                project_code = session.get('current_project', 'belgrad').lower()
-                logger.info(f"\1")
-                
-                # Find equipment - try equipment_code first, then id
-                equipment = Equipment.query.filter_by(equipment_code=str(tram_id), project_code=project_code).first()
-                if not equipment and str(tram_id).isdigit():
-                    equipment = Equipment.query.filter_by(id=int(tram_id), project_code=project_code).first()
-                
-                tram_code = str(equipment.equipment_code) if equipment else str(tram_id)
-                old_km = equipment.current_km if equipment else 0
-                
-                # Create if not exists
-                if not equipment:
-                    equipment = Equipment(
-                        equipment_code=tram_code,
-                        name=f'Tramvay {tram_code}',
-                        equipment_type='Tramvay',
-                        current_km=0,
-                        monthly_km=0,
-                        notes='',
-                        project_code=project_code
-                    )
-                    db.session.add(equipment)
-                
-                # Update KM in database (single source of truth)
-                new_km = int(current_km) if current_km else 0
-                equipment.current_km = new_km
-                equipment.notes = notes
-                db.session.commit()
-                
-                # Log the change
-                log_km_change(
-                    tram_id=tram_code,
-                    old_km=old_km,
-                    new_km=new_km,
-                    user=current_user.username if current_user else 'system',
-                    project_code=project_code,
-                    notes=notes
-                )
-                
-                # Log to Excel for permanent audit trail
-                try:
-                    km_excel_logger = KMExcelLogger(project_code)
-                    km_excel_logger.log_km_to_excel(
-                        tram_id=tram_code,
-                        previous_km=old_km,
-                        new_km=new_km,
-                        reason=notes or 'Gün sonu sayımı',
-                        user=current_user.username if current_user else 'Sistem',
-                        system_type='Manuel'
-                    )
-                except Exception as excel_err:
-                    logger.warning(f'KM Excel logging failed for {tram_code}: {excel_err}')
-                
-                # KM takip matrisine yaz (satır=araç, sütun=tarih)
-                try:
-                    log_km_takip(project_code, tram_code, new_km)
-                except Exception as takip_err:
-                    logger.warning(f'KM takip Excel hatasi {tram_code}: {takip_err}')
-                
-                # NOTE: Excel senkronizasyonu kaldırıldı - Equipment tablosu tek kaynak
-                # Excel'in Database'i override etmesini önlemek için burada sync yapılmıyor
-                
-                flash(f'✅ {tram_code} KM bilgileri kaydedildi', 'success')
-                
-            except Exception as e:
-                db.session.rollback()
-                flash(f'❌ Kaydedilme hatası: {str(e)}', 'danger')
-            
-            return redirect(url_for('tramvay_km'))
-
-        @app.route('/tramvay-km/toplu-guncelle', methods=['POST'])
-        @login_required
-        def tramvay_km_toplu_guncelle():
-            """Bulk KM update - clean single path via Equipment table"""
-            try:
-                updates = request.get_json() or {}
-                count = 0
-                errors = []
-                project_code = session.get('current_project', 'belgrad').lower()
-                
-                for tram_id, data in updates.items():
-                    try:
-                        tram_code = str(tram_id)
-                        
-                        # Find or create equipment
-                        equipment = Equipment.query.filter_by(
-                            equipment_code=tram_code, 
-                            project_code=project_code
-                        ).first()
-                        
-                        if not equipment and tram_code.isdigit():
-                            equipment = Equipment.query.filter_by(
-                                id=int(tram_code), 
-                                project_code=project_code
-                            ).first()
-                            if equipment:
-                                tram_code = str(equipment.equipment_code)
-                        
-                        if not equipment:
-                            equipment = Equipment(
-                                equipment_code=tram_code,
-                                name=f'Tramvay {tram_code}',
-                                equipment_type='Tramvay',
-                                current_km=0,
-                                monthly_km=0,
-                                notes='',
-                                project_code=project_code
-                            )
-                            db.session.add(equipment)
-                        
-                        # Update KM if provided
-                        if 'current_km' in data and data['current_km']:
-                            try:
-                                new_km = int(float(data['current_km']))
-                                old_km = equipment.current_km if equipment else 0
-                                equipment.current_km = new_km
-                                
-                                # Sync to Excel/JSON
-                                upsert_km(
-                                    project_code=project_code,
-                                    tram_id=tram_code,
-                                    current_km=new_km,
-                                    notes=str(data.get('notes', '') or ''),
-                                    updated_by=current_user.username if current_user else 'admin'
-                                )
-                                
-                                # Also log to Excel audit trail
-                                try:
-                                    km_excel_logger = KMExcelLogger(project_code)
-                                    km_excel_logger.log_km_to_excel(
-                                        tram_id=tram_code,
-                                        previous_km=old_km,
-                                        new_km=new_km,
-                                        reason=data.get('notes', '') or 'Toplu güncelleme',
-                                        user=current_user.username if current_user else 'Sistem',
-                                        system_type='Manuel'
-                                    )
-                                except Exception as excel_err:
-                                    logger.warning(f'KM Excel logging failed for {tram_code}: {excel_err}')
-                                
-                                # KM takip matrisine yaz
-                                try:
-                                    log_km_takip(project_code, tram_code, new_km)
-                                except Exception as takip_err:
-                                    logger.warning(f'KM takip Excel hatasi {tram_code}: {takip_err}')
-                                
-                            except Exception as km_err:
-                                errors.append(f"{tram_id}: Geçersiz KM değeri ({km_err})")
-                                continue
-                        
-                        # Update notes if provided
-                        if 'notes' in data:
-                            equipment.notes = str(data['notes']).strip()
-                        
-                        count += 1
-                        
-                    except Exception as e:
-                        errors.append(f"Tramvay {tram_id}: {str(e)}")
-                
-                db.session.commit()
-                
-                # No need to sync back - upsert_km already wrote to Excel 
-                # (sync would read old Excel data and potentially overwrite DB)
-                
-                message = f'✅ {count} araç başarıyla kaydedildi'
-                if errors:
-                    message += f' ({len(errors)} hata)'
-                
-                return jsonify({'success': True, 'message': message}), 200
-                
-            except Exception as e:
-                db.session.rollback()
-                logger.error(f"Toplu guncelle error: {e}")
-                return jsonify({'success': False, 'message': f'❌ Hata: {str(e)}'}), 500
-
-        @app.route('/tramvay-km/excel-sync', methods=['POST'])
-        @login_required
-        def tramvay_km_excel_sync():
-            """KM Takip Excel'inden DB'ye senkronizasyon (iki yönlü)"""
-            try:
-                project_code = session.get('current_project', 'belgrad').lower()
-                excel_data = read_latest_km_from_takip(project_code)
-
-                if not excel_data:
-                    flash('Excel dosyası bulunamadı veya boş.', 'warning')
-                    return redirect(url_for('tramvay_km'))
-
-                updated = 0
-                skipped = 0
-                for tram_id, info in excel_data.items():
-                    excel_km = info['km']
-                    equipment = Equipment.query.filter_by(
-                        equipment_code=str(tram_id),
-                        project_code=project_code
-                    ).first()
-
-                    if not equipment:
-                        equipment = Equipment(
-                            equipment_code=str(tram_id),
-                            name=f'Tramvay {tram_id}',
-                            equipment_type='Tramvay',
-                            current_km=0,
-                            monthly_km=0,
-                            notes='',
-                            project_code=project_code
-                        )
-                        db.session.add(equipment)
-
-                    old_km = equipment.current_km or 0
-                    if excel_km != old_km:
-                        equipment.current_km = excel_km
-                        # Değişikliği logla
-                        log_km_change(
-                            tram_id=str(tram_id),
-                            old_km=old_km,
-                            new_km=excel_km,
-                            user=current_user.username if current_user else 'system',
-                            project_code=project_code,
-                            notes='Excel senkronizasyonu'
-                        )
-                        updated += 1
-                    else:
-                        skipped += 1
-
-                db.session.commit()
-                flash(f'✅ Excel senkronizasyonu tamamlandı: {updated} güncellendi, {skipped} değişmedi', 'success')
-
-            except Exception as e:
-                db.session.rollback()
-                logger.error(f'Excel sync error: {e}')
-                flash(f'❌ Senkronizasyon hatası: {str(e)}', 'danger')
-
-            return redirect(url_for('tramvay_km'))
 
         @app.route('/servis-durumu', methods=['GET', 'POST'])
         @login_required
@@ -4241,8 +4173,20 @@ def create_app():
             return render_template('yedek-parca-ekle.html')
 
         # Error handlers
+        @app.errorhandler(403)
+        def forbidden(error):
+            if request.path.startswith('/api/'):
+                return jsonify({'success': False, 'message': 'Erişim reddedildi'}), 403
+            return render_template('404.html'), 403
+
+        @app.errorhandler(429)
+        def ratelimit_handler(error):
+            return jsonify({'success': False, 'message': 'Çok fazla istek - lütfen bekleyin'}), 429
+
         @app.errorhandler(404)
         def not_found(error):
+            if request.path.startswith('/api/'):
+                return jsonify({'success': False, 'message': 'Kaynak bulunamadı'}), 404
             return render_template('404.html'), 404
 
         @app.errorhandler(500)
@@ -4267,6 +4211,9 @@ def create_app():
                 db.session.rollback()
             except Exception:
                 pass
+            
+            if request.path.startswith('/api/'):
+                return jsonify({'success': False, 'message': 'Sunucu hatası'}), 500
             
             try:
                 return render_template('500.html'), 500

@@ -311,6 +311,7 @@
             {% endwith %}
 
             <form method="POST" data-validate data-loading>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group">
                     <label class="form-label">Proje Seçin *</label>
                     <div class="input-group-icon">
@@ -435,7 +436,7 @@
                         {code: 'timisoara', name: 'Timisoara'},
                         {code: 'samsun', name: 'Samsun'},
                         {code: 'istanbul', name: 'İstanbul'},
-                        {code: 'nap20', name: 'Napoli'}
+                        {code: 'napoli', name: 'Napoli'}
                     ];
                     fallbackProjects.forEach(project => {
                         const option = document.createElement('option');

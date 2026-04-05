@@ -629,7 +629,9 @@ def index():
             'current_km': tramvay.current_km if hasattr(tramvay, 'current_km') else 0,
             'status': status_display,
             'status_db': status_from_db,
-            'status_color': status_color
+            'status_color': status_color,
+            'sistem': service_record.sistem if service_record and service_record.sistem else '',
+            'alt_sistem': service_record.alt_sistem if service_record and service_record.alt_sistem else ''
         })
     
     # Toplam arızaları getir - FRACAS dosyasından gerçek veriler
@@ -973,22 +975,20 @@ def get_equipment_failures(equipment_code=None):
                 equipment_code = equipment_code.strip().replace('TRN-', '')
                 logger.info(f"\1")
                 
-                # tram_id'yi normalize et
-                filtered_df[tram_id_col] = filtered_df[tram_id_col].astype(str).str.strip()
-                logger.info(f"\1")
-                
-                # Paranthesli kodları temizle: '3874(3)' → '3874'
+                # tram_id'yi normalize et - .copy() ile SettingWithCopy sorununu önle
+                filtered_df = filtered_df.copy()
                 import re
-                filtered_df[tram_id_col] = filtered_df[tram_id_col].apply(
-                    lambda x: re.sub(r'\(\d+\)$', '', str(x)).strip() if pd.notna(x) else x
-                )
-                
-                # Sayısal normalize: '3874.0' → '3874'
-                filtered_df[tram_id_col] = filtered_df[tram_id_col].apply(
-                    lambda x: str(int(float(x))) if x.replace('.', '').replace('-', '').isdigit() else x
-                )
-                
-                logger.info(f"\1")
+                def normalize_tram_id(x):
+                    if pd.isna(x):
+                        return ''
+                    s = str(x).strip()
+                    # Parantezli kodları temizle: '3874(3)' → '3874'
+                    s = re.sub(r'\(\d+\)$', '', s).strip()
+                    # Sayısal normalize: '3874.0' → '3874'
+                    if s.replace('.', '').replace('-', '').isdigit():
+                        s = str(int(float(s)))
+                    return s
+                filtered_df[tram_id_col] = filtered_df[tram_id_col].apply(normalize_tram_id)
                 logger.info(f"\1")
                 
                 filtered_df = filtered_df[filtered_df[tram_id_col] == equipment_code]

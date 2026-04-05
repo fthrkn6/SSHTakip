@@ -562,11 +562,40 @@ def cleanup_old_reports():
 
 # ==================== YÖNETIM RAPORLARI ====================
 
-PROJECTS = {
-    'belgrad': 'Belgrad', 'iasi': 'Iași', 'timisoara': 'Timișoara',
-    'kayseri': 'Kayseri', 'kocaeli': 'Kocaeli', 'gebze': 'Gebze',
-    'samsun': 'Samsun', 'istanbul': 'İstanbul'
-}
+def _load_projects():
+    """projects_config.json + data/ klasöründen dinamik proje listesi oluştur"""
+    projects = {}
+    try:
+        config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'projects_config.json')
+        if os.path.exists(config_path):
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            for p in config.get('projects', []):
+                if p.get('status') == 'aktif':
+                    projects[p['code']] = p.get('name', p['code'].capitalize())
+    except Exception:
+        pass
+    # data/ klasöründen Veriler.xlsx olan projeleri de ekle
+    try:
+        data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
+        if os.path.exists(data_dir):
+            for item in os.listdir(data_dir):
+                if item not in projects and os.path.isdir(os.path.join(data_dir, item)):
+                    if os.path.exists(os.path.join(data_dir, item, 'Veriler.xlsx')):
+                        projects[item] = item.capitalize()
+    except Exception:
+        pass
+    if not projects:
+        # Fallback
+        projects = {
+            'belgrad': 'Belgrad', 'iasi': 'Iași', 'timisoara': 'Timișoara',
+            'kayseri': 'Kayseri', 'kocaeli': 'Kocaeli', 'gebze': 'Gebze',
+            'samsun': 'Samsun', 'istanbul': 'İstanbul', 'napoli': 'Napoli'
+        }
+    return projects
+
+# Modül seviyesinde PROJECTS - diğer fonksiyonlar tarafından kullanılıyor
+PROJECTS = _load_projects()
 
 PERIODS = {
     'weekly': ('Haftalık', 7),
@@ -849,15 +878,15 @@ def management_dashboard():
 @login_required
 def get_projects_kpi():
     """Tüm projeler için kapsamlı KPI verilerini döndür - Enhanced"""
-    print("🔵 DEBUG: /reports/api/projects-kpi endpoint called!")
-    current_app.logger.info("🔵 /reports/api/projects-kpi endpoint called")
+    logger.info("/reports/api/projects-kpi endpoint called")
     try:
         from datetime import datetime, timedelta
         from sqlalchemy import func
         
         projects_data = {}
+        active_projects = _load_projects()
         
-        for project_code, project_name in PROJECTS.items():
+        for project_code, project_name in active_projects.items():
             try:
                 # === TEMEL KPİ'LAR ===
                 # Proje için tüm araçları say
@@ -870,7 +899,7 @@ def get_projects_kpi():
                 active_vehicles = Equipment.query.filter_by(
                     project_code=project_code,
                     parent_id=None,
-                    status='Aktif'
+                    status='aktif'
                 ).count()
                 
                 availability = round((active_vehicles / total_vehicles * 100) if total_vehicles > 0 else 0)
@@ -894,26 +923,31 @@ def get_projects_kpi():
                     except:
                         failures_30 = 0
                 
-                # Ortalama MTTR hesapla
+                # Ortalama MTTR hesapla (iş emirlerinden gerçek tamir süresi)
                 mttr = 0
                 try:
-                    failed_equipment = Equipment.query.filter_by(
-                        project_code=project_code,
-                        status='Arızalı'
-                    ).all()
-                    
-                    if failed_equipment:
-                        total_mttr = 0
-                        count = 0
-                        for eq in failed_equipment:
-                            if hasattr(eq, 'current_km') and eq.current_km:
-                                avg_speed = 30  # km/h varsayılan
-                                estimated_hours = eq.current_km / avg_speed if eq.current_km > 0 else 0
-                                total_mttr += estimated_hours
-                                count += 1
-                        mttr = round(total_mttr / count, 1) if count > 0 else 0
+                    from sqlalchemy import func as sa_func
+                    mttr_result = db.session.query(
+                        sa_func.avg(WorkOrder.labor_hours)
+                    ).filter(
+                        WorkOrder.project_code == project_code,
+                        WorkOrder.status == 'Completed',
+                        WorkOrder.labor_hours > 0
+                    ).scalar()
+                    mttr = round(mttr_result, 1) if mttr_result else 0
                 except:
-                    mttr = 0
+                    # Fallback: downtime_minutes from failures
+                    try:
+                        from sqlalchemy import func as sa_func
+                        avg_downtime = db.session.query(
+                            sa_func.avg(Failure.downtime_minutes)
+                        ).filter(
+                            Failure.project_code == project_code,
+                            Failure.downtime_minutes > 0
+                        ).scalar()
+                        mttr = round(avg_downtime / 60, 1) if avg_downtime else 0
+                    except:
+                        mttr = 0
                 
                 # === GELIŞMIŞ KPİ'LAR ===
                 # Sınıf A (Kritik) Arıza Sayısı
@@ -961,8 +995,8 @@ def get_projects_kpi():
                         total_hours = 0
                         count = 0
                         for wo in completed_wo:
-                            if hasattr(wo, 'duration_hours') and wo.duration_hours:
-                                total_hours += wo.duration_hours
+                            if wo.labor_hours and wo.labor_hours > 0:
+                                total_hours += wo.labor_hours
                                 count += 1
                         avg_repair_time = round(total_hours / count, 1) if count > 0 else 0
                 except:

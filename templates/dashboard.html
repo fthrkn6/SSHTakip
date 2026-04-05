@@ -411,6 +411,14 @@
                             <span class="badge bg-warning">Bakımda</span>
                             {% else %}
                             <span class="badge bg-danger">Arızalı</span>
+                            {% if tramvay.sistem %}
+                            <div class="mt-1" style="font-size: 0.65rem; line-height: 1.2;">
+                                <span class="text-danger fw-bold">{{ tramvay.sistem }}</span>
+                                {% if tramvay.alt_sistem %}
+                                <br><span class="text-muted">{{ tramvay.alt_sistem }}</span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
                             {% endif %}
                         </div>
                         <div class="mt-1">
