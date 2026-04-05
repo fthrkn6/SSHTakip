@@ -1228,10 +1228,11 @@ def create_app():
                                 logger.info(f"\1")
                                 
                                 # Hücre yazma helper fonksiyonu - merged cells için unmerge + write + remerge
-                                def write_cell(worksheet, cell_ref, value, append=False):
+                                def write_cell(worksheet, cell_ref, value, append=False, font_color=None):
                                     """
                                     Hücreye değer yaz. Merged hücreler için önce unmerge et, yaz, sonra remerge et.
                                     append=True ise mevcut değerin yanına ekle.
+                                    font_color: Yazı rengi (örn: 'FFFFFF' beyaz)
                                     """
                                     try:
                                         # Hücreyi oku
@@ -1280,6 +1281,20 @@ def create_app():
                                             # NORMAL HÜCRE - basit yazma
                                             worksheet[cell_ref].value = value
                                             logger.info(f"\1")
+                                        
+                                        # Font rengi ayarla
+                                        if font_color:
+                                            try:
+                                                existing_font = worksheet[cell_ref].font
+                                                worksheet[cell_ref].font = Font(
+                                                    name=existing_font.name,
+                                                    size=existing_font.size,
+                                                    bold=existing_font.bold,
+                                                    italic=existing_font.italic,
+                                                    color=font_color
+                                                )
+                                            except Exception:
+                                                worksheet[cell_ref].font = Font(color=font_color)
                                     
                                     except Exception as e:
                                         logger.info(f"\1")
@@ -1320,10 +1335,10 @@ def create_app():
                                 # Tespit Yöntemi (Bozankaya ise F8, Müşteri ise H8)
                                 ariza_tespit_yontemi = form_data.get('ariza_tespit_yontemi', '')
                                 if 'bozankaya' in current_user.username.lower() or 'Bozankaya' in ariza_tespit_yontemi:
-                                    write_cell(ws, 'F8', '[X]', append=True)
+                                    write_cell(ws, 'F8', '[X]', append=True, font_color='FFFFFF')
                                     logger.info(f"\1")
                                 elif 'müşteri' in ariza_tespit_yontemi.lower():
-                                    write_cell(ws, 'H8', '[X]', append=True)
+                                    write_cell(ws, 'H8', '[X]', append=True, font_color='FFFFFF')
                                     logger.info(f"\1")
                                 
                                 # NOT: muslteri_bildirimi form'da olmadığı için bu alan yazılmıyor
@@ -1341,7 +1356,7 @@ def create_app():
                                     sinif_mapping = {'cell': 'G11', 'type': 'Düşük'}
                                 
                                 if sinif_mapping and 'cell' in sinif_mapping:
-                                    write_cell(ws, sinif_mapping['cell'], '[X]', append=True)
+                                    write_cell(ws, sinif_mapping['cell'], '[X]', append=True, font_color='FFFFFF')
                                     logger.info(f"\1")
                                 else:
                                     logger.info(f"\1")
@@ -1354,17 +1369,17 @@ def create_app():
                                     
                                     # İlk Defa
                                     if 'ilk' in ariza_tipi_lower or 'first' in ariza_tipi_lower or 'ilk_defa' in ariza_tipi_lower:
-                                        write_cell(ws, 'H9', '[X]', append=True)
+                                        write_cell(ws, 'H9', '[X]', append=True, font_color='FFFFFF')
                                         logger.info(f"\1")
                                     
                                     # Aynı araçta tekrarlayan
                                     if ('tekrarlayan' in ariza_tipi_lower or 'repeat' in ariza_tipi_lower) and ('aynı' in ariza_tipi_lower or 'same' in ariza_tipi_lower or 'ayni_arac' in ariza_tipi_lower):
-                                        write_cell(ws, 'A12', '[X]', append=True)
+                                        write_cell(ws, 'A12', '[X]', append=True, font_color='FFFFFF')
                                         logger.info(f"\1")
                                     
                                     # Farklı araçta tekrarlayan
                                     if ('tekrarlayan' in ariza_tipi_lower or 'repeat' in ariza_tipi_lower) and ('farklı' in ariza_tipi_lower or 'different' in ariza_tipi_lower or 'farkli_arac' in ariza_tipi_lower):
-                                        write_cell(ws, 'E12', '[X]', append=True)
+                                        write_cell(ws, 'E12', '[X]', append=True, font_color='FFFFFF')
                                         logger.info(f"\1")
                                 else:
                                     logger.info(f"\1")
@@ -2408,32 +2423,18 @@ def create_app():
         def bakim_planlari():
             import json
             
-            # Proje bazlı başlat
             project_code = session.get('current_project', 'belgrad').lower()
-            
-            # NOTE: Equipment tablosu tek kaynak - Excel sync devre dışı
-            # KM verileri sadece /tramvay-km sayfasından girilmelidir
-            
-            # Equipment verilerini yükle (KM bilgileri)
-            try:
-                from utils.utils_project_excel_store import get_tramvay_list_with_km
-                equipments = get_tramvay_list_with_km(project_code)
-            except Exception as e:
-                logger.error(f"bakim_planlari equipment error: {e}")
-                equipments = Equipment.query.filter_by(project_code=project_code).all()
             
             # Bakım verilerini yükle (proje bazlı SADECE - fallback YOK!)
             maintenance_file = os.path.join(os.path.dirname(__file__), 'data', project_code, 'maintenance.json')
             maintenance_data = {}
             
-            # SADECE proje-spesifik veriyi yükle, fallback yapma
             if os.path.exists(maintenance_file):
                 with open(maintenance_file, 'r', encoding='utf-8') as f:
                     maintenance_data = json.load(f)
             
             return render_template('bakim_planlari.html', 
                                  maintenance_data=maintenance_data,
-                                 equipments=equipments,
                                  project_name=session.get('project_name', 'Belgrad'))
         
         @app.route('/api/bakim-plani-tablosu')
@@ -2443,9 +2444,6 @@ def create_app():
             import json
             
             current_project = session.get('current_project', 'belgrad').lower()
-            
-            # SYNC: Excel ile Database'i eşitle
-            sync_equipment_with_excel(current_project)
             
             # maintenance.json'u proje bazlı yükle
             maintenance_file = os.path.join(os.path.dirname(__file__), 'data', current_project, 'maintenance.json')
@@ -2523,9 +2521,6 @@ def create_app():
             
             current_project = session.get('current_project', 'belgrad').lower()
             
-            # SYNC: Excel ile Database'i eşitle
-            sync_equipment_with_excel(current_project)
-            
             # SINGLE SOURCE OF TRUTH: Equipment tablosu
             # Excel senkronizasyonu devre dışı - sadece Equipment'dan okuyoruz
             
@@ -2549,12 +2544,6 @@ def create_app():
                 Equipment.project_code == current_project
             ).order_by(Equipment.equipment_code).all()
             
-            logger.info(f"\1")
-            
-            # Kontrol: tüm Equipment'lerin project_code'larını göster (debug)
-            all_equipment_projects = Equipment.query.filter(Equipment.parent_id == None).with_entities(Equipment.project_code, Equipment.equipment_code).limit(50).all()
-            logger.info(f"\1")
-            
             # Sonuç listesi
             result = []
             
@@ -2571,26 +2560,19 @@ def create_app():
                 for level in maintenance_levels:
                     level_km = int(level.replace('K', '')) * 1000
                     
-                    # Bu bakımın katları: 6K = 6, 12, 18, 24... (limit 300K)
-                    max_km = 300000  # 300K
-                    multiples = []
+                    # Sonraki bakım KM'sini direkt hesapla (O(1))
+                    max_km = 300000
+                    next_due = ((current_km // level_km) + 1) * level_km
                     
-                    for i in range(1, (max_km // level_km) + 2):
-                        km_value = level_km * i
-                        multiples.append(km_value)
-                    
-                    # Sonraki bakım tarihi bul
-                    next_due = None
-                    for km_value in multiples:
-                        if km_value > current_km:
-                            next_due = km_value
-                            break
+                    # Max KM kontrolü
+                    if next_due > max_km:
+                        next_due = None
                     
                     # Status belirle
                     if next_due is None:
-                        # Tüm katları geçmiş
+                        last_multiple = (max_km // level_km) * level_km
                         status = 'overdue'
-                        km_left = current_km - multiples[-1]
+                        km_left = current_km - last_multiple
                     else:
                         km_left = next_due - current_km
                         if km_left <= 0:
@@ -2602,13 +2584,13 @@ def create_app():
                         else:
                             status = 'normal'
                     
+                    last_multiple = (max_km // level_km) * level_km
                     maint_info = {
                         'level': level,
                         'level_km': level_km,
-                        'next_km': next_due or multiples[-1],
+                        'next_km': next_due or last_multiple,
                         'km_left': km_left if km_left > 0 else 0,
                         'status': status,
-                        'multiples': multiples,
                         'works': maintenance_data.get(level, {}).get('works', [])
                     }
                     
@@ -2625,7 +2607,18 @@ def create_app():
                 
                 # Eğer hiç pozitif km_left yoksa (tümü geçmiş), en son bakımı al
                 if nearest_maintenance is None:
-                    nearest_maintenance = all_maintenances[maintenance_levels[-1]]
+                    if maintenance_levels and maintenance_levels[-1] in all_maintenances:
+                        nearest_maintenance = all_maintenances[maintenance_levels[-1]]
+                    else:
+                        # Bakım seviyesi tanımlanmamış - varsayılan değer
+                        nearest_maintenance = {
+                            'level': '-',
+                            'level_km': 0,
+                            'next_km': 0,
+                            'km_left': 0,
+                            'status': 'normal',
+                            'works': []
+                        }
                 
                 # SPECIAL: Eğer next_km 72K'nin katıysa (72, 144, 216, 288K), 70K işlerini ekle
                 next_km = nearest_maintenance.get('next_km', 0)
@@ -2930,7 +2923,7 @@ def create_app():
                 logger.info('[BAKIM] Transpoze tablo yükleniyor...')
                 
                 # Bakım seviyeleri ve KM değerleri - maintenance.json'dan dinamik oku
-                current_project = session.get('current_project', 'belgrad')
+                current_project = session.get('current_project', 'belgrad').lower()
                 maint_file = os.path.join(os.path.dirname(__file__), 'data', current_project, 'maintenance.json')
                 maintenance_km = {}
                 if os.path.exists(maint_file):
@@ -2956,10 +2949,7 @@ def create_app():
                 logger.info(f'[BAKIM] KM noktaları: {len(km_points)} adet')
                 
                 # Equipment tablosundan araçları al
-                current_project = session.get('current_project', 'belgrad')
-                
-                # SYNC: Excel ile Database'i eşitle
-                sync_equipment_with_excel(current_project)
+                current_project = session.get('current_project', 'belgrad').lower()
                 
                 # Sadece mevcut KM verisi olan araçları al (0'dan büyük)
                 equipments = Equipment.query.filter_by(project_code=current_project)\

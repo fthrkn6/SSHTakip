@@ -226,12 +226,80 @@ def index():
             flash(f'{project_code.upper()} için FRACAS verileri bulunamadı. Dosya: logs/{project_code}/ariza_listesi/Fracas_{project_code.upper()}.xlsx', 'warning')
             return render_template('fracas/index.html', data_available=False, data_source=f'Veri Yok ({project_code})')
         
-        # Temel istatistikler - cache ile
+        # Filtre parametreleri
+        filter_start_date = request.args.get('start_date', '')
+        filter_end_date = request.args.get('end_date', '')
+        filter_failure_class = request.args.get('failure_class', '')
+        filter_vehicle = request.args.get('vehicle', '')
+        filter_supplier = request.args.get('supplier', '')
+        
+        filters = {
+            'start_date': filter_start_date,
+            'end_date': filter_end_date,
+            'failure_class': filter_failure_class,
+            'vehicle': filter_vehicle,
+            'supplier': filter_supplier
+        }
+        
+        has_filters = any([filter_start_date, filter_end_date, filter_failure_class, filter_vehicle, filter_supplier])
+        
+        # Dropdown listeler için orijinal veriyi kullan
+        all_vehicles = []
+        vehicle_col_for_list = get_column(df, ['araç', 'araç no', 'tram', 'vehicle', 'araç numarası'])
+        if vehicle_col_for_list:
+            all_vehicles = sorted([str(v) for v in df[vehicle_col_for_list].dropna().unique() if pd.notna(v)])
+        
+        all_suppliers = []
+        supplier_col_for_list = get_column(df, ['tedarikçi', 'supplier', 'relevant supplier'])
+        if supplier_col_for_list:
+            all_suppliers = sorted([str(s) for s in df[supplier_col_for_list].dropna().unique() if pd.notna(s)])
+        
+        # Filtreleri uygula
+        if has_filters:
+            date_col = get_column(df, ['tarih', 'date', 'hata tarih', 'arıza tarihi', 'failure date'])
+            
+            if filter_start_date and date_col:
+                try:
+                    start = pd.to_datetime(filter_start_date)
+                    df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+                    df = df[df[date_col] >= start]
+                except (ValueError, TypeError):
+                    pass
+            
+            if filter_end_date and date_col:
+                try:
+                    end = pd.to_datetime(filter_end_date)
+                    df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+                    df = df[df[date_col] <= end]
+                except (ValueError, TypeError):
+                    pass
+            
+            if filter_failure_class:
+                class_col = get_column(df, ['arıza sınıfı', 'failure class', 'sınıf'])
+                if class_col:
+                    df = df[df[class_col].astype(str).str.upper().str.startswith(filter_failure_class.upper())]
+            
+            if filter_vehicle:
+                v_col = get_column(df, ['araç', 'araç no', 'tram', 'vehicle', 'araç numarası'])
+                if v_col:
+                    import re as _re
+                    df = df[df[v_col].astype(str).str.contains(_re.escape(str(filter_vehicle)), case=False, na=False)]
+            
+            if filter_supplier:
+                s_col = get_column(df, ['tedarikçi', 'supplier', 'relevant supplier'])
+                if s_col:
+                    import re as _re
+                    df = df[df[s_col].astype(str).str.contains(_re.escape(str(filter_supplier)), case=False, na=False)]
+            
+            logger.info(f'[FRACAS] Filtreler uygulandı. Kalan kayıt: {len(df)}')
+        
+        # Temel istatistikler - cache ile (filtre varsa cache kullanma)
         cache_key = f"fracas:{project_code}:analysis"
         cached_analysis = None
         try:
-            from app import cache_manager
-            cached_analysis = cache_manager.get(cache_key)
+            if not has_filters:
+                from app import cache_manager
+                cached_analysis = cache_manager.get(cache_key)
         except Exception:
             pass
         
@@ -351,7 +419,11 @@ def index():
                              supplier=supplier_data,
                              cost=cost_data,
                              data_quality=data_quality,
-                             total_records=len(df))
+                             total_records=len(df),
+                             project_name=project_name,
+                             filters=filters,
+                             all_vehicles=all_vehicles,
+                             all_suppliers=all_suppliers)
     except Exception as e:
         logger.error(f'[FRACAS] HATA: {e}', exc_info=True)
         flash(f'FRACAS verileri yüklenirken hata: {str(e)}', 'danger')

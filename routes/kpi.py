@@ -437,7 +437,7 @@ def index():
         # Sistemler listesi (filtreleme için)
         systems = []
         if df is not None and not df.empty and 'Sistem' in df.columns:
-            systems = sorted([s for s in df['Sistem'].dropna().unique() if pd.notna(s)])
+            systems = sorted([str(s) for s in df['Sistem'].dropna().unique() if pd.notna(s)])
         
         # Araçlar listesi
         vehicles = []

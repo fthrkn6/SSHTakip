@@ -1,306 +1,735 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
+{% block title %}FRACAS Analiz{% endblock %}
 
-{% block title %}FRACAS Analiz - CMMS{% endblock %}
+{% block extra_css %}
+<style>
+:root {
+    --fracas-primary: #1a1a2e;
+    --fracas-secondary: #16213e;
+    --fracas-accent: #8b1e1e;
+    --fracas-accent-light: #b52a2a;
+    --fracas-success: #10b981;
+    --fracas-warning: #f59e0b;
+    --fracas-danger: #ef4444;
+    --fracas-info: #3b82f6;
+    --fracas-purple: #8b5cf6;
+    --fracas-text: #1e293b;
+    --fracas-text-muted: #64748b;
+    --fracas-bg: #f1f5f9;
+    --fracas-card-bg: #ffffff;
+    --fracas-card-border: rgba(0,0,0,0.04);
+    --fracas-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04);
+    --fracas-shadow-hover: 0 4px 12px rgba(0,0,0,0.12), 0 8px 24px rgba(0,0,0,0.06);
+    --fracas-radius: 12px;
+    --fracas-radius-sm: 8px;
+}
 
-{% block breadcrumb_items %}
-<li class="breadcrumb-item active">Raporlar &amp; Analiz</li>
-<li class="breadcrumb-item active">FRACAS Analiz</li>
+.fracas-page { background: var(--fracas-bg); min-height: 100vh; }
+
+/* Page Header */
+.fracas-header {
+    background: linear-gradient(135deg, var(--fracas-primary) 0%, var(--fracas-secondary) 60%, var(--fracas-accent) 100%);
+    border-radius: var(--fracas-radius);
+    padding: 1.5rem 2rem;
+    color: white;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+.fracas-header h4 {
+    margin: 0;
+    font-weight: 700;
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+.fracas-header .header-badge {
+    background: rgba(255,255,255,0.15);
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    backdrop-filter: blur(10px);
+}
+.fracas-header .header-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.fracas-header .btn-header {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white;
+    padding: 0.4rem 1rem;
+    border-radius: var(--fracas-radius-sm);
+    font-size: 0.82rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.fracas-header .btn-header:hover {
+    background: rgba(255,255,255,0.25);
+    color: white;
+    transform: translateY(-1px);
+}
+
+/* Filter Panel */
+.fracas-filter-panel {
+    background: var(--fracas-card-bg);
+    border-radius: var(--fracas-radius);
+    box-shadow: var(--fracas-shadow);
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--fracas-card-border);
+}
+.fracas-filter-panel .filter-title {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--fracas-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.fracas-filter-panel .form-control,
+.fracas-filter-panel .form-select {
+    border-radius: var(--fracas-radius-sm);
+    border: 1.5px solid #e2e8f0;
+    font-size: 0.85rem;
+    padding: 0.5rem 0.75rem;
+    transition: all 0.2s;
+}
+.fracas-filter-panel .form-control:focus,
+.fracas-filter-panel .form-select:focus {
+    border-color: var(--fracas-accent);
+    box-shadow: 0 0 0 3px rgba(139, 30, 30, 0.1);
+}
+.fracas-filter-panel label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--fracas-text);
+    margin-bottom: 0.3rem;
+}
+.btn-filter-apply {
+    background: linear-gradient(135deg, var(--fracas-accent), var(--fracas-accent-light));
+    border: none;
+    color: white;
+    padding: 0.5rem 1.2rem;
+    border-radius: var(--fracas-radius-sm);
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+.btn-filter-apply:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(139, 30, 30, 0.3);
+    color: white;
+}
+.btn-filter-reset {
+    background: #f1f5f9;
+    border: 1.5px solid #e2e8f0;
+    color: var(--fracas-text-muted);
+    padding: 0.5rem 1.2rem;
+    border-radius: var(--fracas-radius-sm);
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+.btn-filter-reset:hover {
+    background: #e2e8f0;
+    color: var(--fracas-text);
+}
+.filter-active-badge {
+    background: var(--fracas-accent);
+    color: white;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+/* Stat Cards */
+.fracas-stat-card {
+    background: var(--fracas-card-bg);
+    border-radius: var(--fracas-radius);
+    box-shadow: var(--fracas-shadow);
+    padding: 1.2rem;
+    border: 1px solid var(--fracas-card-border);
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+}
+.fracas-stat-card:hover {
+    box-shadow: var(--fracas-shadow-hover);
+    transform: translateY(-2px);
+}
+.fracas-stat-card .stat-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    margin-bottom: 0.8rem;
+}
+.fracas-stat-card .stat-value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--fracas-text);
+    line-height: 1;
+    margin-bottom: 0.3rem;
+}
+.fracas-stat-card .stat-label {
+    font-size: 0.78rem;
+    color: var(--fracas-text-muted);
+    font-weight: 500;
+}
+.fracas-stat-card .stat-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+}
+
+/* RAMS Cards */
+.fracas-rams-card {
+    background: var(--fracas-card-bg);
+    border-radius: var(--fracas-radius);
+    box-shadow: var(--fracas-shadow);
+    padding: 1rem 1.2rem;
+    border: 1px solid var(--fracas-card-border);
+    text-align: center;
+    height: 100%;
+    transition: all 0.3s;
+}
+.fracas-rams-card:hover {
+    box-shadow: var(--fracas-shadow-hover);
+    transform: translateY(-2px);
+}
+.fracas-rams-card .rams-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1.2;
+}
+.fracas-rams-card .rams-label {
+    font-size: 0.75rem;
+    color: var(--fracas-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    margin-top: 0.3rem;
+}
+.fracas-rams-card .rams-unit {
+    font-size: 0.7rem;
+    color: var(--fracas-text-muted);
+}
+
+/* Chart Panels */
+.fracas-chart-panel {
+    background: var(--fracas-card-bg);
+    border-radius: var(--fracas-radius);
+    box-shadow: var(--fracas-shadow);
+    border: 1px solid var(--fracas-card-border);
+    overflow: hidden;
+    height: 100%;
+    transition: all 0.3s;
+}
+.fracas-chart-panel:hover {
+    box-shadow: var(--fracas-shadow-hover);
+}
+.fracas-chart-panel .chart-header {
+    padding: 0.8rem 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #f1f5f9;
+}
+.fracas-chart-panel .chart-title {
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: var(--fracas-text);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.fracas-chart-panel .chart-body {
+    padding: 1rem 1.2rem;
+}
+.btn-chart-download {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.72rem;
+    color: var(--fracas-text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.btn-chart-download:hover {
+    background: var(--fracas-accent);
+    color: white;
+    border-color: var(--fracas-accent);
+}
+
+/* Data Quality */
+.fracas-quality-panel {
+    background: var(--fracas-card-bg);
+    border-radius: var(--fracas-radius);
+    box-shadow: var(--fracas-shadow);
+    padding: 1.2rem;
+    border: 1px solid var(--fracas-card-border);
+}
+.quality-progress {
+    height: 8px;
+    border-radius: 4px;
+    background: #f1f5f9;
+    overflow: hidden;
+}
+.quality-progress .bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.6s ease;
+}
+.quality-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0;
+    font-size: 0.82rem;
+}
+.quality-item .qi-name {
+    width: 110px;
+    font-weight: 600;
+    color: var(--fracas-text);
+    flex-shrink: 0;
+}
+.quality-item .qi-bar {
+    flex: 1;
+}
+.quality-item .qi-pct {
+    width: 45px;
+    text-align: right;
+    font-weight: 700;
+    font-size: 0.8rem;
+}
+
+/* Supplier Table */
+.fracas-table-panel {
+    background: var(--fracas-card-bg);
+    border-radius: var(--fracas-radius);
+    box-shadow: var(--fracas-shadow);
+    border: 1px solid var(--fracas-card-border);
+    overflow: hidden;
+    height: 100%;
+}
+.fracas-table-panel .table-header {
+    padding: 0.8rem 1.2rem;
+    border-bottom: 1px solid #f1f5f9;
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: var(--fracas-text);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.fracas-table-panel table {
+    margin: 0;
+    font-size: 0.82rem;
+}
+.fracas-table-panel thead {
+    background: #f8fafc;
+}
+.fracas-table-panel thead th {
+    border: none;
+    font-weight: 600;
+    color: var(--fracas-text-muted);
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    letter-spacing: 0.5px;
+    padding: 0.6rem 1rem;
+}
+.fracas-table-panel tbody td {
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid #f8fafc;
+    vertical-align: middle;
+}
+.fracas-table-panel tbody tr:hover {
+    background: #fafbfc;
+}
+.supplier-badge {
+    background: linear-gradient(135deg, var(--fracas-accent), var(--fracas-accent-light));
+    color: white;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+/* No Data State */
+.fracas-empty-state {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    background: var(--fracas-card-bg);
+    border-radius: var(--fracas-radius);
+    box-shadow: var(--fracas-shadow);
+}
+.fracas-empty-state i {
+    font-size: 3rem;
+    color: #cbd5e1;
+    margin-bottom: 1rem;
+}
+.fracas-empty-state h5 {
+    color: var(--fracas-text);
+    font-weight: 700;
+}
+.fracas-empty-state p {
+    color: var(--fracas-text-muted);
+    font-size: 0.9rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .fracas-header { padding: 1rem; flex-direction: column; align-items: flex-start; }
+    .fracas-filter-panel { padding: 1rem; }
+    .fracas-stat-card .stat-value { font-size: 1.3rem; }
+}
+</style>
 {% endblock %}
 
 {% block content %}
-{% if not data_available %}
-<div class="alert alert-warning">
-    <h5><i class="bi bi-exclamation-triangle me-2"></i>Excel Dosyası Bulunamadı</h5>
-    <p class="mb-2">Arıza Listesi dosyasını aşağıdaki konuma yükleyin:</p>
-    <code>logs/{{ session.get('current_project', 'proje') }}/ariza_listesi/</code>
-</div>
-{% else %}
+<div class="fracas-page">
 
-<!-- Filtreler Panel -->
-<div class="card mb-4 bg-light">
-    <div class="card-header bg-primary text-white">
-        <i class="bi bi-funnel me-2"></i>Filtreler
+<!-- Header -->
+<div class="fracas-header">
+    <div>
+        <h4><i class="bi bi-shield-exclamation"></i> FRACAS Analiz
+            {% if data_available %}
+            <span class="header-badge"><i class="bi bi-database me-1"></i>{{ data_source }}</span>
+            <span class="header-badge"><i class="bi bi-bar-chart me-1"></i>{{ total_records }} kayıt</span>
+            {% endif %}
+        </h4>
     </div>
-    <div class="card-body">
-        <div class="row g-3">
-            <div class="col-md-3">
-                <label class="form-label">Başlangıç Tarihi</label>
-                <input type="date" class="form-control" id="filter_start_date">
+    {% if data_available %}
+    <div class="header-actions">
+        <a href="{{ url_for('fracas.export_excel') }}{% if filters and filters.start_date %}?start_date={{ filters.start_date }}&end_date={{ filters.end_date }}&failure_class={{ filters.failure_class }}{% endif %}" class="btn-header">
+            <i class="bi bi-file-earmark-excel"></i> Excel
+        </a>
+        <a href="{{ url_for('fracas.export_pdf') }}{% if filters and filters.start_date %}?start_date={{ filters.start_date }}&end_date={{ filters.end_date }}{% endif %}" class="btn-header">
+            <i class="bi bi-file-earmark-pdf"></i> PDF
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+{% if data_available %}
+
+<!-- Filter Panel -->
+<div class="fracas-filter-panel">
+    <div class="filter-title">
+        <i class="bi bi-funnel"></i> Filtreler
+        {% if filters and (filters.start_date or filters.end_date or filters.failure_class or filters.vehicle or filters.supplier) %}
+        <span class="filter-active-badge">Aktif</span>
+        {% endif %}
+    </div>
+    <form method="GET" action="{{ url_for('fracas.index') }}">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-2">
+                <label for="filter_start_date">Başlangıç Tarihi</label>
+                <input type="date" class="form-control" id="filter_start_date" name="start_date" 
+                       value="{{ filters.start_date if filters else '' }}">
             </div>
-            <div class="col-md-3">
-                <label class="form-label">Bitiş Tarihi</label>
-                <input type="date" class="form-control" id="filter_end_date">
+            <div class="col-md-2">
+                <label for="filter_end_date">Bitiş Tarihi</label>
+                <input type="date" class="form-control" id="filter_end_date" name="end_date"
+                       value="{{ filters.end_date if filters else '' }}">
             </div>
-            <div class="col-md-3">
-                <label class="form-label">Arıza Sınıfı</label>
-                <select class="form-select" id="filter_class">
+            <div class="col-md-2">
+                <label for="filter_class">Arıza Sınıfı</label>
+                <select class="form-select" id="filter_class" name="failure_class">
                     <option value="">Tümü</option>
-                    <option value="A">Sınıf A - Kritik</option>
-                    <option value="B">Sınıf B - Önemli</option>
-                    <option value="C">Sınıf C - Normal</option>
-                    <option value="D">Sınıf D - Küçük</option>
+                    <option value="A" {{ 'selected' if filters and filters.failure_class == 'A' }}>Sınıf A</option>
+                    <option value="B" {{ 'selected' if filters and filters.failure_class == 'B' }}>Sınıf B</option>
+                    <option value="C" {{ 'selected' if filters and filters.failure_class == 'C' }}>Sınıf C</option>
+                    <option value="D" {{ 'selected' if filters and filters.failure_class == 'D' }}>Sınıf D</option>
                 </select>
             </div>
-            <div class="col-md-3">
-                <label class="form-label">&nbsp;</label>
-                <div class="btn-group w-100" role="group">
-                    <button type="button" class="btn btn-success btn-sm" id="btn_apply_filter">
-                        <i class="bi bi-check-circle me-1"></i>Uygula
-                    </button>
-                    <button type="button" class="btn btn-secondary btn-sm" id="btn_reset_filter">
-                        <i class="bi bi-arrow-clockwise me-1"></i>Sıfırla
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- İndir Butonları -->
-        <div class="row g-2 mt-3">
-            <div class="col-auto">
-                <a href="{{ url_for('fracas.export_excel') }}" class="btn btn-sm btn-info" id="btn_export_excel">
-                    <i class="bi bi-file-earmark-spreadsheet me-1"></i>Excel İndir
-                </a>
-            </div>
-            <div class="col-auto">
-                <a href="{{ url_for('fracas.export_pdf') }}" class="btn btn-sm btn-danger" id="btn_export_pdf">
-                    <i class="bi bi-file-earmark-pdf me-1"></i>PDF İndir
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- RAMS KPI Kartları -->
-<div class="row g-4 mb-4">
-    <div class="col-md-2">
-        <div class="card bg-primary text-white h-100">
-            <div class="card-body text-center">
-                <h3 class="mb-0">{{ stats.total_failures }}</h3>
-                <small>Toplam Arıza</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-2">
-        <div class="card bg-info text-white h-100">
-            <div class="card-body text-center">
-                <h3 class="mb-0">{{ stats.unique_vehicles }}</h3>
-                <small>Araç Sayısı</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-2">
-        <div class="card bg-warning text-dark h-100">
-            <div class="card-body text-center">
-                <h3 class="mb-0">{{ stats.unique_modules }}</h3>
-                <small>Modül Sayısı</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-2">
-        <div class="card bg-secondary text-white h-100">
-            <div class="card-body text-center">
-                <h3 class="mb-0">{{ stats.total_suppliers }}</h3>
-                <small>Tedarikçi</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-2">
-        <div class="card bg-success text-white h-100">
-            <div class="card-body text-center">
-                <h3 class="mb-0">{{ stats.warranty_claims }}</h3>
-                <small>Garanti Kaydı</small>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- RAMS Metrikleri -->
-<div class="row g-4 mb-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header bg-dark text-white">
-                <i class="bi bi-speedometer2 me-2"></i>EN 50126 RAMS Metrikleri
-            </div>
-            <div class="card-body">
-                <div class="row g-4">
-                    <div class="col-md-3">
-                        <div class="text-center p-3 border rounded-3">
-                            <h6 class="text-muted mb-1">MTBF (KM)</h6>
-                            <h2 class="text-primary mb-1">
-                                {% if rams.mtbf %}{{ "%.0f"|format(rams.mtbf) }} dk{% else %}N/A{% endif %}
-                            </h2>
-                            <small>KM Bazlı</small>
-                            {% if rams.mtbf_time %}
-                            <div class="mt-1">
-                                <span class="badge bg-info">Zaman: {{ "%.0f"|format(rams.mtbf_time) }} dk</span>
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="text-center p-3 border rounded-3">
-                            <h6 class="text-muted mb-1">MTTR</h6>
-                            <h2 class="text-danger mb-1">
-                                {% if rams.mttr %}{{ "%.1f"|format(rams.mttr) }} dk{% else %}N/A{% endif %}
-                            </h2>
-                            <small>Ortalama Tamir Süresi</small>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="text-center p-3 border rounded-3">
-                            <h6 class="text-muted mb-1">Availability</h6>
-                            <h2 class="text-success mb-1">
-                                {% if rams.availability %}{{ "%.1f"|format(rams.availability) }}%{% else %}N/A{% endif %}
-                            </h2>
-                            <small>Kullanılabilirlik Oranı</small>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="text-center p-3 border rounded-3">
-                            <h6 class="text-muted mb-1">Reliability</h6>
-                            <h2 class="text-info mb-1">
-                                {% if rams.reliability %}{{ "%.1f"|format(rams.reliability) }}%{% else %}N/A{% endif %}
-                            </h2>
-                            <small>Güvenilirlik Oranı</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Veri Kalitesi Göstergesi -->
-{% if data_quality is defined and data_quality %}
-<div class="row g-4 mb-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-clipboard-check me-2"></i>Veri Kalitesi</span>
-                <span class="badge {% if data_quality.score >= 80 %}bg-success{% elif data_quality.score >= 50 %}bg-warning{% else %}bg-danger{% endif %} fs-6">
-                    %{{ "%.0f"|format(data_quality.score) }}
-                </span>
-            </div>
-            <div class="card-body">
-                <div class="progress mb-3" style="height: 8px;">
-                    <div class="progress-bar {% if data_quality.score >= 80 %}bg-success{% elif data_quality.score >= 50 %}bg-warning{% else %}bg-danger{% endif %}"
-                         style="width: {{ data_quality.score }}%"></div>
-                </div>
-                <div class="row">
-                    {% for detail in data_quality.details %}
-                    <div class="col-md-3 col-6 mb-2">
-                        <small class="text-muted">{{ detail.column }}</small>
-                        <div class="d-flex align-items-center">
-                            {% if not detail.found %}
-                                <span class="badge bg-secondary me-1">Yok</span>
-                            {% elif detail.fill_rate >= 80 %}
-                                <span class="badge bg-success me-1">%{{ "%.0f"|format(detail.fill_rate) }}</span>
-                            {% elif detail.fill_rate >= 50 %}
-                                <span class="badge bg-warning me-1">%{{ "%.0f"|format(detail.fill_rate) }}</span>
-                            {% else %}
-                                <span class="badge bg-danger me-1">%{{ "%.0f"|format(detail.fill_rate) }}</span>
-                            {% endif %}
-                        </div>
-                    </div>
+            <div class="col-md-2">
+                <label for="filter_vehicle">Araç</label>
+                <select class="form-select" id="filter_vehicle" name="vehicle">
+                    <option value="">Tümü</option>
+                    {% for v in all_vehicles %}
+                    <option value="{{ v }}" {{ 'selected' if filters and filters.vehicle == v }}>{{ v }}</option>
                     {% endfor %}
-                </div>
-                <small class="text-muted">Toplam {{ data_quality.total_rows }} kayıt analiz edildi</small>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="filter_supplier">Tedarikçi</label>
+                <select class="form-select" id="filter_supplier" name="supplier">
+                    <option value="">Tümü</option>
+                    {% for s in all_suppliers %}
+                    <option value="{{ s }}" {{ 'selected' if filters and filters.supplier == s }}>{{ s }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-filter-apply flex-fill"><i class="bi bi-search me-1"></i>Filtrele</button>
+                <a href="{{ url_for('fracas.index') }}" class="btn btn-filter-reset"><i class="bi bi-x-lg"></i></a>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Stat Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md">
+        <div class="fracas-stat-card">
+            <div class="stat-icon" style="background: rgba(239,68,68,0.1); color: var(--fracas-danger);">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+            </div>
+            <div class="stat-value">{{ stats.total_failures }}</div>
+            <div class="stat-label">Toplam Arıza</div>
+            <div class="stat-bar" style="background: linear-gradient(90deg, var(--fracas-danger), transparent);"></div>
+        </div>
+    </div>
+    <div class="col-6 col-md">
+        <div class="fracas-stat-card">
+            <div class="stat-icon" style="background: rgba(59,130,246,0.1); color: var(--fracas-info);">
+                <i class="bi bi-train-front-fill"></i>
+            </div>
+            <div class="stat-value">{{ stats.unique_vehicles }}</div>
+            <div class="stat-label">Araç Sayısı</div>
+            <div class="stat-bar" style="background: linear-gradient(90deg, var(--fracas-info), transparent);"></div>
+        </div>
+    </div>
+    <div class="col-6 col-md">
+        <div class="fracas-stat-card">
+            <div class="stat-icon" style="background: rgba(139,92,246,0.1); color: var(--fracas-purple);">
+                <i class="bi bi-cpu-fill"></i>
+            </div>
+            <div class="stat-value">{{ stats.unique_modules }}</div>
+            <div class="stat-label">Modül Sayısı</div>
+            <div class="stat-bar" style="background: linear-gradient(90deg, var(--fracas-purple), transparent);"></div>
+        </div>
+    </div>
+    <div class="col-6 col-md">
+        <div class="fracas-stat-card">
+            <div class="stat-icon" style="background: rgba(245,158,11,0.1); color: var(--fracas-warning);">
+                <i class="bi bi-truck"></i>
+            </div>
+            <div class="stat-value">{{ stats.total_suppliers }}</div>
+            <div class="stat-label">Tedarikçi</div>
+            <div class="stat-bar" style="background: linear-gradient(90deg, var(--fracas-warning), transparent);"></div>
+        </div>
+    </div>
+    <div class="col-6 col-md">
+        <div class="fracas-stat-card">
+            <div class="stat-icon" style="background: rgba(16,185,129,0.1); color: var(--fracas-success);">
+                <i class="bi bi-shield-check"></i>
+            </div>
+            <div class="stat-value">{{ stats.warranty_claims }}</div>
+            <div class="stat-label">Garanti</div>
+            <div class="stat-bar" style="background: linear-gradient(90deg, var(--fracas-success), transparent);"></div>
+        </div>
+    </div>
+</div>
+
+<!-- RAMS Metrics -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="fracas-rams-card">
+            <div class="rams-value" style="color: var(--fracas-info);">
+                {% if rams.mtbf %}{{ "%.0f"|format(rams.mtbf) }}{% else %}N/A{% endif %}
+            </div>
+            <div class="rams-unit">dakika</div>
+            <div class="rams-label"><i class="bi bi-clock-history me-1"></i>MTBF</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="fracas-rams-card">
+            <div class="rams-value" style="color: var(--fracas-warning);">
+                {% if rams.mttr %}{{ "%.1f"|format(rams.mttr) }}{% else %}N/A{% endif %}
+            </div>
+            <div class="rams-unit">dakika</div>
+            <div class="rams-label"><i class="bi bi-wrench me-1"></i>MTTR</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="fracas-rams-card">
+            <div class="rams-value" style="color: {% if rams.availability and rams.availability >= 95 %}var(--fracas-success){% elif rams.availability and rams.availability >= 90 %}var(--fracas-warning){% else %}var(--fracas-danger){% endif %};">
+                {% if rams.availability %}%{{ "%.1f"|format(rams.availability) }}{% else %}N/A{% endif %}
+            </div>
+            <div class="rams-unit">&nbsp;</div>
+            <div class="rams-label"><i class="bi bi-check-circle me-1"></i>Kullanılabilirlik</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="fracas-rams-card">
+            <div class="rams-value" style="color: var(--fracas-purple);">
+                {% if rams.reliability %}%{{ "%.1f"|format(rams.reliability) }}{% else %}N/A{% endif %}
+            </div>
+            <div class="rams-unit">&nbsp;</div>
+            <div class="rams-label"><i class="bi bi-graph-up me-1"></i>Güvenilirlik</div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row 1: Pareto Module + Pareto Supplier -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="fracas-chart-panel">
+            <div class="chart-header">
+                <span class="chart-title"><i class="bi bi-bar-chart-steps"></i> Pareto - Modül</span>
+                <button class="btn-chart-download" onclick="downloadChartAsImage('paretoModuleChart', 'ParetoModul')"><i class="bi bi-download"></i></button>
+            </div>
+            <div class="chart-body">
+                <canvas id="paretoModuleChart" height="280"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="fracas-chart-panel">
+            <div class="chart-header">
+                <span class="chart-title"><i class="bi bi-bar-chart-steps"></i> Pareto - Tedarikçi</span>
+                <button class="btn-chart-download" onclick="downloadChartAsImage('paretoSupplierChart', 'ParetoTedarikci')"><i class="bi bi-download"></i></button>
+            </div>
+            <div class="chart-body">
+                <canvas id="paretoSupplierChart" height="280"></canvas>
             </div>
         </div>
     </div>
 </div>
-{% endif %}
 
-<!-- Grafikler Satırı 1 -->
-<div class="row g-4 mb-4">
-    <div class="col-md-6">
-        <div class="card h-100">
-            <div class="card-header"><i class="bi bi-bar-chart me-2"></i>Pareto - Araç Modül <button class="chart-download-btn" onclick="downloadChartAsImage('paretoModuleChart', 'ParetoModül')"><i class="bi bi-download"></i> İndir</button></div>
-            <div class="card-body">
-                <canvas id="paretoModuleChart" height="300"></canvas>
+<!-- Charts Row 2: Monthly Trend full width -->
+<div class="row g-3 mb-4">
+    <div class="col-12">
+        <div class="fracas-chart-panel">
+            <div class="chart-header">
+                <span class="chart-title"><i class="bi bi-graph-up-arrow"></i> Aylık Arıza Trendi</span>
+                <button class="btn-chart-download" onclick="downloadChartAsImage('monthlyTrendChart', 'AylikTrend')"><i class="bi bi-download"></i></button>
             </div>
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="card h-100">
-            <div class="card-header"><i class="bi bi-bar-chart me-2"></i>Pareto - Tedarikçi <button class="chart-download-btn" onclick="downloadChartAsImage('paretoSupplierChart', 'ParetoTedarikçi')"><i class="bi bi-download"></i> İndir</button></div>
-            <div class="card-body">
-                <canvas id="paretoSupplierChart" height="300"></canvas>
+            <div class="chart-body">
+                <canvas id="monthlyTrendChart" height="120"></canvas>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Grafikler Satırı 2 -->
-<div class="row g-4 mb-4">
+<!-- Charts Row 3: Hourly + Failure Class + Location -->
+<div class="row g-3 mb-4">
     <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-header"><i class="bi bi-line-chart me-2"></i>Aylık Trend <button class="chart-download-btn" onclick="downloadChartAsImage('monthlyTrendChart', 'AylıkTrend')"><i class="bi bi-download"></i> İndir</button></div>
-            <div class="card-body">
-                <canvas id="monthlyTrendChart" height="250"></canvas>
+        <div class="fracas-chart-panel">
+            <div class="chart-header">
+                <span class="chart-title"><i class="bi bi-clock"></i> Saatlik Dağılım</span>
+                <button class="btn-chart-download" onclick="downloadChartAsImage('hourlyChart', 'SaatlikDagilim')"><i class="bi bi-download"></i></button>
             </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-header"><i class="bi bi-clock me-2"></i>Saatlik Dağılım <button class="chart-download-btn" onclick="downloadChartAsImage('hourlyChart', 'SaatlikDağılım')"><i class="bi bi-download"></i> İndir</button></div>
-            <div class="card-body">
+            <div class="chart-body">
                 <canvas id="hourlyChart" height="250"></canvas>
             </div>
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-header"><i class="bi bi-pie-chart me-2"></i>Arıza Sınıfı <button class="chart-download-btn" onclick="downloadChartAsImage('failureClassChart', 'ArızaSınıfı')"><i class="bi bi-download"></i> İndir</button></div>
-            <div class="card-body">
+        <div class="fracas-chart-panel">
+            <div class="chart-header">
+                <span class="chart-title"><i class="bi bi-pie-chart-fill"></i> Arıza Sınıfı</span>
+                <button class="btn-chart-download" onclick="downloadChartAsImage('failureClassChart', 'ArizaSinifi')"><i class="bi bi-download"></i></button>
+            </div>
+            <div class="chart-body">
                 <canvas id="failureClassChart" height="250"></canvas>
             </div>
         </div>
     </div>
-</div>
-
-<!-- Grafikler Satırı 3 -->
-<div class="row g-4 mb-4">
     <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-header"><i class="bi bi-geo-alt me-2"></i>Arıza Konumu <button class="chart-download-btn" onclick="downloadChartAsImage('locationChart', 'ArızaKonumu')"><i class="bi bi-download"></i> İndir</button></div>
-            <div class="card-body">
+        <div class="fracas-chart-panel">
+            <div class="chart-header">
+                <span class="chart-title"><i class="bi bi-geo-alt-fill"></i> Arıza Konumu</span>
+                <button class="btn-chart-download" onclick="downloadChartAsImage('locationChart', 'ArizaKonumu')"><i class="bi bi-download"></i></button>
+            </div>
+            <div class="chart-body">
                 <canvas id="locationChart" height="250"></canvas>
             </div>
         </div>
     </div>
-    <div class="col-md-8">
-        <div class="card h-100">
-            <div class="card-header"><i class="bi bi-table me-2"></i>Tedarikçi Performans</div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover table-striped">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>#</th>
-                                <th>Tedarikçi</th>
-                                <th>Arıza Sayısı</th>
-                                <th>Ort. Tamir Süresi (dk)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in supplier.performance[:10] %}
-                            <tr>
-                                <td>{{ loop.index }}</td>
-                                <td><strong>{{ item.name }}</strong></td>
-                                <td><span class="badge bg-danger">{{ item.failure_count }}</span></td>
-                                <td>{% if item.avg_repair_time %}{{ item.avg_repair_time }} dk{% else %}-{% endif %}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+</div>
+
+<!-- Data Quality + Supplier Performance -->
+<div class="row g-3 mb-4">
+    <div class="col-md-5">
+        <div class="fracas-quality-panel">
+            <div class="filter-title mb-3">
+                <i class="bi bi-clipboard-data"></i> Veri Kalitesi
+                <span class="ms-auto" style="font-size: 1rem; font-weight: 800; 
+                    color: {% if data_quality.score >= 80 %}var(--fracas-success){% elif data_quality.score >= 50 %}var(--fracas-warning){% else %}var(--fracas-danger){% endif %};">
+                    %{{ "%.0f"|format(data_quality.score) }}
+                </span>
+            </div>
+            {% for item in data_quality.details %}
+            <div class="quality-item">
+                <span class="qi-name">{{ item.column }}</span>
+                <div class="qi-bar">
+                    <div class="quality-progress">
+                        <div class="bar" style="width: {{ item.fill_rate }}%; 
+                            background: {% if item.fill_rate >= 80 %}var(--fracas-success){% elif item.fill_rate >= 50 %}var(--fracas-warning){% else %}var(--fracas-danger){% endif %};"></div>
+                    </div>
                 </div>
+                <span class="qi-pct" style="color: {% if item.fill_rate >= 80 %}var(--fracas-success){% elif item.fill_rate >= 50 %}var(--fracas-warning){% else %}var(--fracas-danger){% endif %};">
+                    {% if item.found %}%{{ item.fill_rate|int }}{% else %}-{% endif %}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="col-md-7">
+        <div class="fracas-table-panel">
+            <div class="table-header"><i class="bi bi-award"></i> Tedarikçi Performans (Top 10)</div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Tedarikçi</th>
+                            <th>Arıza</th>
+                            <th>Ort. Tamir (dk)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in supplier.performance[:10] %}
+                        <tr>
+                            <td><span style="color: var(--fracas-text-muted); font-weight: 600;">{{ loop.index }}</span></td>
+                            <td><strong>{{ item.name }}</strong></td>
+                            <td><span class="supplier-badge">{{ item.failure_count }}</span></td>
+                            <td>{% if item.avg_repair_time %}<span style="font-weight: 600;">{{ item.avg_repair_time }}</span> dk{% else %}<span style="color: #cbd5e1;">-</span>{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 </div>
 
+{% else %}
+<!-- No Data State -->
+<div class="fracas-empty-state">
+    <i class="bi bi-database-slash d-block"></i>
+    <h5>FRACAS Verisi Bulunamadı</h5>
+    <p>Seçili proje için analiz verileri henüz yüklenmemiş veya dosya bulunamadı.</p>
+    <p class="text-muted" style="font-size: 0.8rem;">Kaynak: {{ data_source }}</p>
+</div>
 {% endif %}
+
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -309,15 +738,32 @@
 document.addEventListener('DOMContentLoaded', function() {
   try {
     if (typeof Chart === 'undefined') {
-        document.querySelectorAll('canvas').forEach(function(c) {
-            c.parentElement.innerHTML = '<div class="alert alert-danger">Chart.js yüklenemedi. Sayfayı yenileyin veya tarayıcı önbelleğini temizleyin.</div>';
+        document.querySelectorAll('canvas').forEach(c => {
+            c.parentElement.innerHTML = '<div class="alert alert-danger py-2" style="font-size:0.85rem;border-radius:8px;">Chart.js yüklenemedi.</div>';
         });
         return;
     }
-    console.log('FRACAS: Chart.js v' + Chart.version + ' yüklendi, grafikler oluşturuluyor...');
-    const colors = ['#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#9333ea', '#0891b2', '#c026d3', '#ea580c', '#2563eb', '#059669', '#d97706', '#0087be', '#7c3aed', '#db2777'];
 
-    // Pareto - Modül
+    const chartColors = ['#8b1e1e','#2563eb','#16a34a','#ca8a04','#9333ea','#0891b2','#c026d3','#ea580c','#059669','#d97706','#0087be','#7c3aed','#db2777','#6366f1'];
+    const chartDefaults = {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: { position: 'bottom', labels: { padding: 12, usePointStyle: true, font: { size: 11, weight: '500' } } }
+        }
+    };
+
+    // Chart download helper
+    window.downloadChartAsImage = function(canvasId, filename) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const link = document.createElement('a');
+        link.download = filename + '.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    };
+
+    // Pareto - Module
     {% if pareto_labels_module %}
     new Chart(document.getElementById('paretoModuleChart').getContext('2d'), {
         type: 'bar',
@@ -326,29 +772,27 @@ document.addEventListener('DOMContentLoaded', function() {
             datasets: [{
                 label: 'Arıza Sayısı',
                 data: {{ pareto_counts_module|tojson }},
-                backgroundColor: colors,
-                borderRadius: 4
+                backgroundColor: chartColors,
+                borderRadius: 6,
+                borderSkipped: false
             }, {
                 label: 'Kümülatif %',
                 data: {{ pareto_cumulative_module|tojson }},
                 type: 'line',
                 borderColor: '#f59e0b',
+                backgroundColor: 'rgba(245,158,11,0.1)',
                 yAxisID: 'y1',
-                tension: 0.4
+                tension: 0.4,
+                pointRadius: 3,
+                pointBackgroundColor: '#f59e0b',
+                fill: true
             }]
         },
-        options: {
-            responsive: true,
-            plugins: { legend: { position: 'bottom' } },
-            scales: {
-                y: { beginAtZero: true },
-                y1: { beginAtZero: true, position: 'right', max: 100 }
-            }
-        }
+        options: { ...chartDefaults, scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, y1: { position: 'right', beginAtZero: true, max: 100, grid: { display: false } } } }
     });
     {% endif %}
 
-    // Pareto - Tedarikçi
+    // Pareto - Supplier
     {% if pareto_labels_supplier %}
     new Chart(document.getElementById('paretoSupplierChart').getContext('2d'), {
         type: 'bar',
@@ -357,29 +801,27 @@ document.addEventListener('DOMContentLoaded', function() {
             datasets: [{
                 label: 'Arıza Sayısı',
                 data: {{ pareto_counts_supplier|tojson }},
-                backgroundColor: colors.slice().reverse(),
-                borderRadius: 4
+                backgroundColor: chartColors.slice().reverse(),
+                borderRadius: 6,
+                borderSkipped: false
             }, {
                 label: 'Kümülatif %',
                 data: {{ pareto_cumulative_supplier|tojson }},
                 type: 'line',
                 borderColor: '#f59e0b',
+                backgroundColor: 'rgba(245,158,11,0.1)',
                 yAxisID: 'y1',
-                tension: 0.4
+                tension: 0.4,
+                pointRadius: 3,
+                pointBackgroundColor: '#f59e0b',
+                fill: true
             }]
         },
-        options: {
-            responsive: true,
-            plugins: { legend: { position: 'bottom' } },
-            scales: {
-                y: { beginAtZero: true },
-                y1: { beginAtZero: true, position: 'right', max: 100 }
-            }
-        }
+        options: { ...chartDefaults, scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, y1: { position: 'right', beginAtZero: true, max: 100, grid: { display: false } } } }
     });
     {% endif %}
 
-    // Aylık Trend
+    // Monthly Trend
     {% if trend_periods %}
     new Chart(document.getElementById('monthlyTrendChart').getContext('2d'), {
         type: 'line',
@@ -388,17 +830,22 @@ document.addEventListener('DOMContentLoaded', function() {
             datasets: [{
                 label: 'Arıza Sayısı',
                 data: {{ trend_counts|tojson }},
-                borderColor: '#2563eb',
-                backgroundColor: 'rgba(37,99,235,0.1)',
+                borderColor: '#8b1e1e',
+                backgroundColor: 'rgba(139,30,30,0.08)',
                 fill: true,
-                tension: 0.4
+                tension: 0.4,
+                pointRadius: 4,
+                pointBackgroundColor: '#8b1e1e',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                borderWidth: 2.5
             }]
         },
-        options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true } } }
+        options: { ...chartDefaults, scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } } }
     });
     {% endif %}
 
-    // Saatlik
+    // Hourly Distribution
     {% if trend_hours %}
     new Chart(document.getElementById('hourlyChart').getContext('2d'), {
         type: 'bar',
@@ -407,15 +854,17 @@ document.addEventListener('DOMContentLoaded', function() {
             datasets: [{
                 label: 'Arıza Sayısı',
                 data: {{ trend_hour_counts|tojson }},
-                backgroundColor: 'rgba(37,99,235,0.7)',
-                borderRadius: 2
+                backgroundColor: 'rgba(139,30,30,0.65)',
+                hoverBackgroundColor: 'rgba(139,30,30,0.85)',
+                borderRadius: 4,
+                borderSkipped: false
             }]
         },
-        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } } }
     });
     {% endif %}
 
-    // Arıza Sınıfı
+    // Failure Class (Doughnut)
     {% if pareto_labels_class %}
     new Chart(document.getElementById('failureClassChart').getContext('2d'), {
         type: 'doughnut',
@@ -423,15 +872,16 @@ document.addEventListener('DOMContentLoaded', function() {
             labels: {{ pareto_labels_class|tojson }},
             datasets: [{
                 data: {{ pareto_counts_class|tojson }},
-                backgroundColor: colors,
-                borderWidth: 0
+                backgroundColor: chartColors,
+                borderWidth: 0,
+                hoverOffset: 6
             }]
         },
-        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+        options: { ...chartDefaults, cutout: '55%' }
     });
     {% endif %}
 
-    // Arıza Konumu
+    // Location (Pie)
     {% if pareto_labels_location %}
     new Chart(document.getElementById('locationChart').getContext('2d'), {
         type: 'pie',
@@ -439,78 +889,18 @@ document.addEventListener('DOMContentLoaded', function() {
             labels: {{ pareto_labels_location|tojson }},
             datasets: [{
                 data: {{ pareto_counts_location|tojson }},
-                backgroundColor: colors.slice().reverse(),
-                borderWidth: 0
+                backgroundColor: chartColors.slice().reverse(),
+                borderWidth: 0,
+                hoverOffset: 6
             }]
         },
-        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+        options: chartDefaults
     });
     {% endif %}
 
-    // Filtre İşlevleri
-    document.getElementById('btn_apply_filter').addEventListener('click', function() {
-        const start_date = document.getElementById('filter_start_date').value;
-        const end_date = document.getElementById('filter_end_date').value;
-        const failure_class = document.getElementById('filter_class').value;
-        
-        let url = '{{ url_for("fracas.fracas_filter") }}?';
-        if (start_date) url += `start_date=${start_date}&`;
-        if (end_date) url += `end_date=${end_date}&`;
-        if (failure_class) url += `failure_class=${failure_class}&`;
-        
-        fetch(url)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert(`Filtre uygulandı. ${data.filtered_count} kayıt bulundu.`);
-                    // Sayfayı yenile
-                    location.reload();
-                }
-            })
-            .catch(error => alert('Filtre uygulanırken hata oluştu: ' + error));
-    });
-    
-    document.getElementById('btn_reset_filter').addEventListener('click', function() {
-        document.getElementById('filter_start_date').value = '';
-        document.getElementById('filter_end_date').value = '';
-        document.getElementById('filter_class').value = '';
-        alert('Filtreler sıfırlandı');
-    });
-    
-    // Export düğmelerini filtre parametreleriyle güncelle
-    document.getElementById('btn_export_excel').addEventListener('click', function(e) {
-        const start_date = document.getElementById('filter_start_date').value;
-        const end_date = document.getElementById('filter_end_date').value;
-        const failure_class = document.getElementById('filter_class').value;
-        
-        let url = '{{ url_for("fracas.export_excel") }}?';
-        if (start_date) url += `start_date=${start_date}&`;
-        if (end_date) url += `end_date=${end_date}&`;
-        if (failure_class) url += `failure_class=${failure_class}`;
-        
-        window.location.href = url;
-        e.preventDefault();
-    });
-    
-    document.getElementById('btn_export_pdf').addEventListener('click', function(e) {
-        const start_date = document.getElementById('filter_start_date').value;
-        const end_date = document.getElementById('filter_end_date').value;
-        
-        let url = '{{ url_for("fracas.export_pdf") }}?';
-        if (start_date) url += `start_date=${start_date}&`;
-        if (end_date) url += `end_date=${end_date}`;
-        
-        window.location.href = url;
-        e.preventDefault();
-    });
-    console.log('FRACAS: Tüm grafikler başarıyla oluşturuldu.');
+    console.log('FRACAS: Charts rendered successfully');
   } catch(err) {
-    console.error('FRACAS grafik hatası:', err);
-    document.querySelectorAll('canvas').forEach(function(c) {
-        if (c.offsetHeight < 5) {
-            c.parentElement.innerHTML = '<div class="alert alert-warning">Grafik yüklenirken hata: ' + err.message + '</div>';
-        }
-    });
+    console.error('FRACAS chart error:', err);
   }
 });
 </script>

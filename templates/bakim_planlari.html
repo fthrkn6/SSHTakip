@@ -1905,6 +1905,15 @@
             });
     }
 
+    function reloadAllTabs() {
+        // Seviye değişikliğinden sonra tüm sekmeleri yenile
+        loadData();
+        loadSchedule();
+        // Tab 2 transpose verisini de sıfırla
+        const tbody = document.getElementById('scheduleTableBody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4"><i class="bi bi-hourglass-split me-2"></i>Yükleniyor...</td></tr>';
+    }
+
     function showAddLevelModal() {
         const key = prompt('Seviye adı (örn: 6K, 18K, 72K):');
         if (!key) return;
@@ -1919,7 +1928,7 @@
         })
         .then(r => r.json())
         .then(data => {
-            if (data.success) { loadLevels(); alert(data.message); }
+            if (data.success) { loadLevels(); reloadAllTabs(); alert(data.message); }
             else alert('Hata: ' + data.message);
         })
         .catch(err => alert('Hata: ' + err.message));
@@ -1938,7 +1947,7 @@
         })
         .then(r => r.json())
         .then(data => {
-            if (data.success) { loadLevels(); alert(data.message); }
+            if (data.success) { loadLevels(); reloadAllTabs(); alert(data.message); }
             else alert('Hata: ' + data.message);
         })
         .catch(err => alert('Hata: ' + err.message));
@@ -1950,7 +1959,7 @@
         fetch(`/api/bakim-seviyeleri/${key}`, { method: 'DELETE' })
         .then(r => r.json())
         .then(data => {
-            if (data.success) { loadLevels(); alert(data.message); }
+            if (data.success) { loadLevels(); reloadAllTabs(); alert(data.message); }
             else alert('Hata: ' + data.message);
         })
         .catch(err => alert('Hata: ' + err.message));
