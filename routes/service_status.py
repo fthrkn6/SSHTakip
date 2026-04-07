@@ -1173,8 +1173,13 @@ def export_service_status_excel():
         from openpyxl import Workbook
         from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
         from openpyxl.utils import get_column_letter
+        from openpyxl.comments import Comment
         
         current_project = session.get('current_project', 'belgrad')
+        
+        # Veriler.xlsx'ten geçerli araç listesini al
+        valid_trams = get_tram_ids_from_veriler(current_project)
+        valid_trams_set = set(valid_trams) if valid_trams else None
         
         # İstek verisinden tram_id al (opsiyonel)
         data = request.get_json() or {}
@@ -1195,15 +1200,23 @@ def export_service_status_excel():
         if not all_status_records:
             return jsonify({'error': 'Veri bulunamadı'}), 400
         
-        # Pivot tablo yapısı oluştur: tramvay -> {tarih -> durum}
+        # Pivot tablo yapısı oluştur: tramvay -> {tarih -> {status, sistem, alt_sistem, aciklama}}
         pivot_data = {}
         all_trams = set()
         all_dates = set()
         
         for record in all_status_records:
+            # Geçerli araç listesinde olmayanları atla
+            if valid_trams_set and record.tram_id not in valid_trams_set:
+                continue
             if record.tram_id not in pivot_data:
                 pivot_data[record.tram_id] = {}
-            pivot_data[record.tram_id][record.date] = record.status
+            pivot_data[record.tram_id][record.date] = {
+                'status': record.status,
+                'sistem': record.sistem or '',
+                'alt_sistem': record.alt_sistem or '',
+                'aciklama': record.aciklama or ''
+            }
             all_trams.add(record.tram_id)
             all_dates.add(record.date)
         
@@ -1283,9 +1296,15 @@ def export_service_status_excel():
             cell.alignment = Alignment(horizontal='center', vertical='center')
             
             for col_idx, date_str in enumerate(sorted_dates, start=2):
-                status = pivot_data[tram_id_row].get(date_str, '')
+                record_info = pivot_data[tram_id_row].get(date_str, None)
                 cell = ws.cell(row=row_idx, column=col_idx)
                 cell.border = border
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+                
+                status = record_info.get('status', '') if isinstance(record_info, dict) else (record_info or '')
+                sistem = record_info.get('sistem', '') if isinstance(record_info, dict) else ''
+                alt_sistem = record_info.get('alt_sistem', '') if isinstance(record_info, dict) else ''
+                aciklama = record_info.get('aciklama', '') if isinstance(record_info, dict) else ''
                 
                 if status and 'Servis' in status:
                     if 'Dışı' in status:
@@ -1295,6 +1314,17 @@ def export_service_status_excel():
                         else:
                             cell.value = '✗'
                             cell.fill = disi_fill
+                        
+                        # Servis dışı sebebini Excel yorumu (hover) olarak ekle
+                        comment_lines = []
+                        if sistem:
+                            comment_lines.append(f'Sistem: {sistem}')
+                        if alt_sistem:
+                            comment_lines.append(f'Alt Sistem: {alt_sistem}')
+                        if aciklama:
+                            comment_lines.append(f'Açıklama: {aciklama}')
+                        if comment_lines:
+                            cell.comment = Comment('\n'.join(comment_lines), 'SSH Sistem')
                     else:
                         cell.value = '✓'
                         cell.fill = servis_fill
@@ -1347,8 +1377,13 @@ def export_daily_table_excel():
         from openpyxl import Workbook
         from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
         from openpyxl.utils import get_column_letter
+        from openpyxl.comments import Comment
         
         current_project = session.get('current_project', 'belgrad')
+        
+        # Veriler.xlsx'ten geçerli araç listesini al
+        valid_trams = get_tram_ids_from_veriler(current_project)
+        valid_trams_set = set(valid_trams) if valid_trams else None
         
         # Tüm tarihsel verileri al (sadece aktif proje)
         all_status_records = ServiceStatus.query.filter_by(
@@ -1361,15 +1396,23 @@ def export_daily_table_excel():
         if not all_status_records:
             return jsonify({'error': 'Veri bulunamadı'}), 400
         
-        # Pivot tablo yapısı oluştur: tramvay -> {tarih -> durum}
+        # Pivot tablo yapısı oluştur: tramvay -> {tarih -> {status, sistem, alt_sistem, aciklama}}
         pivot_data = {}
         all_trams = set()
         all_dates = set()
         
         for record in all_status_records:
+            # Geçerli araç listesinde olmayanları atla
+            if valid_trams_set and record.tram_id not in valid_trams_set:
+                continue
             if record.tram_id not in pivot_data:
                 pivot_data[record.tram_id] = {}
-            pivot_data[record.tram_id][record.date] = record.status
+            pivot_data[record.tram_id][record.date] = {
+                'status': record.status,
+                'sistem': record.sistem or '',
+                'alt_sistem': record.alt_sistem or '',
+                'aciklama': record.aciklama or ''
+            }
             all_trams.add(record.tram_id)
             all_dates.add(record.date)
         
@@ -1451,28 +1494,40 @@ def export_daily_table_excel():
             
             # Her tarih için durum
             for col_idx, date_str in enumerate(sorted_dates, start=2):
-                status = pivot_data[tram_id].get(date_str, '')
+                record_info = pivot_data[tram_id].get(date_str, None)
                 cell = ws.cell(row=row_idx, column=col_idx)
                 cell.border = border
                 cell.alignment = Alignment(horizontal='center', vertical='center')
+                
+                status = record_info.get('status', '') if isinstance(record_info, dict) else (record_info or '')
+                sistem = record_info.get('sistem', '') if isinstance(record_info, dict) else ''
+                alt_sistem = record_info.get('alt_sistem', '') if isinstance(record_info, dict) else ''
+                aciklama = record_info.get('aciklama', '') if isinstance(record_info, dict) else ''
                 
                 # Durum sembolü ve rengi
                 if status and 'Servis' in status:
                     if 'Dışı' in status:
                         if 'İşletme' in status:
-                            # İşletme kaynaklı servis dışı = Turuncu uyarı
-                            cell.value = '⚠'  # Uyarı işareti
+                            cell.value = '⚠'
                             cell.fill = isletme_fill
                         else:
-                            # Servis dışı = Kırmızı X
-                            cell.value = '✗'  # X işareti
+                            cell.value = '✗'
                             cell.fill = disi_fill
+                        
+                        # Servis dışı sebebini Excel yorumu (hover) olarak ekle
+                        comment_lines = []
+                        if sistem:
+                            comment_lines.append(f'Sistem: {sistem}')
+                        if alt_sistem:
+                            comment_lines.append(f'Alt Sistem: {alt_sistem}')
+                        if aciklama:
+                            comment_lines.append(f'Açıklama: {aciklama}')
+                        if comment_lines:
+                            cell.comment = Comment('\n'.join(comment_lines), 'SSH Sistem')
                     else:
-                        # Servis = Yeşil tik
-                        cell.value = '✓'  # Tik işareti
+                        cell.value = '✓'
                         cell.fill = servis_fill
                 else:
-                    # Bilgi yoksa boş bırak
                     cell.value = ''
                 
                 cell.font = durum_font

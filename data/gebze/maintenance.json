@@ -40,5 +40,10 @@
     "km": 20000,
     "label": "20 KM Bakımı",
     "works": []
+  },
+  "10K": {
+    "km": 10000,
+    "label": "10K KM Bakımı",
+    "works": []
   }
 }

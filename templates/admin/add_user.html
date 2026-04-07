@@ -15,6 +15,7 @@
                 </div>
                 <div class="card-body">
                     <form method="POST" data-validate data-loading>
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <!-- Ad Soyadı -->
                         <div class="form-group">
                             <label for="full_name">

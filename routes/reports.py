@@ -23,7 +23,7 @@ from utils.utils_reporting import (
     ScenarioAnalysis, init_reporting_system
 )
 from utils.utils_excel_grid_manager import ExcelGridManager, RCAExcelManager
-from models import Equipment, db, WorkOrder, Failure
+from models import Equipment, db, WorkOrder, Failure, ServiceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -390,61 +390,112 @@ def scenarios_rca_stats():
 @login_required
 def scenarios_availability_trend():
     """Availability trend verilerini getir - Zamansal trend analizi
+    Günlük rapor Excel ile aynı veri kaynağından (ServiceStatus DB) okur.
     
     Query parametreleri:
     - period: 'haftalik' | 'aylik' | 'ucaylik' | 'altiylik' | 'yillik' | 'toplam'
     """
     try:
+        from collections import defaultdict
+        from routes.service_status import get_tram_ids_from_veriler
+        
         project = session.get('current_project', 'belgrad')
         period = request.args.get('period', 'haftalik')
         
-        # Excel Grid Manager ile oku
-        grid_manager = ExcelGridManager(project)
+        # Veriler.xlsx'ten geçerli araç listesini al
+        valid_trams = get_tram_ids_from_veriler(project)
+        valid_trams_set = set(valid_trams) if valid_trams else None
         
         # Tarih aralığını belirle ve granülarity'yi seç
         today = date.today()
-        granularity = 'daily'  # Default
+        granularity = 'daily'
         
         if period == 'haftalik':
-            start_date = today - timedelta(days=7)  # Son 7 gün
-            end_date = today
+            start_date = today - timedelta(days=7)
             granularity = 'daily'
         elif period == 'aylik':
-            start_date = today - timedelta(days=30)  # Son 30 gün
-            end_date = today
+            start_date = today - timedelta(days=30)
             granularity = 'weekly'
         elif period == 'ucaylik':
-            start_date = today - timedelta(days=90)  # Son 90 gün
-            end_date = today
+            start_date = today - timedelta(days=90)
             granularity = 'monthly'
         elif period == 'altiylik':
-            start_date = today - timedelta(days=180)  # Son 180 gün
-            end_date = today
+            start_date = today - timedelta(days=180)
             granularity = 'monthly'
         elif period == 'yillik':
-            start_date = today - timedelta(days=365)  # Son 365 gün
-            end_date = today
+            start_date = today - timedelta(days=365)
             granularity = 'monthly'
         else:  # 'toplam'
             start_date = None
-            end_date = None
             granularity = 'monthly'
         
-        # Trend verilerini al
-        trend_data = grid_manager.get_availability_trend(
-            current_app.root_path,
-            start_date,
-            end_date,
-            granularity
-        )
+        # DB'den ServiceStatus verilerini al (günlük rapor Excel ile aynı kaynak)
+        query = ServiceStatus.query.filter_by(project_code=project)
+        if start_date:
+            query = query.filter(ServiceStatus.date >= start_date.strftime('%Y-%m-%d'))
+        
+        all_records = query.order_by(ServiceStatus.date).all()
+        
+        if not all_records:
+            return jsonify({
+                'success': True, 'period': period, 'granularity': granularity,
+                'data': {'dates': [], 'averages': []}
+            })
+        
+        # Geçerli araçlara filtrele ve tarihe göre grupla
+        # {tarih_str: {tram_id: status}}
+        date_tram_status = defaultdict(dict)
+        for record in all_records:
+            if valid_trams_set and record.tram_id not in valid_trams_set:
+                continue
+            date_tram_status[record.date][record.tram_id] = record.status
+        
+        # Granülarite'ye göre bucket'la
+        buckets = defaultdict(list)  # {bucket_key: [availability_pct_per_day]}
+        
+        for date_str, tram_statuses in date_tram_status.items():
+            try:
+                date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except Exception:
+                continue
+            
+            # Bucket key belirle
+            if granularity == 'daily':
+                bucket_key = date_str
+            elif granularity == 'weekly':
+                year, week, _ = date_obj.isocalendar()
+                bucket_key = f"{year}-W{week:02d}"
+            elif granularity == 'monthly':
+                bucket_key = date_obj.strftime('%Y-%m')
+            else:
+                bucket_key = date_str
+            
+            # Bu gün için availability hesapla
+            total = len(tram_statuses)
+            if total > 0:
+                active = sum(1 for s in tram_statuses.values() 
+                           if s and 'Servis' in s and 'Dışı' not in s)
+                day_availability = round((active / total) * 100, 1)
+                buckets[bucket_key].append(day_availability)
+        
+        # Bucket'ları sırala ve ortalama al
+        sorted_keys = sorted(buckets.keys())
+        dates = []
+        averages = []
+        
+        for key in sorted_keys:
+            dates.append(str(key))
+            vals = buckets[key]
+            avg = round(sum(vals) / len(vals), 1) if vals else 0
+            averages.append(avg)
         
         return jsonify({
             'success': True,
             'period': period,
             'granularity': granularity,
             'data': {
-                'dates': trend_data.get('dates', []),
-                'averages': trend_data.get('averages', [])
+                'dates': dates,
+                'averages': averages
             }
         })
     
