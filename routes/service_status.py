@@ -87,6 +87,14 @@ def service_status_page():
         # Bugünün tarihi
         today_date = str(date.today())
         
+        # Excel'den bugünün verilerini oku (Servis_Durumu.xlsx - grid format)
+        excel_today_data = {}
+        try:
+            from utils.utils_project_excel_store import read_service_status_by_date
+            excel_today_data = read_service_status_by_date(current_project, today_date) or {}
+        except Exception as e:
+            logger.warning(f'Excel okuma hatası: {e}')
+        
         # Her tramvay için durumunu getir
         tram_status_data = []
         for equipment in equipment_list:
@@ -97,21 +105,30 @@ def service_status_page():
                 project_code=current_project
             ).first()
             
+            # Excel'den veri de kontrol et
+            excel_info = excel_today_data.get(equipment.equipment_code)
+            
             # Durum belirle
             status_color = 'success'  # Default yeşil
             status_display = 'aktif'
             status_badge = 'Aktif'
             
-            if status_record:
-                status_value = status_record.status if status_record.status else ''
+            # Durum kaynağı: Önce DB, yoksa Excel
+            status_value = None
+            if status_record and status_record.status:
+                status_value = status_record.status
                 aciklama = status_record.aciklama if status_record.aciklama else ''
-                
+            elif excel_info and excel_info.get('status'):
+                # DB'de yok ama Excel'de var → Excel'den oku
+                status_value = excel_info['status']
+                aciklama = excel_info.get('aciklama', '')
+            
+            if status_value:
                 # CRITICAL: Check "İşletme Kaynaklı" FIRST before "Servis Dışı" 
                 # because "İşletme Kaynaklı Servis Dışı" contains both patterns!
-                # Use case-insensitive Turkish pattern matching (no lower() to avoid Unicode issues)
                 if 'İşletme' in status_value or 'işletme' in status_value:
                     status_color = 'warning'
-                    status_display = 'isletme'  # İşletme kaynaklı = special status for counting
+                    status_display = 'isletme'
                     status_badge = 'İşletme Kaynaklı'
                 elif 'Dışı' in status_value or 'dışı' in status_value:
                     status_color = 'danger'
@@ -126,7 +143,7 @@ def service_status_page():
                     status_display = 'aktif'
                     status_badge = 'Aktif'
             else:
-                # ServiceStatus yoksa default 'aktif'
+                # Ne DB ne Excel'de kayıt yok → default aktif
                 status_color = 'success'
                 status_display = 'aktif'
                 status_badge = 'Aktif'
@@ -194,9 +211,10 @@ def service_status_page():
                 aktif_count += 1
         
         # Availability = (Aktif + İşletme Kaynaklı) / Toplam * 100
-        # İşletme Kaynaklı olanlar çalışabilir durumda olsa da tamir bekliyordur
-        # Sadece Aktif olanlar tam kullanılabilir
-        availability = ((aktif_count) / toplam * 100) if toplam > 0 else 0
+        # İşletme Kaynaklı → operatör kararı, araç arızalı değil → kullanılabilir sayılır
+        # Servis Dışı → arıza → kullanılamaz
+        kullanilabilir = aktif_count + isletme_count
+        availability = (kullanilabilir / toplam * 100) if toplam > 0 else 0
         
         # Seçili dönem
         period = request.args.get('period', 'monthly')
@@ -246,7 +264,15 @@ def service_status_table():
             Equipment.project_code == current_project
         ).order_by(Equipment.equipment_code).all()
         
-        # Her tramvay için ServiceStatus'ten durum al - DASHBOARD LOGİĞİ
+        # Excel'den bugünün verilerini oku (Servis_Durumu.xlsx - fallback)
+        excel_today = {}
+        try:
+            from utils.utils_project_excel_store import read_service_status_by_date
+            excel_today = read_service_status_by_date(current_project, today_date) or {}
+        except Exception as e:
+            logger.warning(f'Excel okuma hatası (tablo): {e}')
+        
+        # Her tramvay için durum al
         table_data = []
         aktif_count = 0
         isletme_count = 0  # İşletme Kaynaklı Servis Dışı
@@ -260,20 +286,26 @@ def service_status_table():
                 project_code=current_project
             ).first()
             
-            # Durum belirle - DASHBOARD LOGİĞİ
+            # Durum belirle - DB öncelikli, yoksa Excel
             status_display = 'Aktif'
             status_type = 'aktif'
             
-            # ServiceStatus varsa onu kullan
+            service_status = None
             if service_record and service_record.status:
                 service_status = service_record.status
-                
+            elif equipment.equipment_code in excel_today:
+                service_status = excel_today[equipment.equipment_code].get('status', '')
+                # Excel'den gelen 'Serviste' → normalize
+                if service_status == 'Serviste':
+                    service_status = 'Servis'
+            
+            if service_status:
                 # İşletme Kaynaklı check FIRST (çünkü "Dışı" yazı içeriyor)
-                if 'İşletme' in service_status or 'işletme' in service_status.lower():
+                if 'İşletme' in service_status or 'işletme' in service_status:
                     status_display = 'İşletme Kaynaklı Servis Dışı'
                     status_type = 'işletme'
                     isletme_count += 1
-                elif 'Dışı' in service_status or 'dışı' in service_status.lower() or 'ariza' in service_status.lower():
+                elif 'Dışı' in service_status or 'dışı' in service_status:
                     status_display = 'Servis Dışı'
                     status_type = 'ariza'
                     ariza_count += 1
@@ -1302,9 +1334,6 @@ def export_service_status_excel():
                 cell.alignment = Alignment(horizontal='center', vertical='center')
                 
                 status = record_info.get('status', '') if isinstance(record_info, dict) else (record_info or '')
-                sistem = record_info.get('sistem', '') if isinstance(record_info, dict) else ''
-                alt_sistem = record_info.get('alt_sistem', '') if isinstance(record_info, dict) else ''
-                aciklama = record_info.get('aciklama', '') if isinstance(record_info, dict) else ''
                 
                 if status and 'Servis' in status:
                     if 'Dışı' in status:
@@ -1314,17 +1343,6 @@ def export_service_status_excel():
                         else:
                             cell.value = '✗'
                             cell.fill = disi_fill
-                        
-                        # Servis dışı sebebini Excel yorumu (hover) olarak ekle
-                        comment_lines = []
-                        if sistem:
-                            comment_lines.append(f'Sistem: {sistem}')
-                        if alt_sistem:
-                            comment_lines.append(f'Alt Sistem: {alt_sistem}')
-                        if aciklama:
-                            comment_lines.append(f'Açıklama: {aciklama}')
-                        if comment_lines:
-                            cell.comment = Comment('\n'.join(comment_lines), 'SSH Sistem')
                     else:
                         cell.value = '✓'
                         cell.fill = servis_fill
@@ -1500,9 +1518,6 @@ def export_daily_table_excel():
                 cell.alignment = Alignment(horizontal='center', vertical='center')
                 
                 status = record_info.get('status', '') if isinstance(record_info, dict) else (record_info or '')
-                sistem = record_info.get('sistem', '') if isinstance(record_info, dict) else ''
-                alt_sistem = record_info.get('alt_sistem', '') if isinstance(record_info, dict) else ''
-                aciklama = record_info.get('aciklama', '') if isinstance(record_info, dict) else ''
                 
                 # Durum sembolü ve rengi
                 if status and 'Servis' in status:
@@ -1513,17 +1528,6 @@ def export_daily_table_excel():
                         else:
                             cell.value = '✗'
                             cell.fill = disi_fill
-                        
-                        # Servis dışı sebebini Excel yorumu (hover) olarak ekle
-                        comment_lines = []
-                        if sistem:
-                            comment_lines.append(f'Sistem: {sistem}')
-                        if alt_sistem:
-                            comment_lines.append(f'Alt Sistem: {alt_sistem}')
-                        if aciklama:
-                            comment_lines.append(f'Açıklama: {aciklama}')
-                        if comment_lines:
-                            cell.comment = Comment('\n'.join(comment_lines), 'SSH Sistem')
                     else:
                         cell.value = '✓'
                         cell.fill = servis_fill

@@ -3906,16 +3906,41 @@ def create_app():
                 date = datetime.now() - timedelta(days=i)
                 last_7_days.append(date.strftime('%Y-%m-%d'))
             
-            # 7 günlük status matrix - veritabanından çek (varsa)
+            # 7 günlük status matrix - veritabanı + Excel (Servis_Durumu.xlsx) birleşik
             status_matrix = {}
             tram_ids_list = [t.id if hasattr(t, 'id') else str(t) for t in tramvaylar]
             
-            # Eğer ServiceStatus modeli varsa sorgu yap
+            # Önce Excel'den oku (Servis_Durumu.xlsx grid formatı)
+            try:
+                from utils.utils_project_excel_store import read_service_status_by_date
+                for date_str in last_7_days:
+                    excel_data = read_service_status_by_date(current_project, date_str)
+                    if excel_data:
+                        for tram_id in tram_ids_list:
+                            if tram_id not in status_matrix:
+                                status_matrix[tram_id] = {}
+                            if tram_id in excel_data:
+                                ed = excel_data[tram_id]
+                                # Excel'den gelen 'Serviste' → 'Servis' olarak normalize et (frontend uyumu)
+                                raw_status = ed.get('status', '')
+                                if raw_status == 'Serviste':
+                                    raw_status = 'Servis'
+                                status_matrix[tram_id][date_str] = (
+                                    raw_status,
+                                    ed.get('sistem', ''),
+                                    ed.get('alt_sistem', ''),
+                                    ed.get('aciklama', '')
+                                )
+            except Exception as excel_err:
+                logger.warning(f'Excel status_matrix okuma hatası: {excel_err}')
+
+            # Sonra DB'den oku (DB varsa Excel'in üzerine yaz - DB daha güncel)
             if hasattr(db, 'session'):
                 try:
                     from models import ServiceStatus
                     for tram_id in tram_ids_list:
-                        status_matrix[tram_id] = {}
+                        if tram_id not in status_matrix:
+                            status_matrix[tram_id] = {}
                         for date in last_7_days:
                             status_record = ServiceStatus.query.filter_by(
                                 tram_id=tram_id,
