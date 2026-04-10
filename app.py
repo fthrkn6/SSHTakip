@@ -267,6 +267,48 @@ def create_app():
             csrf = None
             logger.warning("Flask-WTF not installed - CSRF protection disabled")
         
+        # ==================== IP WHITELIST ====================
+        # .env dosyasında ALLOWED_IPS tanımlıysa sadece o IP'ler erişebilir
+        # Örnek: ALLOWED_IPS=127.0.0.1,192.168.1.100,10.0.0.0/24
+        allowed_ips_str = os.environ.get('ALLOWED_IPS', '').strip()
+        if allowed_ips_str:
+            import ipaddress
+            allowed_networks = []
+            for entry in allowed_ips_str.split(','):
+                entry = entry.strip()
+                if not entry:
+                    continue
+                try:
+                    allowed_networks.append(ipaddress.ip_network(entry, strict=False))
+                except ValueError:
+                    logger.warning(f"Geçersiz IP/CIDR: {entry}")
+            
+            if allowed_networks:
+                logger.info(f"IP Whitelist aktif: {[str(n) for n in allowed_networks]}")
+                
+                @app.before_request
+                def check_ip_whitelist():
+                    client_ip_str = request.remote_addr or '127.0.0.1'
+                    try:
+                        client_ip = ipaddress.ip_address(client_ip_str)
+                    except ValueError:
+                        return render_template('error.html', 
+                            title='Erişim Engellendi',
+                            message='Geçersiz IP adresi.'), 403
+                    
+                    for network in allowed_networks:
+                        if client_ip in network:
+                            return None  # İzin ver
+                    
+                    logger.warning(f"IP engellendi: {client_ip_str} -> {request.path}")
+                    return render_template('error.html',
+                        title='Erişim Engellendi', 
+                        message=f'Bu IP adresinden ({client_ip_str}) erişim izni yok.'), 403
+            else:
+                logger.info("ALLOWED_IPS tanımlı ama geçerli IP yok, whitelist devre dışı")
+        else:
+            logger.info("IP Whitelist devre dışı (ALLOWED_IPS tanımlanmamış)")
+
         # Initialize Cache Manager
         try:
             import redis
