@@ -633,10 +633,10 @@ class RCAExcelManager:
         stats = {}
         
         for record in rca_data:
-            system = record.get('Sistem', 'Bilinmiyor')
+            system = record.get('Sistem') or 'Bilinmiyor'
             stats[system] = stats.get(system, 0) + 1
         
-        return dict(sorted(stats.items(), key=lambda x: x[1], reverse=True))
+        return dict(sorted(stats.items(), key=lambda x: (-x[1], x[0] or ''), reverse=False))
     
     def get_subsystem_stats(self, base_path, start_date=None, end_date=None):
         """Alt sistem bazında arıza istatistikleri
@@ -648,10 +648,10 @@ class RCAExcelManager:
         stats = {}
         
         for record in rca_data:
-            subsystem = record.get('Alt Sistem', 'Bilinmiyor')
+            subsystem = record.get('Alt Sistem') or 'Bilinmiyor'
             stats[subsystem] = stats.get(subsystem, 0) + 1
         
-        return dict(sorted(stats.items(), key=lambda x: x[1], reverse=True))
+        return dict(sorted(stats.items(), key=lambda x: (-x[1], x[0] or ''), reverse=False))
     
     def update_rca_record(self, base_path, row_index, data):
         """Excel'deki belirli bir RCA kaydını güncelle

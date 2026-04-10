@@ -857,6 +857,16 @@ def calculate_cost_analysis(df):
     if labor_col:
         cost_data['total_labor'] = float(round(pd.to_numeric(df[labor_col], errors='coerce').sum(), 2))
     
+    # İşçilik maliyeti sütunu yoksa veya boşsa hesapla: 11 Euro * Personel Sayısı * Tamir Süresi (dk) / 60
+    if cost_data['total_labor'] == 0:
+        personnel_col = get_column(df, ['personel sayısı', 'personnel', 'gerekli personel'])
+        repair_col = get_column(df, ['tamir süresi (dakika)', 'tamir süresi', 'repair time'])
+        if personnel_col and repair_col:
+            personnel_vals = pd.to_numeric(df[personnel_col], errors='coerce').fillna(1)
+            repair_vals = pd.to_numeric(df[repair_col], errors='coerce').fillna(0)
+            labor_costs = 11 * personnel_vals * repair_vals / 60
+            cost_data['total_labor'] = float(round(labor_costs.sum(), 2))
+    
     cost_data['total_cost'] = cost_data['total_material'] + cost_data['total_labor']
     
     # Garanti kapsamı

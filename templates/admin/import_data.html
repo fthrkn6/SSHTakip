@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+
+{% block title %}Geçmiş Veri Yükleme - Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Başlık -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1>
+                <i class="fas fa-database"></i>
+                Geçmiş Veri Yükleme
+            </h1>
+            <p class="text-muted">
+                Servis durumu verilerini Excel'den DB'ye aktararak RCA analizi için hazırlayın
+            </p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Admin Paneli
+            </a>
+        </div>
+    </div>
+
+    <!-- DB Durumu -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar"></i> Veritabanı Durumu
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="db-status-loading" class="text-center py-3">
+                        <i class="fas fa-spinner fa-spin"></i> Yükleniyor...
+                    </div>
+                    <div id="db-status-table" style="display:none;">
+                        <table class="table table-sm table-bordered">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th>Proje</th>
+                                    <th>Toplam Kayıt</th>
+                                    <th>Servis Dışı</th>
+                                    <th>Sistemli Kayıt</th>
+                                    <th>Tarih Aralığı</th>
+                                </tr>
+                            </thead>
+                            <tbody id="db-status-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Sol: Mevcut Excel → DB Senkronizasyon -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-sync-alt"></i> Excel → DB Senkronizasyon
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p>
+                        Mevcut <code>Servis_Durumu.xlsx</code> dosyalarındaki tüm verileri veritabanına aktarır.
+                        RCA analizi bu verilerden yapılır.
+                    </p>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        Bu işlem mevcut Excel dosyalarını <strong>değiştirmez</strong>, sadece DB'ye kopyalar.
+                        Notlardaki (Sistem/Alt Sistem/Açıklama) bilgileri de aktarılır.
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sync-project">Proje</label>
+                        <select class="form-control" id="sync-project">
+                            <option value="all">Tüm Projeler</option>
+                            {% for p in projects %}
+                            <option value="{{ p.code or p.name }}">{{ p.name or p.code }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <button class="btn btn-primary btn-block" id="btn-sync" onclick="syncExcelToDB()">
+                        <i class="fas fa-sync-alt"></i> Senkronize Et
+                    </button>
+
+                    <div id="sync-result" class="mt-3" style="display:none;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sağ: Harici Excel Yükleme -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-file-upload"></i> Geçmiş Excel Yükle
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p>
+                        Geçmiş dönemlere ait bir Excel dosyasını yükleyin. Veriler hem DB'ye hem 
+                        <code>Servis_Durumu.xlsx</code>'e yazılır.
+                    </p>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Excel Formatı:</strong><br>
+                        <ul class="mb-0 mt-1">
+                            <li>Satır 1 (Header): Tarihler (YYYY-MM-DD)</li>
+                            <li>Sütun A: Tramvay/Araç IDleri</li>
+                            <li>Hücre: <span class="text-success">✓</span> / <span class="text-danger">✗</span> / <span class="text-warning">⚠</span> veya metin (Servis / Servis Dışı / İşletme...)</li>
+                            <li>Hücre Notu (opsiyonel): Sistem: X / Alt Sistem: Y / Açıklama: Z</li>
+                        </ul>
+                    </div>
+
+                    <form id="upload-form" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label for="upload-project">Proje</label>
+                            <select class="form-control" id="upload-project" name="project_code" required>
+                                {% for p in projects %}
+                                <option value="{{ p.code or p.name }}">{{ p.name or p.code }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="upload-file">Excel Dosyası (.xlsx)</label>
+                            <div class="custom-file">
+                                <input type="file" class="custom-file-input" id="upload-file" name="file" accept=".xlsx" required>
+                                <label class="custom-file-label" for="upload-file" id="file-label">Dosya seçin...</label>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-success btn-block" id="btn-upload">
+                            <i class="fas fa-upload"></i> Yükle ve Aktar
+                        </button>
+                    </form>
+
+                    <div id="upload-result" class="mt-3" style="display:none;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Örnek Format -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-table"></i> Yükleme Formatı Örneği
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered table-sm">
+                        <thead class="thead-light">
+                            <tr>
+                                <th>Araç</th>
+                                <th>2026-01-15</th>
+                                <th>2026-01-14</th>
+                                <th>2026-01-13</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>1531</td>
+                                <td class="bg-success text-white text-center">✓</td>
+                                <td class="bg-success text-white text-center">✓</td>
+                                <td class="bg-danger text-white text-center" title="Sistem: Fren&#10;Alt Sistem: Hidrolik&#10;Açıklama: Fren arızası">✗ <small>(not)</small></td>
+                            </tr>
+                            <tr>
+                                <td>1532</td>
+                                <td class="bg-warning text-white text-center" title="Sistem: Operatör&#10;Açıklama: Bakım planı">⚠ <small>(not)</small></td>
+                                <td class="bg-success text-white text-center">✓</td>
+                                <td class="bg-success text-white text-center">✓</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <small class="text-muted">
+                        <span class="text-success">✓ Yeşil</span> = Serviste &nbsp;|&nbsp;
+                        <span class="text-danger">✗ Kırmızı</span> = Servis Dışı &nbsp;|&nbsp;
+                        <span class="text-warning">⚠ Turuncu</span> = İşletme Kaynaklı Servis Dışı
+                        <br>
+                        Servis Dışı ve İşletme hücrelerine Excel notu ekleyerek Sistem/Alt Sistem/Açıklama bilgisi yazabilirsiniz.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// CSRF token
+const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+// Sayfa yüklenince DB durumunu getir
+document.addEventListener('DOMContentLoaded', loadDBStatus);
+
+function loadDBStatus() {
+    fetch('/admin/api/db-status', {
+        headers: {'X-CSRFToken': csrfToken}
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const tbody = document.getElementById('db-status-body');
+            tbody.innerHTML = '';
+            for (const [code, info] of Object.entries(data.status)) {
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${code}</strong></td>
+                        <td>${info.total}</td>
+                        <td class="${info.servis_disi > 0 ? 'text-danger font-weight-bold' : ''}">${info.servis_disi}</td>
+                        <td>${info.with_sistem}</td>
+                        <td>${info.date_min} — ${info.date_max}</td>
+                    </tr>
+                `;
+            }
+            document.getElementById('db-status-loading').style.display = 'none';
+            document.getElementById('db-status-table').style.display = 'block';
+        }
+    })
+    .catch(err => {
+        document.getElementById('db-status-loading').innerHTML = 
+            '<span class="text-danger">Hata: ' + err.message + '</span>';
+    });
+}
+
+function syncExcelToDB() {
+    const btn = document.getElementById('btn-sync');
+    const resultDiv = document.getElementById('sync-result');
+    const project = document.getElementById('sync-project').value;
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Senkronize ediliyor...';
+    resultDiv.style.display = 'none';
+    
+    fetch('/admin/api/sync-excel-to-db', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({project_code: project})
+    })
+    .then(r => r.json())
+    .then(data => {
+        resultDiv.style.display = 'block';
+        if (data.success) {
+            let detailsHtml = '';
+            if (data.details && typeof data.details === 'object' && !Array.isArray(data.details)) {
+                // Proje bazlı detaylar
+                if (data.details.inserted !== undefined) {
+                    // Tek proje
+                    detailsHtml = `<small>Yeni: ${data.details.inserted}, Güncellenen: ${data.details.updated}, Atlanan: ${data.details.skipped}, Toplam: ${data.details.total_cells}</small>`;
+                } else {
+                    // Çoklu proje
+                    detailsHtml = '<ul class="mb-0 small">';
+                    for (const [code, info] of Object.entries(data.details)) {
+                        if (info.error) {
+                            detailsHtml += `<li class="text-danger">${code}: ${info.error}</li>`;
+                        } else {
+                            detailsHtml += `<li>${code}: +${info.inserted} yeni, ~${info.updated} güncellenen (${info.tram_count} araç, ${info.date_range})</li>`;
+                        }
+                    }
+                    detailsHtml += '</ul>';
+                }
+            }
+            resultDiv.innerHTML = `<div class="alert alert-success"><i class="fas fa-check-circle"></i> ${data.message}${detailsHtml ? '<hr class="my-2">' + detailsHtml : ''}</div>`;
+            loadDBStatus();  // Tabloyu yenile
+        } else {
+            resultDiv.innerHTML = `<div class="alert alert-danger"><i class="fas fa-times-circle"></i> ${data.message}</div>`;
+        }
+    })
+    .catch(err => {
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = `<div class="alert alert-danger">Hata: ${err.message}</div>`;
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sync-alt"></i> Senkronize Et';
+    });
+}
+
+// Dosya adını göster
+document.getElementById('upload-file').addEventListener('change', function() {
+    document.getElementById('file-label').textContent = this.files[0]?.name || 'Dosya seçin...';
+});
+
+// Upload form
+document.getElementById('upload-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const btn = document.getElementById('btn-upload');
+    const resultDiv = document.getElementById('upload-result');
+    const formData = new FormData(this);
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Yükleniyor...';
+    resultDiv.style.display = 'none';
+    
+    fetch('/admin/api/upload-historical', {
+        method: 'POST',
+        headers: {'X-CSRFToken': csrfToken},
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        resultDiv.style.display = 'block';
+        if (data.success) {
+            let html = `<div class="alert alert-success"><i class="fas fa-check-circle"></i> ${data.message}`;
+            if (data.details && data.details.errors && data.details.errors.length > 0) {
+                html += `<hr class="my-2"><strong>Uyarılar (${data.details.errors.length}):</strong><ul class="mb-0 small">`;
+                data.details.errors.forEach(err => { html += `<li class="text-warning">${err}</li>`; });
+                html += '</ul>';
+            }
+            html += '</div>';
+            resultDiv.innerHTML = html;
+            loadDBStatus();
+        } else {
+            resultDiv.innerHTML = `<div class="alert alert-danger"><i class="fas fa-times-circle"></i> ${data.message}</div>`;
+        }
+    })
+    .catch(err => {
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = `<div class="alert alert-danger">Hata: ${err.message}</div>`;
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-upload"></i> Yükle ve Aktar';
+    });
+});
+</script>
+{% endblock %}

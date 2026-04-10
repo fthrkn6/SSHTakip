@@ -203,19 +203,31 @@ def scenarios_page():
     try:
         project = session.get('current_project', 'belgrad')
         
-        # Projeye ait tramvayları getir
-        tramvaylar = Equipment.query.filter_by(parent_id=None, project_code=project).all()
+        # ServiceStatus DB'den benzersiz araç sayısını al
+        from routes.service_status import get_tram_ids_from_veriler
+        valid_trams = get_tram_ids_from_veriler(project)
         
-        if not tramvaylar:
-            tramvaylar = Equipment.query.filter_by(project_code=project).all()
+        if not valid_trams:
+            # Veriler.xlsx yoksa DB'den al
+            tram_ids = db.session.query(ServiceStatus.tram_id).filter_by(
+                project_code=project
+            ).distinct().all()
+            valid_trams = [t[0] for t in tram_ids if t[0]]
+        
+        if not valid_trams:
+            # Fallback: Equipment tablosundan al
+            tramvaylar = Equipment.query.filter_by(parent_id=None, project_code=project).all()
+            if not tramvaylar:
+                tramvaylar = Equipment.query.filter_by(project_code=project).all()
+            valid_trams = [t.equipment_code for t in tramvaylar]
         
         # Veriyi hazırla
         tram_data = []
-        for tram in tramvaylar:
+        for tram_id in valid_trams:
             tram_data.append({
-                'equipment_code': tram.equipment_code,
-                'current_km': getattr(tram, 'current_km', 0),
-                'total_km': getattr(tram, 'total_km', 0),
+                'equipment_code': tram_id,
+                'current_km': 0,
+                'total_km': 0,
                 'failure_count': 0
             })
         
@@ -236,63 +248,75 @@ def scenarios_page():
 @reports_bp.route('/scenarios/data', methods=['GET'])
 @login_required
 def scenarios_status_data():
-    """Senaryo Analiz sayfası için durum verilerini getir
+    """Senaryo Analiz sayfası için durum verilerini getir - ServiceStatus DB'den
     
     Query parametreleri:
     - period: 'haftalik' | 'aylik' | 'ucaylik' | 'altiylik' | 'yillik' | 'toplam'
     """
     try:
+        from collections import defaultdict
+        from routes.service_status import get_tram_ids_from_veriler
+        
         project = session.get('current_project', 'belgrad')
         period = request.args.get('period', 'haftalik')
-        
-        # Excel Grid Manager ile oku
-        grid_manager = ExcelGridManager(project)
         
         # Tarih aralığını belirle
         today = date.today()
         if period == 'haftalik':
             start_date = today - timedelta(days=7)
-            end_date = today
         elif period == 'aylik':
             start_date = today - timedelta(days=30)
-            end_date = today
         elif period == 'ucaylik':
             start_date = today - timedelta(days=90)
-            end_date = today
         elif period == 'altiylik':
             start_date = today - timedelta(days=180)
-            end_date = today
         elif period == 'yillik':
             start_date = today - timedelta(days=365)
-            end_date = today
         else:  # 'toplam'
             start_date = None
-            end_date = None
         
-        # Availability verilerini al
-        availability = grid_manager.get_availability_data(
-            current_app.root_path,
-            start_date,
-            end_date
-        )
+        # Veriler.xlsx'ten geçerli araç listesini al
+        valid_trams = get_tram_ids_from_veriler(project)
+        valid_trams_set = set(valid_trams) if valid_trams else None
         
-        # Seçilen periyotta veri yoksa, tüm verilere fallback yap
+        # ServiceStatus DB'den verileri al
+        query = ServiceStatus.query.filter_by(project_code=project)
+        if start_date:
+            query = query.filter(ServiceStatus.date >= start_date.strftime('%Y-%m-%d'))
+        
+        all_records = query.all()
+        
+        # Seçilen periyotta veri yoksa tüm verilere fallback
         fallback_used = False
-        if not availability and period != 'toplam':
-            availability = grid_manager.get_availability_data(
-                current_app.root_path,
-                None,
-                None
-            )
+        if not all_records and period != 'toplam':
+            all_records = ServiceStatus.query.filter_by(project_code=project).all()
             fallback_used = True
         
-        # Tarih aralığı metinini oluştur
-        if period == 'toplam' or (start_date is None and end_date is None):
+        # Araç bazında availability hesapla: {tram_id: {active_days, total_days}}
+        tram_stats = defaultdict(lambda: {'active': 0, 'total': 0})
+        
+        for record in all_records:
+            if valid_trams_set and record.tram_id not in valid_trams_set:
+                continue
+            tram_stats[record.tram_id]['total'] += 1
+            if record.status and 'Servis' in record.status and 'Dışı' not in record.status:
+                tram_stats[record.tram_id]['active'] += 1
+        
+        # Availability dict oluştur
+        availability = {}
+        for tram_id, stats in sorted(tram_stats.items()):
+            if stats['total'] > 0:
+                availability[tram_id] = round((stats['active'] / stats['total']) * 100)
+            else:
+                availability[tram_id] = 0
+        
+        # Tarih aralığı metni
+        if period == 'toplam' or start_date is None:
             date_range_str = "Tümü"
         elif fallback_used:
-            date_range_str = f"Seçilen periyotta veri yok — Tüm veriler gösteriliyor"
+            date_range_str = "Seçilen periyotta veri yok — Tüm veriler gösteriliyor"
         else:
-            date_range_str = f"{start_date.strftime('%d.%m.%Y')} - {end_date.strftime('%d.%m.%Y')}"
+            date_range_str = f"{start_date.strftime('%d.%m.%Y')} - {today.strftime('%d.%m.%Y')}"
         
         return jsonify({
             'success': True,
@@ -1264,6 +1288,15 @@ def get_projects_kpi():
                     'avg_availability_all': 0,
                     'mttr_minutes': 0
                 }
+        
+        # NaN/None/inf değerlerini temizle (JSON serializable değiller)
+        import math
+        for pcode, pdata in projects_data.items():
+            for k, v in pdata.items():
+                if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+                    projects_data[pcode][k] = 0
+                elif v is None and k != 'name' and k != 'status':
+                    projects_data[pcode][k] = 0
         
         return jsonify({
             'success': True,

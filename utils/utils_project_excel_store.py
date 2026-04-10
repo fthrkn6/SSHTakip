@@ -1,6 +1,24 @@
 import os
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from openpyxl import Workbook, load_workbook
+
+
+def normalize_status(status: str) -> str:
+    """Durum string'ini standart forma normalize et"""
+    if not status:
+        return ''
+    s = status.strip()
+    s_upper = s.upper()
+    # İşletme Kaynaklı variants
+    if 'İŞLETME' in s_upper or 'ISLETME' in s_upper or 'IŞLETME' in s_upper:
+        return 'İşletme Kaynaklı Servis Dışı'
+    # Servis Dışı variants
+    if 'DIŞI' in s_upper or 'DISI' in s_upper or s_upper == 'ARIZA':
+        return 'Servis Dışı'
+    # Servis/Serviste/Aktif variants
+    if s_upper in ('SERVİSTE', 'SERVISTE', 'SERVİS', 'SERVIS', 'AKTİF', 'AKTIF'):
+        return 'Servis'
+    return s
 
 
 def _project_dir(project_code: str):
@@ -162,7 +180,7 @@ def _status_from_symbol(symbol: str, fill_rgb: str = None):
     """Excel sembolü ve/veya dolgu renginden durum string'i döndür"""
     sym = str(symbol or '').strip()
     if sym == '✓':
-        return 'Serviste'
+        return 'Servis'
     elif sym == '✗':
         return 'Servis Dışı'
     elif sym == '⚠':
@@ -171,7 +189,7 @@ def _status_from_symbol(symbol: str, fill_rgb: str = None):
     if fill_rgb:
         rgb = fill_rgb.upper().replace('00', '', 1) if fill_rgb.startswith('00') and len(fill_rgb) == 8 else fill_rgb.upper()
         if '00B050' in rgb or '92D050' in rgb:
-            return 'Serviste'
+            return 'Servis'
         elif 'FFC000' in rgb:
             return 'İşletme Kaynaklı Servis Dışı'
         elif 'FF0000' in rgb:
@@ -311,7 +329,7 @@ def _read_servis_durumu_excel(project_code: str, status_date: str):
             break
 
     if tarih_col is None:
-        return {}  # Bu tarih için veri yok
+        return None  # Bu tarih sütunu bulunamadı, fallback'a geç
 
     out = {}
     for r in range(2, ws.max_row + 1):
@@ -437,6 +455,105 @@ def read_service_status_by_date(project_code: str, status_date: str):
     return out
 
 
+def sync_grid_excel_to_db_recent(project_code: str, days: int = 7):
+    """Servis_Durumu.xlsx grid formatından son N günün verilerini DB'ye sync et (sayfa yüklenirken çağrılır)"""
+    import logging
+    logger = logging.getLogger(__name__)
+    from models import ServiceStatus, db
+
+    path = get_servis_durumu_excel_path(project_code)
+    if not os.path.exists(path):
+        return 0
+
+    try:
+        wb = load_workbook(path)
+        ws = wb.active
+
+        # Son N gün tarihlerini hesapla
+        recent_dates = set()
+        for i in range(days):
+            d = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
+            recent_dates.add(d)
+
+        # Tarih sütunlarını bul (sadece son N gün)
+        date_cols = {}
+        for c in range(2, ws.max_column + 1):
+            d = _normalize_date_str(ws.cell(row=1, column=c).value)
+            if d and d in recent_dates:
+                date_cols[c] = d
+
+        if not date_cols:
+            wb.close()
+            return 0
+
+        # Tramvay satırlarını oku
+        tram_rows = {}
+        for r in range(2, ws.max_row + 1):
+            t = ws.cell(row=r, column=1).value
+            if t is not None:
+                tram_rows[r] = str(t).strip()
+
+        changed = 0
+        for r, tram_id in tram_rows.items():
+            for c, date_str in date_cols.items():
+                cell = ws.cell(row=r, column=c)
+                symbol = cell.value
+                if symbol is None:
+                    continue
+
+                fill_rgb = None
+                try:
+                    if cell.fill and cell.fill.start_color and cell.fill.patternType:
+                        fill_rgb = cell.fill.start_color.rgb
+                except Exception:
+                    pass
+
+                status_str = _status_from_symbol(symbol, fill_rgb)
+                if not status_str:
+                    continue
+
+                # Normalize status
+                status_str = normalize_status(status_str)
+
+                # Hücre notlarından sistem/alt_sistem/açıklama
+                c_sistem = ''
+                c_alt_sistem = ''
+                c_aciklama = ''
+                if cell.comment and cell.comment.text:
+                    for line in cell.comment.text.split('\n'):
+                        line = line.strip()
+                        if line.startswith('Sistem:'):
+                            c_sistem = line[len('Sistem:'):].strip()
+                        elif line.startswith('Alt Sistem:'):
+                            c_alt_sistem = line[len('Alt Sistem:'):].strip()
+                        elif line.startswith('Açıklama:'):
+                            c_aciklama = line[len('Açıklama:'):].strip()
+
+                existing = ServiceStatus.query.filter_by(
+                    tram_id=tram_id, date=date_str, project_code=project_code
+                ).first()
+
+                if existing:
+                    if existing.status != status_str:
+                        existing.status = status_str
+                        changed += 1
+                else:
+                    db.session.add(ServiceStatus(
+                        tram_id=tram_id, date=date_str, status=status_str,
+                        sistem=c_sistem, alt_sistem=c_alt_sistem, aciklama=c_aciklama,
+                        project_code=project_code
+                    ))
+                    changed += 1
+
+        if changed:
+            db.session.commit()
+        wb.close()
+        return changed
+    except Exception as e:
+        logger.warning(f'Grid sync hatası ({project_code}): {e}')
+        return 0
+
+
 def sync_service_excel_to_db(project_code: str, only_date: str = None):
     from models import ServiceStatus, db
 
@@ -552,3 +669,269 @@ def get_tramvay_list_with_km(project_code: str):
         ).all()
     
     return equipments
+
+
+def import_servis_durumu_grid_to_db(project_code: str):
+    """
+    Servis_Durumu.xlsx grid dosyasından TÜM verileri DB ServiceStatus tablosuna aktar.
+    Excel'deki semboller (✓/✗/⚠) + hücre notlarından (sistem/alt_sistem/açıklama) DB'ye yazar.
+    Mevcut kayıtları günceller, yeni kayıtları ekler.
+    
+    Returns:
+        dict: {'inserted': int, 'updated': int, 'skipped': int, 'total_cells': int}
+    """
+    from models import ServiceStatus, db
+    
+    path = get_servis_durumu_excel_path(project_code)
+    if not os.path.exists(path):
+        return {'inserted': 0, 'updated': 0, 'skipped': 0, 'total_cells': 0, 'error': 'Dosya bulunamadı'}
+    
+    wb = load_workbook(path)
+    ws = wb.active
+    
+    # Tarih sütunlarını oku
+    date_cols = {}  # col_index -> date_str
+    for c in range(2, ws.max_column + 1):
+        d = _normalize_date_str(ws.cell(row=1, column=c).value)
+        if d:
+            date_cols[c] = d
+    
+    # Tramvay satırlarını oku
+    tram_rows = {}  # row_index -> tram_id
+    for r in range(2, ws.max_row + 1):
+        t = ws.cell(row=r, column=1).value
+        if t is not None:
+            tram_rows[r] = str(t).strip()
+    
+    inserted = 0
+    updated = 0
+    skipped = 0
+    total_cells = 0
+    
+    for r, tram_id in tram_rows.items():
+        for c, date_str in date_cols.items():
+            cell = ws.cell(row=r, column=c)
+            symbol = cell.value
+            if symbol is None:
+                skipped += 1
+                continue
+            
+            total_cells += 1
+            
+            # Dolgu rengini al
+            fill_rgb = None
+            try:
+                if cell.fill and cell.fill.start_color and cell.fill.patternType:
+                    fill_rgb = cell.fill.start_color.rgb
+            except Exception:
+                pass
+            
+            status_str = _status_from_symbol(symbol, fill_rgb)
+            if not status_str:
+                skipped += 1
+                continue
+            
+            # Hücre notundan sistem/alt_sistem/açıklama oku
+            c_sistem = ''
+            c_alt_sistem = ''
+            c_aciklama = ''
+            if cell.comment and cell.comment.text:
+                for line in cell.comment.text.split('\n'):
+                    line = line.strip()
+                    if line.startswith('Sistem:'):
+                        c_sistem = line[len('Sistem:'):].strip()
+                    elif line.startswith('Alt Sistem:'):
+                        c_alt_sistem = line[len('Alt Sistem:'):].strip()
+                    elif line.startswith('Açıklama:'):
+                        c_aciklama = line[len('Açıklama:'):].strip()
+            
+            # DB'de mevcut mu?
+            existing = ServiceStatus.query.filter_by(
+                tram_id=tram_id,
+                date=date_str,
+                project_code=project_code
+            ).first()
+            
+            # Status normalizasyonu: 'Serviste' -> 'Servis' (DB tutarlılığı)
+            if status_str == 'Serviste':
+                status_str = 'Servis'
+            
+            if existing:
+                changed = False
+                if existing.status != status_str:
+                    existing.status = status_str
+                    changed = True
+                if (existing.sistem or '') != c_sistem:
+                    existing.sistem = c_sistem
+                    changed = True
+                if (existing.alt_sistem or '') != c_alt_sistem:
+                    existing.alt_sistem = c_alt_sistem
+                    changed = True
+                if (existing.aciklama or '') != c_aciklama:
+                    existing.aciklama = c_aciklama
+                    changed = True
+                if changed:
+                    updated += 1
+                else:
+                    skipped += 1
+            else:
+                db.session.add(ServiceStatus(
+                    tram_id=tram_id,
+                    date=date_str,
+                    status=status_str,
+                    sistem=c_sistem,
+                    alt_sistem=c_alt_sistem,
+                    aciklama=c_aciklama,
+                    project_code=project_code
+                ))
+                inserted += 1
+    
+    db.session.commit()
+    wb.close()
+    
+    return {
+        'inserted': inserted,
+        'updated': updated,
+        'skipped': skipped,
+        'total_cells': total_cells,
+        'date_range': f"{min(date_cols.values())} - {max(date_cols.values())}" if date_cols else 'N/A',
+        'tram_count': len(tram_rows)
+    }
+
+
+def import_historical_excel_to_system(project_code: str, excel_path: str):
+    """
+    Harici bir Excel dosyasından geçmiş veriyi hem DB'ye hem Servis_Durumu.xlsx'e aktar.
+    
+    Excel formatı (grid): 
+        Satır 1 = Tarihler (YYYY-MM-DD)
+        Sütun A = Tramvay IDleri
+        Hücre = ✓ / ✗ / ⚠ veya Servis / Servis Dışı / İşletme Kaynaklı
+        Hücre Notu = Sistem: X / Alt Sistem: Y / Açıklama: Z
+    
+    Returns:
+        dict: {'db_inserted': int, 'db_updated': int, 'excel_written': int, 'errors': list}
+    """
+    from models import ServiceStatus, db
+    
+    if not os.path.exists(excel_path):
+        return {'error': 'Dosya bulunamadı', 'db_inserted': 0, 'db_updated': 0, 'excel_written': 0}
+    
+    wb = load_workbook(excel_path)
+    ws = wb.active
+    
+    # Tarih sütunlarını oku
+    date_cols = {}
+    for c in range(2, ws.max_column + 1):
+        d = _normalize_date_str(ws.cell(row=1, column=c).value)
+        if d:
+            date_cols[c] = d
+    
+    # Tramvay satırlarını oku
+    tram_rows = {}
+    for r in range(2, ws.max_row + 1):
+        t = ws.cell(row=r, column=1).value
+        if t is not None:
+            tram_rows[r] = str(t).strip()
+    
+    db_inserted = 0
+    db_updated = 0
+    excel_written = 0
+    errors = []
+    
+    for r, tram_id in tram_rows.items():
+        for c, date_str in date_cols.items():
+            cell = ws.cell(row=r, column=c)
+            raw_value = cell.value
+            if raw_value is None:
+                continue
+            
+            raw_str = str(raw_value).strip()
+            
+            # Sembol veya metin → status
+            fill_rgb = None
+            try:
+                if cell.fill and cell.fill.start_color and cell.fill.patternType:
+                    fill_rgb = cell.fill.start_color.rgb
+            except Exception:
+                pass
+            
+            status_str = _status_from_symbol(raw_str, fill_rgb)
+            if not status_str:
+                # Metin bazlı kontrol
+                upper = raw_str.upper()
+                if 'İŞLETME' in upper or 'ISLETME' in upper:
+                    status_str = 'İşletme Kaynaklı Servis Dışı'
+                elif 'DIŞI' in upper or 'DISI' in upper or 'ARIZA' in upper:
+                    status_str = 'Servis Dışı'
+                elif 'SERVİS' in upper or 'SERVIS' in upper or 'AKTİF' in upper or 'AKTIF' in upper:
+                    status_str = 'Servis'
+                else:
+                    errors.append(f'{tram_id}/{date_str}: Bilinmeyen değer "{raw_str}"')
+                    continue
+            
+            if status_str == 'Serviste':
+                status_str = 'Servis'
+            
+            # Notlardan bilgi oku
+            c_sistem = ''
+            c_alt_sistem = ''
+            c_aciklama = ''
+            if cell.comment and cell.comment.text:
+                for line in cell.comment.text.split('\n'):
+                    line = line.strip()
+                    if line.startswith('Sistem:'):
+                        c_sistem = line[len('Sistem:'):].strip()
+                    elif line.startswith('Alt Sistem:'):
+                        c_alt_sistem = line[len('Alt Sistem:'):].strip()
+                    elif line.startswith('Açıklama:'):
+                        c_aciklama = line[len('Açıklama:'):].strip()
+            
+            # 1) DB'ye yaz
+            try:
+                existing = ServiceStatus.query.filter_by(
+                    tram_id=tram_id,
+                    date=date_str,
+                    project_code=project_code
+                ).first()
+                
+                if existing:
+                    existing.status = status_str
+                    existing.sistem = c_sistem
+                    existing.alt_sistem = c_alt_sistem
+                    existing.aciklama = c_aciklama
+                    db_updated += 1
+                else:
+                    db.session.add(ServiceStatus(
+                        tram_id=tram_id,
+                        date=date_str,
+                        status=status_str,
+                        sistem=c_sistem,
+                        alt_sistem=c_alt_sistem,
+                        aciklama=c_aciklama,
+                        project_code=project_code
+                    ))
+                    db_inserted += 1
+            except Exception as e:
+                errors.append(f'{tram_id}/{date_str}: DB hatası - {str(e)}')
+                continue
+            
+            # 2) Servis_Durumu.xlsx'e yaz
+            try:
+                _write_servis_durumu_excel(project_code, date_str, tram_id, status_str,
+                                           sistem=c_sistem, alt_sistem=c_alt_sistem, aciklama=c_aciklama)
+                excel_written += 1
+            except Exception as e:
+                errors.append(f'{tram_id}/{date_str}: Excel yazma hatası - {str(e)}')
+    
+    db.session.commit()
+    wb.close()
+    
+    return {
+        'db_inserted': db_inserted,
+        'db_updated': db_updated,
+        'excel_written': excel_written,
+        'date_range': f"{min(date_cols.values())} - {max(date_cols.values())}" if date_cols else 'N/A',
+        'tram_count': len(tram_rows),
+        'errors': errors[:50]  # İlk 50 hata
+    }

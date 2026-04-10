@@ -24,7 +24,7 @@ class RootCauseAnalyzer:
     """Servis durumu verilerini analiz ederek root cause raporları üretir"""
     
     @staticmethod
-    def analyze_service_disruptions(start_date=None, end_date=None, tram_id=None):
+    def analyze_service_disruptions(start_date=None, end_date=None, tram_id=None, project_code=None):
         """
         Servis dışı kalışları sistem/alt sistem bazında analiz eder
         
@@ -32,6 +32,7 @@ class RootCauseAnalyzer:
             start_date: YYYY-MM-DD formatında başlangıç tarihi
             end_date: YYYY-MM-DD formatında bitiş tarihi
             tram_id: Belirli bir araç için analiz (None = tüm araçlar)
+            project_code: Proje kodu (None = tüm projeler)
             
         Returns:
             dict: Analiz sonuçları
@@ -54,6 +55,9 @@ class RootCauseAnalyzer:
                 'Isletme Kaynaklı Servis Disi'  # ASCII version
             ])
         )
+        
+        if project_code:
+            query = query.filter_by(project_code=project_code)
         
         if tram_id:
             query = query.filter_by(tram_id=tram_id)

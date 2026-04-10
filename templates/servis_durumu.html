@@ -611,15 +611,15 @@
                                     {%- set aciklama_text = si[3].replace(' (Dünden kopyalandı)', '').strip() if si[3] else '' %}
                                     {%- set tooltip_text = (si[1] or 'Sistem yok') + ((' / ' + si[2]) if si[2] else '') + ((' - ' + aciklama_text) if aciklama_text else '') %}
                                 {%- endif %}
-                                {%- if si and si[0] == 'Servis' %}
+                                {%- if si and (si[0] == 'Servis' or si[0] == 'Serviste' or si[0] == 'Aktif') %}
                                     <td class="status-cell status-service" title="{{ tooltip_text }}" data-bs-toggle="tooltip" data-bs-placement="top">
                                         <i class="bi bi-check-lg" style="font-size: 1rem; color: white; font-weight: bold;"></i>
                                     </td>
-                                {%- elif si and si[0] == 'Servis Dışı' %}
+                                {%- elif si and (si[0] == 'Servis Dışı' or si[0] == 'Arıza') %}
                                     <td class="status-cell status-out" title="{{ tooltip_text }}" data-bs-toggle="tooltip" data-bs-placement="top">
                                         <i class="bi bi-x-lg" style="font-size: 1rem; color: white; font-weight: bold;"></i>
                                     </td>
-                                {%- elif si and si[0] == 'İşletme Kaynaklı Servis Dışı' %}
+                                {%- elif si and ('İşletme' in si[0] or 'işletme' in si[0]) %}
                                     <td class="status-cell status-maintenance" style="background-color: #ff9800 !important; border: 1px solid #e68900;" title="{{ tooltip_text }}" data-bs-toggle="tooltip" data-bs-placement="top">
                                         <i class="bi bi-exclamation-triangle-fill" style="font-size: 1rem; color: white; font-weight: bold;"></i>
                                     </td>
@@ -685,7 +685,8 @@
         fetch('/servis-durumu/toplu-servise-al', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
             },
             body: JSON.stringify({
                 tram_ids: tram_ids,
@@ -953,9 +954,10 @@
                 };
                 
                 try {
+                    const _csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
                     const response = await fetch('/servis/durumu/log', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': _csrf },
                         body: JSON.stringify(data)
                     });
                     
@@ -1096,7 +1098,8 @@
         fetch('/api/copy_previous_day', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
             },
             body: JSON.stringify({
                 yesterday_data: yesterday_data
@@ -1284,7 +1287,7 @@
         try {
             const response = await fetch('/servis/durumu/root-cause/ekle', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '' },
                 body: JSON.stringify(formData)
             });
 
@@ -1312,7 +1315,7 @@
         try {
             const response = await fetch('/servis/durumu/excel/rapor', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '' },
                 body: JSON.stringify({ tram_id: tramId })
             });
 

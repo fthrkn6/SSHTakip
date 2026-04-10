@@ -407,3 +407,140 @@ def yetkilendirme():
                          page_perms=page_perms,
                          project_perms=project_perms,
                          role_permissions_map=role_permissions_map)
+
+
+# ── Geçmiş Veri Yükleme (RCA için) ──────────────────────────────
+@bp.route('/import-data')
+@login_required
+@admin_required
+def import_data_page():
+    """Geçmiş veri yükleme sayfası"""
+    projects = ProjectManager.get_active_projects()
+    return render_template('admin/import_data.html', projects=projects)
+
+
+@bp.route('/api/sync-excel-to-db', methods=['POST'])
+@login_required
+@admin_required
+def sync_excel_to_db():
+    """Mevcut Servis_Durumu.xlsx verilerini DB'ye aktar (tüm projeler veya tek proje)"""
+    from utils.utils_project_excel_store import import_servis_durumu_grid_to_db
+    
+    project_code = request.json.get('project_code', 'all')
+    
+    if project_code == 'all':
+        projects = ProjectManager.get_active_projects()
+        results = {}
+        for p in projects:
+            code = p.get('code', p.get('name', ''))
+            try:
+                result = import_servis_durumu_grid_to_db(code)
+                results[code] = result
+            except Exception as e:
+                results[code] = {'error': str(e)}
+        
+        total_inserted = sum(r.get('inserted', 0) for r in results.values())
+        total_updated = sum(r.get('updated', 0) for r in results.values())
+        return jsonify({
+            'success': True,
+            'message': f'Tüm projeler senkronize edildi: {total_inserted} yeni, {total_updated} güncellenen kayıt',
+            'details': results
+        })
+    else:
+        try:
+            result = import_servis_durumu_grid_to_db(project_code)
+            return jsonify({
+                'success': True,
+                'message': f'{project_code}: {result.get("inserted", 0)} yeni, {result.get("updated", 0)} güncellenen kayıt',
+                'details': result
+            })
+        except Exception as e:
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/api/upload-historical', methods=['POST'])
+@login_required
+@admin_required
+def upload_historical_data():
+    """Harici Excel dosyasından geçmiş veri yükle"""
+    from utils.utils_project_excel_store import import_historical_excel_to_system
+    import tempfile
+    
+    project_code = request.form.get('project_code')
+    if not project_code:
+        return jsonify({'success': False, 'message': 'Proje kodu gerekli'}), 400
+    
+    file = request.files.get('file')
+    if not file or not file.filename:
+        return jsonify({'success': False, 'message': 'Excel dosyası gerekli'}), 400
+    
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        return jsonify({'success': False, 'message': 'Sadece .xlsx dosyaları desteklenir'}), 400
+    
+    # Güvenli geçici dosya oluştur
+    tmp_dir = os.path.join(current_app.root_path, 'data', 'uploads')
+    os.makedirs(tmp_dir, exist_ok=True)
+    
+    # Güvenli dosya adı
+    from werkzeug.utils import secure_filename
+    safe_name = secure_filename(file.filename)
+    tmp_path = os.path.join(tmp_dir, f'import_{project_code}_{datetime.now().strftime("%Y%m%d_%H%M%S")}_{safe_name}')
+    
+    try:
+        file.save(tmp_path)
+        result = import_historical_excel_to_system(project_code, tmp_path)
+        
+        if result.get('error'):
+            return jsonify({'success': False, 'message': result['error']}), 400
+        
+        return jsonify({
+            'success': True,
+            'message': f'{project_code}: {result["db_inserted"]} yeni, {result["db_updated"]} güncellenen DB kaydı, {result["excel_written"]} Excel hücresi yazıldı',
+            'details': result
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        # Geçici dosyayı temizle
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
+@bp.route('/api/db-status')
+@login_required
+@admin_required
+def db_data_status():
+    """Projelerin DB'deki veri durumunu göster"""
+    from models import ServiceStatus
+    from sqlalchemy import func
+    
+    projects = ProjectManager.get_active_projects()
+    status = {}
+    
+    for p in projects:
+        code = p.get('code', p.get('name', ''))
+        total = ServiceStatus.query.filter_by(project_code=code).count()
+        disi = ServiceStatus.query.filter(
+            ServiceStatus.project_code == code,
+            ServiceStatus.status.in_(['Servis Dışı', 'İşletme Kaynaklı Servis Dışı', 'Servis Disi'])
+        ).count()
+        with_sistem = ServiceStatus.query.filter(
+            ServiceStatus.project_code == code,
+            ServiceStatus.sistem != None,
+            ServiceStatus.sistem != ''
+        ).count()
+        
+        date_range = db.session.query(
+            func.min(ServiceStatus.date),
+            func.max(ServiceStatus.date)
+        ).filter_by(project_code=code).first()
+        
+        status[code] = {
+            'total': total,
+            'servis_disi': disi,
+            'with_sistem': with_sistem,
+            'date_min': str(date_range[0]) if date_range and date_range[0] else '-',
+            'date_max': str(date_range[1]) if date_range and date_range[1] else '-'
+        }
+    
+    return jsonify({'success': True, 'status': status})

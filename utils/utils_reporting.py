@@ -418,11 +418,13 @@ class ScenarioAnalysis:
     @staticmethod
     def get_high_km_trams(all_trams: List[Dict], percentile: int = 90) -> List[Dict]:
         """Yüksek KM'li tramvaylar (90. persentil üstü)"""
-        kms = [int(t.get('current_km', 0)) for t in all_trams]
+        if not all_trams:
+            return []
+        kms = [int(t.get('current_km') or 0) for t in all_trams]
         threshold = sorted(kms)[int(len(kms) * percentile / 100)]
         
-        high_km = [t for t in all_trams if int(t.get('current_km', 0)) >= threshold]
-        return sorted(high_km, key=lambda x: int(x.get('current_km', 0)), reverse=True)
+        high_km = [t for t in all_trams if int(t.get('current_km') or 0) >= threshold]
+        return sorted(high_km, key=lambda x: int(x.get('current_km') or 0), reverse=True)
     
     @staticmethod
     def generate_scenario_report(scenario_name: str, scenario_data: List[Dict], project: str = 'belgrad') -> Path:

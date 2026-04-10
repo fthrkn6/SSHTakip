@@ -1786,6 +1786,10 @@ def create_app():
                 try:
                     # Excel'i oku
                     df = pd.read_excel(ariza_listesi_file, sheet_name=use_sheet, header=header_row)
+                    
+                    # Kolon isimlerini normalize et (newline, fazla boşluk temizle)
+                    df.columns = df.columns.str.replace('\n', ' ', regex=False).str.replace('\r', '', regex=False)
+                    df.columns = df.columns.str.replace(r'\s+', ' ', regex=True).str.strip()
                     column_names = list(df.columns)  # DataFrame column names
                     
                     # Kolon isimlerinden indeks haritası oluştur (hardcoded index yerine)
@@ -1800,12 +1804,15 @@ def create_app():
                     # Kritik kolon indekslerini otomatik tespit et
                     idx_tamir_suresi = find_col_idx(['tamir', 'süresi']) or find_col_idx(['tamir']) or 21
                     idx_arac_mttr = find_col_idx(['araç', 'mttr']) or find_col_idx(['araç', 'mdt']) or 26
-                    idx_komp_mttr = find_col_idx(['komponent', 'mttr']) or find_col_idx(['komponent', 'mdt']) or 27
+                    idx_komp_mttr = find_col_idx(['kompanent', 'mttr']) or find_col_idx(['kompanent', 'mdt']) or find_col_idx(['komponent', 'mttr']) or 27
                     idx_parca_kodu = find_col_idx(['parça', 'kod']) or 28
                     idx_parca_adi = find_col_idx(['parça', 'ad']) or find_col_idx(['parça', 'ismi']) or 30
                     idx_parca_adedi = find_col_idx(['parça', 'adet']) or find_col_idx(['adet']) or 31
                     idx_ariza_sinifi = find_col_idx(['arıza', 'sınıf']) or 10
                     idx_detayli_bilgi = find_col_idx(['detaylı']) or find_col_idx(['detay']) or 25
+                    idx_personel_sayisi = find_col_idx(['personel', 'sayı']) or find_col_idx(['personnel'])
+                    idx_iscilik_maliyeti = find_col_idx(['işçilik', 'maliyet']) or find_col_idx(['labor', 'cost'])
+                    idx_tamir_suresi_dk = find_col_idx(['tamir', 'süresi', 'dakika']) or find_col_idx(['repair', 'time', 'dakika'])
                     
                     # Verileri hazırla
                     for idx, row in df.iterrows():
@@ -1886,6 +1893,33 @@ def create_app():
                                 processed_row[idx_arac_mttr] = mttr_minutes
                             else:
                                 processed_row[idx_arac_mttr] = 0
+                            
+                            # ===== İŞÇİLİK MALİYETİ HESAPLAMA =====
+                            # Formül: 11 Euro * Personel Sayısı * Tamir Süresi (dk) / 60
+                            if idx_iscilik_maliyeti is not None:
+                                personel = 1
+                                if idx_personel_sayisi is not None and len(processed_row) > idx_personel_sayisi:
+                                    try:
+                                        p_val = processed_row[idx_personel_sayisi]
+                                        personel = int(float(p_val)) if p_val and str(p_val).strip() not in ('', 'nan', 'None', 'Yok') else 1
+                                        if personel < 1:
+                                            personel = 1
+                                    except (ValueError, TypeError):
+                                        personel = 1
+                                
+                                # Tamir süresi dakika olarak (mttr_minutes zaten hesaplandı)
+                                tamir_dk = mttr_minutes
+                                if tamir_dk <= 0 and idx_tamir_suresi_dk is not None and len(processed_row) > idx_tamir_suresi_dk:
+                                    try:
+                                        t_val = processed_row[idx_tamir_suresi_dk]
+                                        tamir_dk = int(float(t_val)) if t_val and str(t_val).strip() not in ('', 'nan', 'None', 'Yok') else 0
+                                    except (ValueError, TypeError):
+                                        tamir_dk = 0
+                                
+                                iscilik_maliyeti = round(11 * personel * tamir_dk / 60, 2) if tamir_dk > 0 else 0
+                                while len(processed_row) <= idx_iscilik_maliyeti:
+                                    processed_row.append(0)
+                                processed_row[idx_iscilik_maliyeti] = iscilik_maliyeti
                             
                             rows.append(processed_row)
                     
@@ -3674,6 +3708,13 @@ def create_app():
                 sync_service_excel_to_db(current_project)
             except Exception as e:
                 logger.warning(f"Service Excel sync warning ({current_project}): {e}")
+            
+            # Grid Excel (Servis_Durumu.xlsx) -> DB sync (son 7 gün)
+            try:
+                from utils.utils_project_excel_store import sync_grid_excel_to_db_recent
+                sync_grid_excel_to_db_recent(current_project, days=7)
+            except Exception as e:
+                logger.warning(f"Grid Excel sync warning ({current_project}): {e}")
 
             equipments = Equipment.query.filter_by(project_code=current_project).all()
             today_str = datetime.now().strftime('%Y-%m-%d')
@@ -3857,6 +3898,7 @@ def create_app():
             
             try:
                 from models import ServiceStatus
+                from utils.utils_project_excel_store import normalize_status as _ns
                 today_records = ServiceStatus.query.filter_by(date=today_str, project_code=current_project).all()
                 
                 servis_count = 0
@@ -3864,11 +3906,12 @@ def create_app():
                 isletme_kaynak_count = 0
                 
                 for record in today_records:
-                    if record.status == 'Servis':
+                    normalized = _ns(record.status) if record.status else ''
+                    if normalized == 'Servis':
                         servis_count += 1
-                    elif record.status == 'Servis Dışı':
+                    elif normalized == 'Servis Dışı':
                         servis_disi_count += 1
-                    elif record.status == 'İşletme Kaynaklı Servis Dışı':
+                    elif normalized == 'İşletme Kaynaklı Servis Dışı':
                         isletme_kaynak_count += 1
                 
                 stats['Servis'] = servis_count
@@ -3912,7 +3955,7 @@ def create_app():
             
             # Önce Excel'den oku (Servis_Durumu.xlsx grid formatı)
             try:
-                from utils.utils_project_excel_store import read_service_status_by_date
+                from utils.utils_project_excel_store import read_service_status_by_date, normalize_status
                 for date_str in last_7_days:
                     excel_data = read_service_status_by_date(current_project, date_str)
                     if excel_data:
@@ -3921,10 +3964,7 @@ def create_app():
                                 status_matrix[tram_id] = {}
                             if tram_id in excel_data:
                                 ed = excel_data[tram_id]
-                                # Excel'den gelen 'Serviste' → 'Servis' olarak normalize et (frontend uyumu)
-                                raw_status = ed.get('status', '')
-                                if raw_status == 'Serviste':
-                                    raw_status = 'Servis'
+                                raw_status = normalize_status(ed.get('status', ''))
                                 status_matrix[tram_id][date_str] = (
                                     raw_status,
                                     ed.get('sistem', ''),
@@ -3938,6 +3978,7 @@ def create_app():
             if hasattr(db, 'session'):
                 try:
                     from models import ServiceStatus
+                    from utils.utils_project_excel_store import normalize_status as _norm_status
                     for tram_id in tram_ids_list:
                         if tram_id not in status_matrix:
                             status_matrix[tram_id] = {}
@@ -3949,13 +3990,13 @@ def create_app():
                             ).first()
                             if status_record:
                                 status_matrix[tram_id][date] = (
-                                    status_record.status if hasattr(status_record, 'status') else 'Unknown',
+                                    _norm_status(status_record.status) if status_record.status else 'Unknown',
                                     status_record.sistem if hasattr(status_record, 'sistem') else '',
                                     status_record.alt_sistem if hasattr(status_record, 'alt_sistem') else '',
                                     status_record.aciklama if hasattr(status_record, 'aciklama') else ''
                                 )
-                except:
-                    pass
+                except Exception as db_err:
+                    logger.warning(f'DB status_matrix okuma hatası: {db_err}')
             
             # Bir önceki günün verileri al (form önceden doldurma için)
             yesterday_str = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
@@ -4169,7 +4210,8 @@ def create_app():
                 analysis = RootCauseAnalyzer.analyze_service_disruptions(
                     start_date=start_date,
                     end_date=end_date,
-                    tram_id=tram_id
+                    tram_id=tram_id,
+                    project_code=session.get('current_project', 'belgrad')
                 )
                 
                 # Excel raporunu oluştur

@@ -295,17 +295,18 @@ def service_status_table():
                 service_status = service_record.status
             elif equipment.equipment_code in excel_today:
                 service_status = excel_today[equipment.equipment_code].get('status', '')
-                # Excel'den gelen 'Serviste' → normalize
-                if service_status == 'Serviste':
-                    service_status = 'Servis'
+            
+            # Normalize status (Serviste→Servis, İşletme→İşletme Kaynaklı Servis Dışı, etc.)
+            if service_status:
+                from utils.utils_project_excel_store import normalize_status
+                service_status = normalize_status(service_status)
             
             if service_status:
-                # İşletme Kaynaklı check FIRST (çünkü "Dışı" yazı içeriyor)
-                if 'İşletme' in service_status or 'işletme' in service_status:
+                if service_status == 'İşletme Kaynaklı Servis Dışı':
                     status_display = 'İşletme Kaynaklı Servis Dışı'
                     status_type = 'işletme'
                     isletme_count += 1
-                elif 'Dışı' in service_status or 'dışı' in service_status:
+                elif service_status == 'Servis Dışı':
                     status_display = 'Servis Dışı'
                     status_type = 'ariza'
                     ariza_count += 1
@@ -314,7 +315,6 @@ def service_status_table():
                     status_type = 'aktif'
                     aktif_count += 1
             else:
-                # ServiceStatus yoksa default 'aktif'
                 status_display = 'Aktif'
                 status_type = 'aktif'
                 aktif_count += 1
@@ -1252,9 +1252,12 @@ def export_service_status_excel():
             all_trams.add(record.tram_id)
             all_dates.add(record.date)
         
-        # Tramvay ve tarihleri sırala
-        sorted_trams = sorted(list(all_trams))
-        sorted_dates = sorted(list(all_dates), reverse=True)
+        # Tramvay ve tarihleri sırala (None değerleri filtrele)
+        sorted_trams = sorted([t for t in all_trams if t is not None])
+        sorted_dates = sorted([d for d in all_dates if d is not None], reverse=True)
+        
+        if not sorted_dates:
+            return jsonify({'error': 'Tarih verisi bulunamadı'}), 400
         
         # En eski ve en yeni tarihi bul
         oldest_date_str = sorted_dates[-1]
@@ -1350,6 +1353,22 @@ def export_service_status_excel():
                     cell.value = ''
                 
                 cell.font = durum_font
+                
+                # Not (Comment) ekle - sistem/alt_sistem/aciklama bilgisi varsa
+                if isinstance(record_info, dict):
+                    sistem_val = record_info.get('sistem', '')
+                    alt_sistem_val = record_info.get('alt_sistem', '')
+                    aciklama_val = record_info.get('aciklama', '')
+                    if sistem_val or alt_sistem_val or aciklama_val:
+                        comment_parts = []
+                        if sistem_val:
+                            comment_parts.append(f'Sistem: {sistem_val}')
+                        if alt_sistem_val:
+                            comment_parts.append(f'Alt Sistem: {alt_sistem_val}')
+                        if aciklama_val:
+                            comment_parts.append(f'Açıklama: {aciklama_val}')
+                        comment_text = '\n'.join(comment_parts)
+                        cell.comment = Comment(comment_text, 'SSH Takip')
         
         # Sütun genişliklerini ayarla
         ws.column_dimensions['A'].width = 15
@@ -1434,9 +1453,13 @@ def export_daily_table_excel():
             all_trams.add(record.tram_id)
             all_dates.add(record.date)
         
-        # Tramvay ve tarihleri sırala
-        sorted_trams = sorted(list(all_trams))
-        sorted_dates = sorted(list(all_dates), reverse=True)
+        # Tramvay ve tarihleri sırala (None değerleri filtrele)
+        sorted_trams = sorted([t for t in all_trams if t is not None])
+        sorted_dates = sorted([d for d in all_dates if d is not None], reverse=True)
+        
+        if not sorted_dates:
+            flash('Tarih verisi bulunamadı', 'warning')
+            return redirect(url_for('service_status.service_status_page'))
         
         # En eski ve en yeni tarihi bul
         oldest_date_str = sorted_dates[-1]  # En eski
@@ -1535,6 +1558,22 @@ def export_daily_table_excel():
                     cell.value = ''
                 
                 cell.font = durum_font
+                
+                # Not (Comment) ekle - sistem/alt_sistem/aciklama bilgisi varsa
+                if isinstance(record_info, dict):
+                    sistem_val = record_info.get('sistem', '')
+                    alt_sistem_val = record_info.get('alt_sistem', '')
+                    aciklama_val = record_info.get('aciklama', '')
+                    if sistem_val or alt_sistem_val or aciklama_val:
+                        comment_parts = []
+                        if sistem_val:
+                            comment_parts.append(f'Sistem: {sistem_val}')
+                        if alt_sistem_val:
+                            comment_parts.append(f'Alt Sistem: {alt_sistem_val}')
+                        if aciklama_val:
+                            comment_parts.append(f'Açıklama: {aciklama_val}')
+                        comment_text = '\n'.join(comment_parts)
+                        cell.comment = Comment(comment_text, 'SSH Takip')
         
         # Sütun genişliklerini ayarla
         ws.column_dimensions['A'].width = 15
