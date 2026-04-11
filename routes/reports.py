@@ -999,61 +999,42 @@ def get_projects_kpi():
                 
                 availability = round((active_vehicles / total_vehicles * 100) if total_vehicles > 0 else 0)
                 
-                # Bugünkü araç durumu sayıları (grid'den)
+                # Bugünkü araç durumu sayıları (DB'den - ServiceStatus)
                 servis_disi_count = 0
                 isletme_kaynakli_count = 0
                 aktif_count = 0
                 try:
-                    from utils.utils_excel_grid_manager import ExcelGridManager
-                    grid_mgr = ExcelGridManager(project_code)
-                    grid_path = grid_mgr.get_grid_path(current_app.root_path)
-                    if os.path.exists(grid_path):
-                        from openpyxl import load_workbook as _lw
-                        _wb = _lw(grid_path, data_only=True)
-                        _ws = _wb.active
-                        today_str = date.today().strftime('%Y-%m-%d')
-                        target_row = None
-                        # Önce bugünkü satırı ara
-                        for r in range(2, _ws.max_row + 1):
-                            cv = _ws.cell(row=r, column=1).value
-                            if cv and str(cv).startswith(today_str):
-                                target_row = r
-                                break
-                        # Bugün yoksa en sondan geriye doğru dolu satır bul
-                        if not target_row and _ws.max_row >= 2:
-                            for r in range(_ws.max_row, 1, -1):
-                                has_data = False
-                                for c in range(2, _ws.max_column + 1):
-                                    v = str(_ws.cell(row=r, column=c).value or '').strip()
-                                    if v in ('✓', '√', '✗', '⚠'):
-                                        has_data = True
-                                        break
-                                if has_data:
-                                    target_row = r
-                                    break
-                        if target_row:
-                            for c in range(2, _ws.max_column + 1):
-                                v = str(_ws.cell(row=target_row, column=c).value or '').strip()
-                                if v in ('✓', '√'):
-                                    aktif_count += 1
-                                elif v == '✗':
-                                    servis_disi_count += 1
-                                elif v == '⚠':
-                                    isletme_kaynakli_count += 1
-                        # Grid satırı tamamen boşsa Equipment'tan fallback
-                        if aktif_count == 0 and servis_disi_count == 0 and isletme_kaynakli_count == 0 and total_vehicles > 0:
-                            aktif_count = active_vehicles
-                            servis_disi_count = total_vehicles - active_vehicles
-                        else:
-                            # Grid'de sembolü olmayan araçları servis dışı say
-                            counted = aktif_count + servis_disi_count + isletme_kaynakli_count
-                            if counted < total_vehicles:
-                                servis_disi_count += (total_vehicles - counted)
-                        _wb.close()
+                    from utils.utils_project_excel_store import normalize_status
+                    today_str = date.today().strftime('%Y-%m-%d')
+                    # Önce bugünü dene, yoksa en son tarihli kaydı bul
+                    day_records = ServiceStatus.query.filter_by(
+                        project_code=project_code, date=today_str
+                    ).all()
+                    if not day_records:
+                        latest_date = db.session.query(
+                            db.func.max(ServiceStatus.date)
+                        ).filter_by(project_code=project_code).scalar()
+                        if latest_date:
+                            day_records = ServiceStatus.query.filter_by(
+                                project_code=project_code, date=latest_date
+                            ).all()
+                    if day_records:
+                        for rec in day_records:
+                            ns = normalize_status(rec.status)
+                            if ns == 'Servis':
+                                aktif_count += 1
+                            elif ns == 'İşletme Kaynaklı Servis Dışı':
+                                isletme_kaynakli_count += 1
+                            elif ns == 'Servis Dışı':
+                                servis_disi_count += 1
+                        # DB'de olmayan araçları servis dışı say
+                        counted = aktif_count + servis_disi_count + isletme_kaynakli_count
+                        if counted < total_vehicles:
+                            servis_disi_count += (total_vehicles - counted)
                     else:
                         aktif_count = active_vehicles
                         servis_disi_count = total_vehicles - active_vehicles
-                except:
+                except Exception:
                     aktif_count = active_vehicles
                     servis_disi_count = total_vehicles - active_vehicles
                 
@@ -1066,16 +1047,38 @@ def get_projects_kpi():
                 except:
                     total_failures_all = 0
                 
-                # Tüm zamanların availability ortalaması (grid'den)
+                # Tüm zamanların availability ortalaması (DB'den - ServiceStatus)
                 avg_availability_all = 0
                 try:
-                    grid_mgr2 = ExcelGridManager(project_code)
-                    avail_data = grid_mgr2.get_availability_data(current_app.root_path, None, None)
-                    if avail_data:
-                        avg_availability_all = round(sum(avail_data.values()) / len(avail_data))
+                    from sqlalchemy import func as _fn
+                    from collections import defaultdict
+                    # Her tarih+status için kayıt sayısı
+                    date_status_counts = db.session.query(
+                        ServiceStatus.date,
+                        ServiceStatus.status,
+                        _fn.count(ServiceStatus.id)
+                    ).filter(
+                        ServiceStatus.project_code == project_code
+                    ).group_by(ServiceStatus.date, ServiceStatus.status).all()
+                    
+                    if date_status_counts:
+                        date_totals = defaultdict(lambda: {'total': 0, 'available': 0})
+                        for date_val, status_val, cnt in date_status_counts:
+                            ns = normalize_status(status_val)
+                            date_totals[date_val]['total'] += cnt
+                            if ns in ('Servis', 'İşletme Kaynaklı Servis Dışı'):
+                                date_totals[date_val]['available'] += cnt
+                        avail_values = []
+                        for dt, counts in date_totals.items():
+                            if counts['total'] > 0:
+                                avail_values.append(counts['available'] / counts['total'] * 100)
+                        if avail_values:
+                            avg_availability_all = round(sum(avail_values) / len(avail_values))
+                        else:
+                            avg_availability_all = availability
                     else:
                         avg_availability_all = availability
-                except:
+                except Exception:
                     avg_availability_all = availability
                 
                 # MTTR (FRACAS'tan dakika cinsinden)

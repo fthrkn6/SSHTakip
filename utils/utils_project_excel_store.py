@@ -455,8 +455,15 @@ def read_service_status_by_date(project_code: str, status_date: str):
     return out
 
 
+_grid_sync_mtime = {}  # {project_code: last_mtime} dosya değişmemişse sync atla
+
 def sync_grid_excel_to_db_recent(project_code: str, days: int = 7):
-    """Servis_Durumu.xlsx grid formatından son N günün verilerini DB'ye sync et (sayfa yüklenirken çağrılır)"""
+    """Servis_Durumu.xlsx grid formatından verileri DB'ye sync et.
+    
+    Args:
+        project_code: Proje kodu
+        days: Son kaç günü sync et. 0 = TÜM veriler (full import)
+    """
     import logging
     logger = logging.getLogger(__name__)
     from models import ServiceStatus, db
@@ -465,38 +472,76 @@ def sync_grid_excel_to_db_recent(project_code: str, days: int = 7):
     if not os.path.exists(path):
         return 0
 
+    # days>0: dosya değişmemişse sync atla (performans için)
+    if days > 0:
+        current_mtime = os.path.getmtime(path)
+        last_mtime = _grid_sync_mtime.get(project_code)
+        if last_mtime is not None and current_mtime == last_mtime:
+            return 0
+        _grid_sync_mtime[project_code] = current_mtime
+
     try:
-        wb = load_workbook(path)
+        # read_only modda iter_rows kullan (ws.cell random access çok yavaş)
+        wb = load_workbook(path, read_only=True, data_only=True)
         ws = wb.active
 
-        # Son N gün tarihlerini hesapla
-        recent_dates = set()
-        for i in range(days):
-            d = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
-            recent_dates.add(d)
+        # Tüm satırları bir kerede oku (read_only modda çok hızlı)
+        all_rows = list(ws.iter_rows(min_row=1, values_only=False))
+        wb.close()
 
-        # Tarih sütunlarını bul (sadece son N gün)
-        date_cols = {}
-        for c in range(2, ws.max_column + 1):
-            d = _normalize_date_str(ws.cell(row=1, column=c).value)
-            if d and d in recent_dates:
-                date_cols[c] = d
-
-        if not date_cols:
-            wb.close()
+        if not all_rows:
             return 0
 
-        # Tramvay satırlarını oku
-        tram_rows = {}
-        for r in range(2, ws.max_row + 1):
-            t = ws.cell(row=r, column=1).value
-            if t is not None:
-                tram_rows[r] = str(t).strip()
+        header_row = all_rows[0]
+
+        # days=0 ise tüm tarihleri al, değilse son N günü filtrele
+        recent_dates = None
+        if days > 0:
+            recent_dates = set()
+            for i in range(days):
+                d = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
+                recent_dates.add(d)
+
+        # Tarih sütunlarını bul (col_index -> date_str)
+        date_cols = {}
+        for ci, cell in enumerate(header_row):
+            if ci == 0:
+                continue
+            d = _normalize_date_str(cell.value)
+            if d:
+                if recent_dates is None or d in recent_dates:
+                    date_cols[ci] = d
+
+        if not date_cols:
+            return 0
+
+        # Mevcut kayıtları belleğe al (N+1 query yerine tek sorgu)
+        existing_map = {}
+        if days == 0:
+            all_existing = ServiceStatus.query.filter_by(project_code=project_code).all()
+        else:
+            date_values = list(date_cols.values())
+            all_existing = ServiceStatus.query.filter(
+                ServiceStatus.project_code == project_code,
+                ServiceStatus.date.in_(date_values)
+            ).all()
+        for rec in all_existing:
+            existing_map[(rec.tram_id, rec.date)] = rec
 
         changed = 0
-        for r, tram_id in tram_rows.items():
-            for c, date_str in date_cols.items():
-                cell = ws.cell(row=r, column=c)
+        batch_count = 0
+        BATCH_SIZE = 500
+
+        for row in all_rows[1:]:  # Header'ı atla
+            tram_cell = row[0] if row else None
+            if tram_cell is None or tram_cell.value is None:
+                continue
+            tram_id = str(tram_cell.value).strip()
+
+            for ci, date_str in date_cols.items():
+                if ci >= len(row):
+                    continue
+                cell = row[ci]
                 symbol = cell.value
                 if symbol is None:
                     continue
@@ -512,45 +557,58 @@ def sync_grid_excel_to_db_recent(project_code: str, days: int = 7):
                 if not status_str:
                     continue
 
-                # Normalize status
                 status_str = normalize_status(status_str)
 
-                # Hücre notlarından sistem/alt_sistem/açıklama
+                # read_only modda comment desteklenmiyor, normal modda dene
                 c_sistem = ''
                 c_alt_sistem = ''
                 c_aciklama = ''
-                if cell.comment and cell.comment.text:
-                    for line in cell.comment.text.split('\n'):
-                        line = line.strip()
-                        if line.startswith('Sistem:'):
-                            c_sistem = line[len('Sistem:'):].strip()
-                        elif line.startswith('Alt Sistem:'):
-                            c_alt_sistem = line[len('Alt Sistem:'):].strip()
-                        elif line.startswith('Açıklama:'):
-                            c_aciklama = line[len('Açıklama:'):].strip()
+                try:
+                    if hasattr(cell, 'comment') and cell.comment and cell.comment.text:
+                        for line in cell.comment.text.split('\n'):
+                            line = line.strip()
+                            if line.startswith('Sistem:'):
+                                c_sistem = line[len('Sistem:'):].strip()
+                            elif line.startswith('Alt Sistem:'):
+                                c_alt_sistem = line[len('Alt Sistem:'):].strip()
+                            elif line.startswith('Açıklama:'):
+                                c_aciklama = line[len('Açıklama:'):].strip()
+                except Exception:
+                    pass
 
-                existing = ServiceStatus.query.filter_by(
-                    tram_id=tram_id, date=date_str, project_code=project_code
-                ).first()
+                existing = existing_map.get((tram_id, date_str))
 
                 if existing:
                     if existing.status != status_str:
                         existing.status = status_str
                         changed += 1
+                        batch_count += 1
                 else:
-                    db.session.add(ServiceStatus(
+                    new_rec = ServiceStatus(
                         tram_id=tram_id, date=date_str, status=status_str,
                         sistem=c_sistem, alt_sistem=c_alt_sistem, aciklama=c_aciklama,
                         project_code=project_code
-                    ))
+                    )
+                    db.session.add(new_rec)
+                    existing_map[(tram_id, date_str)] = new_rec
                     changed += 1
+                    batch_count += 1
 
-        if changed:
+                if batch_count >= BATCH_SIZE:
+                    db.session.commit()
+                    batch_count = 0
+
+        if batch_count > 0:
             db.session.commit()
-        wb.close()
+        if changed > 0:
+            logger.info(f'Grid sync ({project_code}): {changed} kayıt {"import edildi" if days == 0 else "güncellendi"}')
         return changed
     except Exception as e:
         logger.warning(f'Grid sync hatası ({project_code}): {e}')
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
         return 0
 
 

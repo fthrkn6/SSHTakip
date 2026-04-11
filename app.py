@@ -469,22 +469,24 @@ def create_app():
                 return True
             return False
         
+        _excel_init_done = set()  # Uygulama başlangıcında bir kere init yeterli
+        
         @app.before_request
         def global_excel_sync():
             """Excel senkronizasyonu (OPTIMIZED: 1 saatte 1 kere)"""
             if current_user.is_authenticated:
                 current_project = session.get('current_project', 'belgrad')
                 
-                # ========== YENİ: Excel Files Init (İlk Kullanım) ==========
-                try:
-                    from routes.service_status import get_tram_ids_from_veriler
-                    
-                    # Excel dosyaları varsa init et (idempotent - zaten varsa re-create etmez)
-                    equipment_codes = get_tram_ids_from_veriler(current_project)
-                    if equipment_codes:
-                        init_excel_files(app, current_project, equipment_codes)
-                except Exception as excel_init_error:
-                    logger.warning(f'Excel init hatası (devam et): {excel_init_error}')
+                # ========== Excel Files Init (proje başına 1 kere) ==========
+                if current_project not in _excel_init_done:
+                    try:
+                        from routes.service_status import get_tram_ids_from_veriler
+                        equipment_codes = get_tram_ids_from_veriler(current_project)
+                        if equipment_codes:
+                            init_excel_files(app, current_project, equipment_codes)
+                        _excel_init_done.add(current_project)
+                    except Exception as excel_init_error:
+                        logger.warning(f'Excel init hatası (devam et): {excel_init_error}')
                 
                 # ========== Excel Sync (1 saatte 1 kere) ==========
                 
@@ -3918,17 +3920,6 @@ def create_app():
             
             import json
             sistemler_json = json.dumps(sistemler)
-            logger.info(f"\1")
-            logger.info(f"\1")
-            logger.info(f"\1")
-            logger.info(f"\1")
-            for sistem_adi, data in sistemler.items():
-                logger.info(f"\1")
-                if data.get('tedarikçiler'):
-                    logger.info(f"\1")
-                if data.get('alt_sistemler'):
-                    logger.info(f"\1")
-            logger.info(f"\1")
             
             # ========== İSTATİSTİKLER - Tramvaylar yüklendikten sonra hesapla ==========
             stats = {
@@ -3968,13 +3959,6 @@ def create_app():
                     erisebilirlik_percent = (available / total_tramvaylar) * 100
                     stats['erisebilirlik'] = f"{erisebilirlik_percent:.1f}%"
                 
-                logger.info(f"\1")
-                logger.info(f"\1")
-                logger.info(f"\1")
-                logger.info(f"\1")
-                logger.info(f"\1")
-                logger.info(f"\1")
-                
             except Exception as e:
                 logger.info(f"\1")
                 stats = {
@@ -3991,54 +3975,38 @@ def create_app():
                 date = datetime.now() - timedelta(days=i)
                 last_7_days.append(date.strftime('%Y-%m-%d'))
             
-            # 7 günlük status matrix - veritabanı + Excel (Servis_Durumu.xlsx) birleşik
+            # 7 günlük status matrix - TEK DB sorgusu ile (N+1 query yerine)
             status_matrix = {}
             tram_ids_list = [t.id if hasattr(t, 'id') else str(t) for t in tramvaylar]
             
-            # Önce Excel'den oku (Servis_Durumu.xlsx grid formatı)
             try:
-                from utils.utils_project_excel_store import read_service_status_by_date, normalize_status
-                for date_str in last_7_days:
-                    excel_data = read_service_status_by_date(current_project, date_str)
-                    if excel_data:
-                        for tram_id in tram_ids_list:
-                            if tram_id not in status_matrix:
-                                status_matrix[tram_id] = {}
-                            if tram_id in excel_data:
-                                ed = excel_data[tram_id]
-                                raw_status = normalize_status(ed.get('status', ''))
-                                status_matrix[tram_id][date_str] = (
-                                    raw_status,
-                                    ed.get('sistem', ''),
-                                    ed.get('alt_sistem', ''),
-                                    ed.get('aciklama', '')
-                                )
-            except Exception as excel_err:
-                logger.warning(f'Excel status_matrix okuma hatası: {excel_err}')
-
-            # Sonra DB'den oku (DB varsa Excel'in üzerine yaz - DB daha güncel)
-            if hasattr(db, 'session'):
-                try:
-                    from models import ServiceStatus
-                    from utils.utils_project_excel_store import normalize_status as _norm_status
-                    for tram_id in tram_ids_list:
-                        if tram_id not in status_matrix:
-                            status_matrix[tram_id] = {}
-                        for date in last_7_days:
-                            status_record = ServiceStatus.query.filter_by(
-                                tram_id=tram_id,
-                                date=date,
-                                project_code=current_project
-                            ).first()
-                            if status_record:
-                                status_matrix[tram_id][date] = (
-                                    _norm_status(status_record.status) if status_record.status else 'Unknown',
-                                    status_record.sistem if hasattr(status_record, 'sistem') else '',
-                                    status_record.alt_sistem if hasattr(status_record, 'alt_sistem') else '',
-                                    status_record.aciklama if hasattr(status_record, 'aciklama') else ''
-                                )
-                except Exception as db_err:
-                    logger.warning(f'DB status_matrix okuma hatası: {db_err}')
+                from models import ServiceStatus
+                from utils.utils_project_excel_store import normalize_status as _norm_status
+                
+                # Tek sorgu ile son 7 günün TÜM kayıtlarını çek
+                all_records = ServiceStatus.query.filter(
+                    ServiceStatus.project_code == current_project,
+                    ServiceStatus.date.in_(last_7_days)
+                ).all()
+                
+                # Dict'e dönüştür
+                for record in all_records:
+                    tid = record.tram_id
+                    if tid not in status_matrix:
+                        status_matrix[tid] = {}
+                    status_matrix[tid][record.date] = (
+                        _norm_status(record.status) if record.status else 'Unknown',
+                        record.sistem if hasattr(record, 'sistem') else '',
+                        record.alt_sistem if hasattr(record, 'alt_sistem') else '',
+                        record.aciklama if hasattr(record, 'aciklama') else ''
+                    )
+                
+                # tram_ids_list'te olan ama status_matrix'te olmayan tramvaylar için boş dict ekle
+                for tram_id in tram_ids_list:
+                    if tram_id not in status_matrix:
+                        status_matrix[tram_id] = {}
+            except Exception as db_err:
+                logger.warning(f'DB status_matrix okuma hatası: {db_err}')
             
             # Bir önceki günün verileri al (form önceden doldurma için)
             yesterday_str = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
