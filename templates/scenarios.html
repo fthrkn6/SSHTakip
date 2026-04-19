@@ -295,6 +295,52 @@
     </div>
 </div>
 
+<!-- ====== FİLTRELER ====== -->
+<div class="sc-panel">
+    <div class="sc-panel-header">
+        <div class="panel-title">
+            <span class="title-icon" style="background: rgba(99,102,241,0.1); color: #6366f1;"><i class="bi bi-funnel"></i></span>
+            Filtreler
+        </div>
+        <button class="btn-per" onclick="resetFilters()" style="font-size:0.78rem;"><i class="bi bi-arrow-counterclockwise me-1"></i>Sıfırla</button>
+    </div>
+    <div class="sc-panel-body" style="padding: 1rem 1.5rem;">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600; color:var(--sc-text-muted);">Başlangıç Tarihi</label>
+                <input type="date" class="form-control form-control-sm" id="filterStartDate" style="border-radius:8px;">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600; color:var(--sc-text-muted);">Bitiş Tarihi</label>
+                <input type="date" class="form-control form-control-sm" id="filterEndDate" style="border-radius:8px;">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600; color:var(--sc-text-muted);">Araç Seçimi <span id="tramCount" class="text-muted" style="font-weight:400;">(tümü)</span></label>
+                <div class="position-relative">
+                    <div id="tramSelectBox" class="form-control form-control-sm d-flex align-items-center gap-1 flex-wrap" style="border-radius:8px; min-height:31px; cursor:pointer; max-height:80px; overflow-y:auto;" onclick="toggleTramDropdown()">
+                        <span class="text-muted" id="tramPlaceholder" style="font-size:0.8rem;">Tüm araçlar</span>
+                    </div>
+                    <div id="tramDropdown" class="position-absolute w-100 bg-white border rounded-3 shadow-lg" style="display:none; z-index:999; max-height:250px; overflow-y:auto; top:100%; left:0; margin-top:4px;">
+                        <div class="p-2 border-bottom" style="position:sticky; top:0; background:#fff; z-index:1;">
+                            <div class="d-flex gap-2 mb-2">
+                                <button class="btn btn-sm btn-outline-primary flex-fill" onclick="selectAllTrams(true)" style="font-size:0.72rem;">Tümünü Seç</button>
+                                <button class="btn btn-sm btn-outline-secondary flex-fill" onclick="selectAllTrams(false)" style="font-size:0.72rem;">Temizle</button>
+                            </div>
+                            <input type="text" class="form-control form-control-sm" id="tramSearch" placeholder="Araç ara..." style="border-radius:6px; font-size:0.78rem;" oninput="filterTramList()">
+                        </div>
+                        <div id="tramCheckboxList" class="p-1"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-sm w-100" onclick="applyFilters()" style="background: var(--sc-blue); color:#fff; border-radius:8px; font-weight:600; font-size:0.82rem; padding:6px 12px;">
+                    <i class="bi bi-search me-1"></i> Uygula
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ====== DURUM TABLOSU ====== -->
 <div class="sc-panel">
     <div class="sc-panel-header">
@@ -486,6 +532,8 @@ let availabilityChart = null;
 let systemChart = null;
 let subsystemChart = null;
 let trendChart = null;
+let allTrams = [];
+let selectedTrams = new Set();
 
 const scColors = ['#8b1e1e','#2563eb','#10b981','#f59e0b','#8b5cf6','#06b6d4','#ec4899','#ea580c','#059669','#d97706','#7c3aed','#0087be','#db2777','#6366f1'];
 
@@ -499,16 +547,125 @@ window.downloadChartAsImage = function(canvasId, filename) {
     link.click();
 };
 
+// ============ FİLTRE FONKSİYONLARI ============
+function loadTramList() {
+    fetch('/reports/scenarios/tram-list')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success && data.trams) {
+                allTrams = data.trams;
+                renderTramCheckboxes(allTrams);
+            }
+        })
+        .catch(err => console.error('Tram list error:', err));
+}
+
+function renderTramCheckboxes(trams) {
+    const container = document.getElementById('tramCheckboxList');
+    container.innerHTML = trams.map(t => {
+        const checked = selectedTrams.size === 0 || selectedTrams.has(t) ? 'checked' : '';
+        return `<label class="d-flex align-items-center gap-2 px-2 py-1 tram-item" style="cursor:pointer; font-size:0.82rem; border-radius:4px;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">
+            <input type="checkbox" class="form-check-input tram-cb" value="${t}" ${checked} style="margin:0;" onchange="updateTramSelection()">
+            <span>${t}</span>
+        </label>`;
+    }).join('');
+}
+
+function toggleTramDropdown() {
+    const dd = document.getElementById('tramDropdown');
+    dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+
+function selectAllTrams(selectAll) {
+    document.querySelectorAll('.tram-cb').forEach(cb => cb.checked = selectAll);
+    updateTramSelection();
+}
+
+function updateTramSelection() {
+    selectedTrams.clear();
+    document.querySelectorAll('.tram-cb:checked').forEach(cb => selectedTrams.add(cb.value));
+    const countEl = document.getElementById('tramCount');
+    const placeholder = document.getElementById('tramPlaceholder');
+    if (selectedTrams.size === 0 || selectedTrams.size === allTrams.length) {
+        countEl.textContent = '(tümü)';
+        placeholder.textContent = 'Tüm araçlar';
+    } else {
+        countEl.textContent = `(${selectedTrams.size}/${allTrams.length})`;
+        placeholder.textContent = Array.from(selectedTrams).slice(0, 5).join(', ') + (selectedTrams.size > 5 ? '...' : '');
+    }
+}
+
+function filterTramList() {
+    const q = document.getElementById('tramSearch').value.toLowerCase();
+    document.querySelectorAll('.tram-item').forEach(item => {
+        const text = item.textContent.toLowerCase();
+        item.style.display = text.includes(q) ? '' : 'none';
+    });
+}
+
+function getFilterParams() {
+    let params = '';
+    const startDate = document.getElementById('filterStartDate').value;
+    const endDate = document.getElementById('filterEndDate').value;
+    if (startDate || endDate) {
+        params += '&start_date=' + startDate + '&end_date=' + endDate;
+    }
+    if (selectedTrams.size > 0 && selectedTrams.size < allTrams.length) {
+        params += '&tram_ids=' + Array.from(selectedTrams).join(',');
+    }
+    return params;
+}
+
+function applyFilters() {
+    const startDate = document.getElementById('filterStartDate').value;
+    const endDate = document.getElementById('filterEndDate').value;
+    // Tarih filtresi varsa custom period kullan, yoksa seçili period'u
+    if (startDate || endDate) {
+        document.querySelectorAll('input[name="period"]').forEach(r => r.checked = false);
+        loadStatusData('custom');
+        loadTrendData('custom');
+    } else {
+        const currentPeriod = document.querySelector('input[name="period"]:checked')?.value || 'haftalik';
+        loadStatusData(currentPeriod);
+        loadTrendData(currentPeriod);
+    }
+    loadRCAStats(document.querySelector('input[name="rca-period"]:checked')?.value || 'haftalik');
+    document.getElementById('tramDropdown').style.display = 'none';
+}
+
+function resetFilters() {
+    document.getElementById('filterStartDate').value = '';
+    document.getElementById('filterEndDate').value = '';
+    selectedTrams.clear();
+    document.querySelectorAll('.tram-cb').forEach(cb => cb.checked = true);
+    updateTramSelection();
+    const haftalik = document.getElementById('period-haftalik');
+    if (haftalik) haftalik.checked = true;
+    loadStatusData('haftalik');
+    loadTrendData('haftalik');
+    loadRCAStats('haftalik');
+}
+
+// Dropdown dışına tıklandığında kapat
+document.addEventListener('click', function(e) {
+    const box = document.getElementById('tramSelectBox');
+    const dd = document.getElementById('tramDropdown');
+    if (dd && box && !box.contains(e.target) && !dd.contains(e.target)) {
+        dd.style.display = 'none';
+    }
+});
+
 // ============ DURUM TABLOSU ============
 function loadStatusData(period) {
-    fetch(`/reports/scenarios/data?period=${period}`)
+    let url = `/reports/scenarios/data?period=${period}` + getFilterParams();
+    fetch(url)
         .then(r => r.json())
         .then(data => {
             if (data.success) {
                 updateStatusTable(data.data, data.period);
                 updateAvailabilityChart(data.data, data.period);
                 document.getElementById('dateRangeInfo').textContent = data.date_range;
-                loadTrendData(period);
+                if (period !== 'custom') loadTrendData(period);
             } else {
                 showAlert(`Hata: ${data.error}`, 'danger');
             }
@@ -643,7 +800,8 @@ function updateSubsystemChart(stats) {
 
 // ============ AVAILABILITY TREND ============
 function loadTrendData(period) {
-    fetch(`/reports/scenarios/availability-trend?period=${period}`)
+    let url = `/reports/scenarios/availability-trend?period=${period}` + getFilterParams();
+    fetch(url)
         .then(r => {
             if (r.status === 401 || r.status === 403) return null;
             if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
@@ -777,7 +935,12 @@ function updateTrendChart(dates, averages, granularity) {
 }
 
 // ============ EVENT LISTENERS ============
-document.querySelectorAll('input[name="period"]').forEach(r => r.addEventListener('change', e => loadStatusData(e.target.value)));
+document.querySelectorAll('input[name="period"]').forEach(r => r.addEventListener('change', e => {
+    // Period radio seçildiğinde tarih filtresini temizle (custom değil artık)
+    document.getElementById('filterStartDate').value = '';
+    document.getElementById('filterEndDate').value = '';
+    loadStatusData(e.target.value);
+}));
 document.querySelectorAll('input[name="trend-period"]').forEach(r => r.addEventListener('change', e => loadTrendData(e.target.value)));
 document.querySelectorAll('input[name="rca-period"]').forEach(r => r.addEventListener('change', e => loadRCAStats(e.target.value)));
 
@@ -794,6 +957,7 @@ function showAlert(message, type) {
 
 // ============ INIT ============
 document.addEventListener('DOMContentLoaded', () => {
+    loadTramList();
     loadStatusData('haftalik');
     loadRCAStats('haftalik');
     loadTrendData('haftalik');

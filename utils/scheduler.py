@@ -115,18 +115,15 @@ def calculate_daily_kpi():
         Failure.failure_date < today
     ).count()
     
-    # Dünkü servis durumu
-    in_service = ServiceStatus.query.filter_by(
-        date=yesterday, status='Servis'
-    ).count()
-    out_of_service = ServiceStatus.query.filter_by(
-        date=yesterday, status='Servis Dışı'
-    ).count()
+    # Dünkü servis durumu - tüm kayıtları say
+    from utils.utils_project_excel_store import normalize_status
+    all_yesterday = ServiceStatus.query.filter_by(date=yesterday).all()
+    total = len(all_yesterday)
+    servis_disi = sum(1 for r in all_yesterday if normalize_status(r.status) == 'Servis Dışı')
     
-    total = in_service + out_of_service
-    availability = (in_service / total * 100) if total > 0 else 0
+    availability = ((total - servis_disi) / total * 100) if total > 0 else 0
     
     logger.info(
         f"[DAILY KPI] {yesterday} - Arıza: {failures_yesterday}, "
-        f"Availability: {availability:.1f}% ({in_service}/{total})"
+        f"Availability: {availability:.1f}% ({total - servis_disi}/{total})"
     )

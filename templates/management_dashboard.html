@@ -138,15 +138,16 @@
                         <th>Proje Kodu</th>
                         <th>Proje Adi</th>
                         <th>Toplam Arac</th>
-                        <th>Arac Durumu</th>
-                        <th>Availability (%)</th>
+                        <th>Arac Durumu (Tarih)</th>
+                        <th>Guncel Availability (%)</th>
+                        <th>Toplam Availability (%)</th>
                         <th>Toplam Ariza</th>
                         <th>Son 30 Gun Ariza</th>
                         <th>Ort. MTTR</th>
                     </tr>
                 </thead>
                 <tbody id="rawDataBody">
-                    <tr><td colspan="8" class="mg-loading"><i class="bi bi-arrow-repeat"></i> Veriler yukleniyor...</td></tr>
+                    <tr><td colspan="9" class="mg-loading"><i class="bi bi-arrow-repeat"></i> Veriler yukleniyor...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -175,9 +176,9 @@ function loadProjects() {
         .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(result => {
             if (result.success && result.data) { projectData = result.data; renderAll(); }
-            else { document.getElementById('rawDataBody').innerHTML = '<tr><td colspan="8" class="mg-loading" style="color:var(--mg-red);">Veri yukleme hatasi</td></tr>'; }
+            else { document.getElementById('rawDataBody').innerHTML = '<tr><td colspan="9" class="mg-loading" style="color:var(--mg-red);">Veri yukleme hatasi</td></tr>'; }
         })
-        .catch(err => { document.getElementById('rawDataBody').innerHTML = '<tr><td colspan="8" class="mg-loading" style="color:var(--mg-red);">Hata: ' + err.message + '</td></tr>'; });
+        .catch(err => { document.getElementById('rawDataBody').innerHTML = '<tr><td colspan="9" class="mg-loading" style="color:var(--mg-red);">Hata: ' + err.message + '</td></tr>'; });
 }
 
 function renderAll() {
@@ -197,16 +198,20 @@ function renderAll() {
         const aktif = d.aktif_count || 0;
         const isletme = d.isletme_kaynakli_count || 0;
         const sdisi = d.servis_disi_count || 0;
-        const availVal = d.availability || 0;
-        const availCls = availVal >= 85 ? 'green' : availVal >= 70 ? 'orange' : 'red';
+        const todayAvail = d.availability || 0;
+        const totalAvail = d.avg_availability_all || 0;
+        const todayAvailCls = todayAvail >= 85 ? 'green' : todayAvail >= 70 ? 'orange' : 'red';
+        const totalAvailCls = totalAvail >= 85 ? 'green' : totalAvail >= 70 ? 'orange' : 'red';
         const mttrText = d.mttr_minutes > 0 ? formatMttr(d.mttr_minutes) : '-';
+        const dateText = d.servis_date ? d.servis_date.substring(5) : '';
 
         const row = document.createElement('tr');
         row.innerHTML = '<td><span class="project-code">' + key.toUpperCase() + '</span></td>' +
             '<td><span class="project-name">' + d.name + '</span></td>' +
             '<td style="font-weight:700;">' + d.vehicles + '</td>' +
-            '<td><div class="vehicle-status"><span class="vs-green">' + aktif + '</span><span class="vs-sep">/</span><span class="vs-orange">' + isletme + '</span><span class="vs-sep">/</span><span class="vs-red">' + sdisi + '</span></div></td>' +
-            '<td><span class="mg-badge ' + availCls + '">' + availVal + '%</span></td>' +
+            '<td><div class="vehicle-status"><span class="vs-green">' + aktif + '</span><span class="vs-sep">/</span><span class="vs-orange">' + isletme + '</span><span class="vs-sep">/</span><span class="vs-red">' + sdisi + '</span></div><div style="font-size:0.65rem;color:var(--mg-text-muted);margin-top:2px;">' + dateText + '</div></td>' +
+            '<td><span class="mg-badge ' + todayAvailCls + '">' + todayAvail + '%</span></td>' +
+            '<td><span class="mg-badge ' + totalAvailCls + '">' + totalAvail + '%</span></td>' +
             '<td style="font-weight:700;">' + (d.total_failures_all || 0) + '</td>' +
             '<td style="font-weight:600;">' + d.failures30 + '</td>' +
             '<td style="font-weight:600;">' + mttrText + '</td>';
@@ -218,10 +223,10 @@ function renderAll() {
         card.className = 'mg-project-card';
         card.innerHTML = '<div class="mg-card-header"><div class="mg-card-name">' + d.name + '</div><span class="mg-card-status ' + statusCls + '">' + statusTxt + '</span></div>' +
             '<div class="mg-card-metrics">' +
-            '<div class="mg-card-metric"><div class="mg-card-metric-label">Availability</div><div class="mg-card-metric-value">' + (d.avg_availability_all || d.availability) + '%</div></div>' +
+            '<div class="mg-card-metric"><div class="mg-card-metric-label">Toplam Availability</div><div class="mg-card-metric-value">' + (d.avg_availability_all || 0) + '%</div></div>' +
             '<div class="mg-card-metric"><div class="mg-card-metric-label">Toplam Ariza</div><div class="mg-card-metric-value" style="color:var(--mg-red);">' + (d.total_failures_all || 0) + '</div></div>' +
             '<div class="mg-card-metric"><div class="mg-card-metric-label">Ort. MTTR</div><div class="mg-card-metric-value" style="color:var(--mg-cyan);">' + mttrText + '</div></div>' +
-            '<div class="mg-card-metric"><div class="mg-card-metric-label">Arac Durumu</div><div class="mg-card-metric-value" style="font-size:1rem;"><span style="color:var(--mg-green);">' + aktif + '</span><span style="color:var(--mg-text-muted);font-weight:400;">/</span><span style="color:var(--mg-orange);">' + isletme + '</span><span style="color:var(--mg-text-muted);font-weight:400;">/</span><span style="color:var(--mg-red);">' + sdisi + '</span></div></div>' +
+            '<div class="mg-card-metric"><div class="mg-card-metric-label">Arac Durumu (' + dateText + ')</div><div class="mg-card-metric-value" style="font-size:1rem;"><span style="color:var(--mg-green);">' + aktif + '</span><span style="color:var(--mg-text-muted);font-weight:400;">/</span><span style="color:var(--mg-orange);">' + isletme + '</span><span style="color:var(--mg-text-muted);font-weight:400;">/</span><span style="color:var(--mg-red);">' + sdisi + '</span></div></div>' +
             '</div>' +
             '<div class="mg-card-actions"><button class="mg-card-btn primary" onclick="viewProjectDetails(\'' + key + '\')"><i class="bi bi-eye me-1"></i> Detay</button><button class="mg-card-btn secondary" onclick="generateProjectReport(\'' + key + '\')"><i class="bi bi-download me-1"></i> PDF</button></div>';
         grid.appendChild(card);
@@ -246,7 +251,8 @@ function viewProjectDetails(key) {
     if (!d) return;
     var aktif = d.aktif_count || 0, isletme = d.isletme_kaynakli_count || 0, sdisi = d.servis_disi_count || 0;
     var mttr = d.mttr_minutes > 0 ? formatMttr(d.mttr_minutes) : 'Veri yok';
-    alert(d.name + '\n\nARAC DURUMU:\n  Toplam: ' + d.vehicles + ' | Aktif: ' + aktif + ' | Isletme Kaynakli: ' + isletme + ' | Servis Disi: ' + sdisi + '\n\nAVAILABILITY: ' + (d.avg_availability_all || d.availability) + '%\nTOPLAM ARIZA: ' + (d.total_failures_all || 0) + '\nSON 30 GUN ARIZA: ' + d.failures30 + '\nORT. MTTR: ' + mttr + '\n\nDURUM: ' + (d.status === 'active' ? 'Aktif' : d.status === 'maintenance' ? 'Bakimda' : 'Dikkat'));
+    var dateInfo = d.servis_date || 'Bilinmiyor';
+    alert(d.name + '\n\nARAC DURUMU (' + dateInfo + '):\n  Toplam: ' + d.vehicles + ' | Aktif: ' + aktif + ' | Isletme Kaynakli: ' + isletme + ' | Servis Disi: ' + sdisi + '\n\nGUNCEL AVAILABILITY: ' + (d.availability || 0) + '%\nTOPLAM AVAILABILITY: ' + (d.avg_availability_all || 0) + '%\nTOPLAM ARIZA: ' + (d.total_failures_all || 0) + '\nSON 30 GUN ARIZA: ' + d.failures30 + '\nORT. MTTR: ' + mttr + '\n\nDURUM: ' + (d.status === 'active' ? 'Aktif' : d.status === 'maintenance' ? 'Bakimda' : 'Dikkat'));
 }
 
 function generateProjectReport(key) {

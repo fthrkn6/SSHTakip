@@ -251,7 +251,10 @@ def scenarios_status_data():
     """Senaryo Analiz sayfası için durum verilerini getir - ServiceStatus DB'den
     
     Query parametreleri:
-    - period: 'haftalik' | 'aylik' | 'ucaylik' | 'altiylik' | 'yillik' | 'toplam'
+    - period: 'haftalik' | 'aylik' | 'ucaylik' | 'altiylik' | 'yillik' | 'toplam' | 'custom'
+    - start_date: YYYY-MM-DD (custom period için)
+    - end_date: YYYY-MM-DD (custom period için)
+    - tram_ids: virgülle ayrılmış araç id'leri (filtre)
     """
     try:
         from collections import defaultdict
@@ -262,18 +265,53 @@ def scenarios_status_data():
         
         # Tarih aralığını belirle
         today = date.today()
-        if period == 'haftalik':
-            start_date = today - timedelta(days=7)
-        elif period == 'aylik':
-            start_date = today - timedelta(days=30)
-        elif period == 'ucaylik':
-            start_date = today - timedelta(days=90)
-        elif period == 'altiylik':
-            start_date = today - timedelta(days=180)
-        elif period == 'yillik':
-            start_date = today - timedelta(days=365)
-        else:  # 'toplam'
-            start_date = None
+        if period == 'custom':
+            # Manuel tarih aralığı
+            start_str = request.args.get('start_date', '')
+            end_str = request.args.get('end_date', '')
+            try:
+                start_date = datetime.strptime(start_str, '%Y-%m-%d').date() if start_str else today - timedelta(days=30)
+                end_date = datetime.strptime(end_str, '%Y-%m-%d').date() if end_str else today
+            except ValueError:
+                start_date = today - timedelta(days=30)
+                end_date = today
+        else:
+            end_date = today
+            if period == 'haftalik':
+                start_date = today - timedelta(days=7)
+            elif period == 'aylik':
+                start_date = today - timedelta(days=30)
+            elif period == 'ucaylik':
+                start_date = today - timedelta(days=90)
+            elif period == 'altiylik':
+                start_date = today - timedelta(days=180)
+            elif period == 'yillik':
+                start_date = today - timedelta(days=365)
+            else:  # 'toplam'
+                start_date = None
+        
+        # Araç filtresi
+        tram_filter_str = request.args.get('tram_ids', '')
+        tram_filter = set(tram_filter_str.split(',')) if tram_filter_str else None
+        
+        # Veriler.xlsx'ten geçerli araç listesini al
+        valid_trams = get_tram_ids_from_veriler(project)
+        valid_trams_set = set(valid_trams) if valid_trams else None
+        
+        # ServiceStatus DB'den verileri al
+        query = ServiceStatus.query.filter_by(project_code=project)
+        if start_date:
+            query = query.filter(ServiceStatus.date >= start_date.strftime('%Y-%m-%d'))
+        if period == 'custom' and end_date:
+            query = query.filter(ServiceStatus.date <= end_date.strftime('%Y-%m-%d'))
+        
+        all_records = query.all()
+        
+        # Seçilen periyotta veri yoksa tüm verilere fallback
+        fallback_used = False
+        if not all_records and period != 'toplam':
+            all_records = ServiceStatus.query.filter_by(project_code=project).all()
+            fallback_used = True
         
         # Veriler.xlsx'ten geçerli araç listesini al
         valid_trams = get_tram_ids_from_veriler(project)
@@ -292,26 +330,34 @@ def scenarios_status_data():
             all_records = ServiceStatus.query.filter_by(project_code=project).all()
             fallback_used = True
         
-        # Araç bazında availability hesapla: {tram_id: {active_days, total_days}}
-        tram_stats = defaultdict(lambda: {'active': 0, 'total': 0})
+        # Araç bazında availability hesapla: {tram_id: {total_days, servis_disi_days}}
+        # Formül: (Toplam - Servis Dışı) / Toplam * 100
+        # İşletme Kaynaklı Servis Dışı = available, sadece gerçek Servis Dışı = unavailable
+        from utils.utils_project_excel_store import normalize_status
+        tram_stats = defaultdict(lambda: {'total': 0, 'servis_disi': 0})
         
         for record in all_records:
             if valid_trams_set and record.tram_id not in valid_trams_set:
                 continue
+            if tram_filter and record.tram_id not in tram_filter:
+                continue
             tram_stats[record.tram_id]['total'] += 1
-            if record.status and 'Servis' in record.status and 'Dışı' not in record.status:
-                tram_stats[record.tram_id]['active'] += 1
+            ns = normalize_status(record.status)
+            if ns == 'Servis Dışı':
+                tram_stats[record.tram_id]['servis_disi'] += 1
         
         # Availability dict oluştur
         availability = {}
         for tram_id, stats in sorted(tram_stats.items()):
             if stats['total'] > 0:
-                availability[tram_id] = round((stats['active'] / stats['total']) * 100)
+                availability[tram_id] = round(((stats['total'] - stats['servis_disi']) / stats['total']) * 100)
             else:
                 availability[tram_id] = 0
         
         # Tarih aralığı metni
-        if period == 'toplam' or start_date is None:
+        if period == 'custom':
+            date_range_str = f"{start_date.strftime('%d.%m.%Y')} - {end_date.strftime('%d.%m.%Y')}"
+        elif period == 'toplam' or start_date is None:
             date_range_str = "Tümü"
         elif fallback_used:
             date_range_str = "Seçilen periyotta veri yok — Tüm veriler gösteriliyor"
@@ -327,6 +373,23 @@ def scenarios_status_data():
     
     except Exception as e:
         logger.error(f"Error getting scenarios data: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
+@reports_bp.route('/scenarios/tram-list', methods=['GET'])
+@login_required
+def scenarios_tram_list():
+    """Proje için araç listesini döndür (filtre dropdown için)"""
+    try:
+        from routes.service_status import get_tram_ids_from_veriler
+        project = session.get('current_project', 'belgrad')
+        trams = get_tram_ids_from_veriler(project)
+        if not trams:
+            trams = [r.tram_id for r in db.session.query(ServiceStatus.tram_id).filter_by(
+                project_code=project
+            ).distinct().all()]
+        return jsonify({'success': True, 'trams': sorted(trams)})
+    except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
 
@@ -417,14 +480,22 @@ def scenarios_availability_trend():
     Günlük rapor Excel ile aynı veri kaynağından (ServiceStatus DB) okur.
     
     Query parametreleri:
-    - period: 'haftalik' | 'aylik' | 'ucaylik' | 'altiylik' | 'yillik' | 'toplam'
+    - period: 'haftalik' | 'aylik' | 'ucaylik' | 'altiylik' | 'yillik' | 'toplam' | 'custom'
+    - start_date: YYYY-MM-DD (custom period için)
+    - end_date: YYYY-MM-DD (custom period için)
+    - tram_ids: virgülle ayrılmış araç id'leri (filtre)
     """
     try:
         from collections import defaultdict
         from routes.service_status import get_tram_ids_from_veriler
+        from utils.utils_project_excel_store import normalize_status
         
         project = session.get('current_project', 'belgrad')
         period = request.args.get('period', 'haftalik')
+        
+        # Araç filtresi
+        tram_filter_str = request.args.get('tram_ids', '')
+        tram_filter = set(tram_filter_str.split(',')) if tram_filter_str else None
         
         # Veriler.xlsx'ten geçerli araç listesini al
         valid_trams = get_tram_ids_from_veriler(project)
@@ -434,7 +505,18 @@ def scenarios_availability_trend():
         today = date.today()
         granularity = 'daily'
         
-        if period == 'haftalik':
+        if period == 'custom':
+            start_str = request.args.get('start_date', '')
+            end_str = request.args.get('end_date', '')
+            try:
+                start_date = datetime.strptime(start_str, '%Y-%m-%d').date() if start_str else today - timedelta(days=30)
+                end_date = datetime.strptime(end_str, '%Y-%m-%d').date() if end_str else today
+            except ValueError:
+                start_date = today - timedelta(days=30)
+                end_date = today
+            days_diff = (end_date - start_date).days
+            granularity = 'daily' if days_diff <= 14 else ('weekly' if days_diff <= 90 else 'monthly')
+        elif period == 'haftalik':
             start_date = today - timedelta(days=7)
             granularity = 'daily'
         elif period == 'aylik':
@@ -457,6 +539,8 @@ def scenarios_availability_trend():
         query = ServiceStatus.query.filter_by(project_code=project)
         if start_date:
             query = query.filter(ServiceStatus.date >= start_date.strftime('%Y-%m-%d'))
+        if period == 'custom' and end_date:
+            query = query.filter(ServiceStatus.date <= end_date.strftime('%Y-%m-%d'))
         
         all_records = query.order_by(ServiceStatus.date).all()
         
@@ -471,6 +555,8 @@ def scenarios_availability_trend():
         date_tram_status = defaultdict(dict)
         for record in all_records:
             if valid_trams_set and record.tram_id not in valid_trams_set:
+                continue
+            if tram_filter and record.tram_id not in tram_filter:
                 continue
             date_tram_status[record.date][record.tram_id] = record.status
         
@@ -495,11 +581,12 @@ def scenarios_availability_trend():
                 bucket_key = date_str
             
             # Bu gün için availability hesapla
+            # Formül: (Toplam - Servis Dışı) / Toplam * 100
             total = len(tram_statuses)
             if total > 0:
-                active = sum(1 for s in tram_statuses.values() 
-                           if s and 'Servis' in s and 'Dışı' not in s)
-                day_availability = round((active / total) * 100, 1)
+                servis_disi = sum(1 for s in tram_statuses.values()
+                                if normalize_status(s) == 'Servis Dışı')
+                day_availability = round(((total - servis_disi) / total) * 100, 1)
                 buckets[bucket_key].append(day_availability)
         
         # Bucket'ları sırala ve ortalama al
@@ -972,122 +1059,156 @@ def management_dashboard():
 @reports_bp.route('/api/projects-kpi', methods=['GET'])
 @login_required
 def get_projects_kpi():
-    """Tüm projeler için kapsamlı KPI verilerini döndür - Enhanced"""
+    """Tüm projeler için kapsamlı KPI verilerini döndür - Optimized"""
     logger.info("/reports/api/projects-kpi endpoint called")
     try:
         from datetime import datetime, timedelta
         from sqlalchemy import func
+        from collections import defaultdict
+        from utils.utils_project_excel_store import normalize_status
         
-        projects_data = {}
         active_projects = _load_projects()
+        
+        # ====== BULK QUERIES - Tüm projeler için tek sorguda ======
+        
+        # 1) Tüm araç sayıları - tek sorgu
+        vehicle_counts = dict(
+            db.session.query(Equipment.project_code, func.count(Equipment.id))
+            .filter(Equipment.parent_id == None)
+            .group_by(Equipment.project_code).all()
+        )
+        
+        # 2) Bugünkü + en son ServiceStatus - tek sorgu ile en son tarih bul
+        today_str = date.today().strftime('%Y-%m-%d')
+        latest_dates = dict(
+            db.session.query(ServiceStatus.project_code, func.max(ServiceStatus.date))
+            .group_by(ServiceStatus.project_code).all()
+        )
+        
+        # 3) Son 30 gün arıza sayıları - tek sorgu
+        thirty_days_ago = datetime.now() - timedelta(days=30)
+        failures_30_map = {}
+        try:
+            f30_results = db.session.query(
+                Equipment.project_code, func.count(Failure.id)
+            ).join(Equipment).filter(
+                Failure.failure_date >= thirty_days_ago
+            ).group_by(Equipment.project_code).all()
+            failures_30_map = dict(f30_results)
+        except Exception:
+            pass
+        
+        # 4) Tüm ServiceStatus kayıtları - tarih+proje+status bazında aggregate
+        all_status_agg = db.session.query(
+            ServiceStatus.project_code,
+            ServiceStatus.date,
+            ServiceStatus.status,
+            func.count(ServiceStatus.id)
+        ).group_by(
+            ServiceStatus.project_code, ServiceStatus.date, ServiceStatus.status
+        ).all()
+        
+        # Organize: {project: {date: {status: count}}}
+        status_by_project = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+        for pc, dt, st, cnt in all_status_agg:
+            ns = normalize_status(st)
+            status_by_project[pc][dt][ns] += cnt
+        
+        # 5) FRACAS verilerini proje başına bir kez cache'le
+        fracas_cache = {}
+        
+        # 6) WorkOrder istatistikleri - bulk
+        wo_stats = {}
+        try:
+            wo_agg = db.session.query(
+                WorkOrder.project_code,
+                func.count(WorkOrder.id),
+                func.sum(db.case(
+                    (WorkOrder.work_type == 'Preventive', 1), else_=0
+                )),
+                func.avg(db.case(
+                    (db.and_(WorkOrder.status == 'Completed', WorkOrder.labor_hours > 0), WorkOrder.labor_hours), else_=None
+                ))
+            ).group_by(WorkOrder.project_code).all()
+            for pc, total, prev, avg_hrs in wo_agg:
+                wo_stats[pc] = {
+                    'total': total or 0,
+                    'preventive': prev or 0,
+                    'avg_labor': round(float(avg_hrs), 1) if avg_hrs else 0
+                }
+        except Exception:
+            pass
+        
+        # 7) Problem-free araçlar - bulk (son 30 gün arıza olan araç id'leri)
+        vehicles_with_failures = set()
+        try:
+            vwf = db.session.query(Failure.equipment_id).filter(
+                Failure.failure_date >= thirty_days_ago
+            ).distinct().all()
+            vehicles_with_failures = {row[0] for row in vwf}
+        except Exception:
+            pass
+        
+        # Equipment id'lerini proje bazında al (problem-free vehicles için)
+        all_vehicles_by_project = defaultdict(list)
+        try:
+            all_vehs = db.session.query(Equipment.id, Equipment.project_code).filter(
+                Equipment.parent_id == None
+            ).all()
+            for vid, vpc in all_vehs:
+                all_vehicles_by_project[vpc].append(vid)
+        except Exception:
+            pass
+        
+        # ====== HER PROJE İÇİN HESAPLA ======
+        projects_data = {}
         
         for project_code, project_name in active_projects.items():
             try:
-                # === TEMEL KPİ'LAR ===
-                # Proje için tüm araçları say
-                total_vehicles = Equipment.query.filter_by(
-                    project_code=project_code,
-                    parent_id=None
-                ).count()
+                total_vehicles = vehicle_counts.get(project_code, 0)
                 
-                # Aktif araçları say
-                active_vehicles = Equipment.query.filter_by(
-                    project_code=project_code,
-                    parent_id=None,
-                    status='aktif'
-                ).count()
-                
-                availability = round((active_vehicles / total_vehicles * 100) if total_vehicles > 0 else 0)
-                
-                # Bugünkü araç durumu sayıları (DB'den - ServiceStatus)
+                # --- Bugünkü araç durumu ---
                 servis_disi_count = 0
                 isletme_kaynakli_count = 0
                 aktif_count = 0
-                try:
-                    from utils.utils_project_excel_store import normalize_status
-                    today_str = date.today().strftime('%Y-%m-%d')
-                    # Önce bugünü dene, yoksa en son tarihli kaydı bul
-                    day_records = ServiceStatus.query.filter_by(
-                        project_code=project_code, date=today_str
-                    ).all()
-                    if not day_records:
-                        latest_date = db.session.query(
-                            db.func.max(ServiceStatus.date)
-                        ).filter_by(project_code=project_code).scalar()
-                        if latest_date:
-                            day_records = ServiceStatus.query.filter_by(
-                                project_code=project_code, date=latest_date
-                            ).all()
-                    if day_records:
-                        for rec in day_records:
-                            ns = normalize_status(rec.status)
-                            if ns == 'Servis':
-                                aktif_count += 1
-                            elif ns == 'İşletme Kaynaklı Servis Dışı':
-                                isletme_kaynakli_count += 1
-                            elif ns == 'Servis Dışı':
-                                servis_disi_count += 1
-                        # DB'de olmayan araçları servis dışı say
-                        counted = aktif_count + servis_disi_count + isletme_kaynakli_count
-                        if counted < total_vehicles:
-                            servis_disi_count += (total_vehicles - counted)
-                    else:
-                        aktif_count = active_vehicles
-                        servis_disi_count = total_vehicles - active_vehicles
-                except Exception:
-                    aktif_count = active_vehicles
-                    servis_disi_count = total_vehicles - active_vehicles
+                servis_date = today_str
                 
-                # Toplam arıza sayısı (tüm FRACAS kayıtları)
+                # Bugünkü veri var mı? Yoksa en son tarih
+                day_data = status_by_project.get(project_code, {}).get(today_str, {})
+                if not day_data:
+                    latest = latest_dates.get(project_code)
+                    if latest:
+                        day_data = status_by_project.get(project_code, {}).get(latest, {})
+                        servis_date = latest
+                
+                aktif_count = day_data.get('Servis', 0)
+                isletme_kaynakli_count = day_data.get('İşletme Kaynaklı Servis Dışı', 0)
+                servis_disi_count = day_data.get('Servis Dışı', 0)
+                
+                counted = aktif_count + servis_disi_count + isletme_kaynakli_count
+                if counted < total_vehicles:
+                    servis_disi_count += (total_vehicles - counted)
+                
+                # Availability: (Toplam - Servis Dışı) / Toplam * 100
+                availability = round((total_vehicles - servis_disi_count) / total_vehicles * 100) if total_vehicles > 0 else 0
+                
+                # --- Toplam FRACAS arıza sayısı (cache'le) ---
                 total_failures_all = 0
-                try:
-                    _fracas = get_fracas_data(project_code)
-                    if _fracas is not None and not _fracas.empty:
-                        total_failures_all = len(_fracas)
-                except:
-                    total_failures_all = 0
-                
-                # Tüm zamanların availability ortalaması (DB'den - ServiceStatus)
-                avg_availability_all = 0
-                try:
-                    from sqlalchemy import func as _fn
-                    from collections import defaultdict
-                    # Her tarih+status için kayıt sayısı
-                    date_status_counts = db.session.query(
-                        ServiceStatus.date,
-                        ServiceStatus.status,
-                        _fn.count(ServiceStatus.id)
-                    ).filter(
-                        ServiceStatus.project_code == project_code
-                    ).group_by(ServiceStatus.date, ServiceStatus.status).all()
-                    
-                    if date_status_counts:
-                        date_totals = defaultdict(lambda: {'total': 0, 'available': 0})
-                        for date_val, status_val, cnt in date_status_counts:
-                            ns = normalize_status(status_val)
-                            date_totals[date_val]['total'] += cnt
-                            if ns in ('Servis', 'İşletme Kaynaklı Servis Dışı'):
-                                date_totals[date_val]['available'] += cnt
-                        avail_values = []
-                        for dt, counts in date_totals.items():
-                            if counts['total'] > 0:
-                                avail_values.append(counts['available'] / counts['total'] * 100)
-                        if avail_values:
-                            avg_availability_all = round(sum(avail_values) / len(avail_values))
-                        else:
-                            avg_availability_all = availability
-                    else:
-                        avg_availability_all = availability
-                except Exception:
-                    avg_availability_all = availability
-                
-                # MTTR (FRACAS'tan dakika cinsinden)
                 mttr_minutes = 0
-                try:
-                    _fracas2 = get_fracas_data(project_code)
-                    if _fracas2 is not None and not _fracas2.empty:
+                if project_code not in fracas_cache:
+                    try:
+                        fracas_cache[project_code] = get_fracas_data(project_code)
+                    except Exception:
+                        fracas_cache[project_code] = None
+                
+                _fracas = fracas_cache[project_code]
+                if _fracas is not None and not _fracas.empty:
+                    total_failures_all = len(_fracas)
+                    
+                    # MTTR hesapla
+                    try:
                         repair_col = None
-                        for col in _fracas2.columns:
+                        for col in _fracas.columns:
                             col_lower = col.lower()
                             if 'personel' in col_lower:
                                 continue
@@ -1095,7 +1216,7 @@ def get_projects_kpi():
                                 repair_col = col
                                 break
                         if not repair_col:
-                            for col in _fracas2.columns:
+                            for col in _fracas.columns:
                                 col_lower = col.lower()
                                 if 'personel' in col_lower:
                                     continue
@@ -1103,169 +1224,99 @@ def get_projects_kpi():
                                     repair_col = col
                                     break
                         if repair_col:
-                            vals = pd.to_numeric(_fracas2[repair_col], errors='coerce').dropna()
+                            vals = pd.to_numeric(_fracas[repair_col], errors='coerce').dropna()
                             vals = vals[vals > 0]
                             if len(vals) > 0:
-                                # IQR outlier filter
                                 q1, q3 = vals.quantile(0.25), vals.quantile(0.75)
                                 iqr = q3 - q1
                                 upper = max(q3 + 3 * iqr, 1440)
                                 vals = vals[vals <= upper]
-                                mttr_minutes = round(vals.sum() / max(len(_fracas2), 1))
-                except:
-                    mttr_minutes = 0
+                                mttr_minutes = round(vals.sum() / max(len(_fracas), 1))
+                    except Exception:
+                        pass
                 
-                # Son 30 günde arıza sayısı
-                thirty_days_ago = datetime.now() - timedelta(days=30)
-                failures_30 = 0
-                try:
-                    failures_30 = Failure.query.join(Equipment).filter(
-                        Equipment.project_code == project_code,
-                        Failure.failure_date >= thirty_days_ago
-                    ).count()
-                except:
-                    # Database schema mismatch - get from FRACAS instead
+                # --- Tüm zamanların availability ortalaması ---
+                avg_availability_all = availability
+                project_dates = status_by_project.get(project_code, {})
+                if project_dates:
+                    avail_values = []
+                    for dt, st_counts in project_dates.items():
+                        day_total = sum(st_counts.values())
+                        day_sd = st_counts.get('Servis Dışı', 0)
+                        if day_total > 0:
+                            avail_values.append((day_total - day_sd) / day_total * 100)
+                    if avail_values:
+                        avg_availability_all = round(sum(avail_values) / len(avail_values))
+                
+                # --- Son 30 gün arıza ---
+                failures_30 = failures_30_map.get(project_code, 0)
+                if failures_30 == 0:
                     try:
-                        fracas_df = get_fracas_data(project_code)
+                        fracas_df = fracas_cache[project_code]
                         if fracas_df is not None and not fracas_df.empty:
-                            # Son 30 güne göre filtrele
+                            from routes.kpi import filter_by_period
                             filtered_df = filter_by_period(fracas_df, 'monthly')
                             failures_30 = len(filtered_df) if filtered_df is not None else 0
-                    except:
-                        failures_30 = 0
+                    except Exception:
+                        pass
                 
-                # Ortalama MTTR hesapla (iş emirlerinden gerçek tamir süresi)
+                # --- MTTR (WorkOrder) ---
                 mttr = 0
-                try:
-                    from sqlalchemy import func as sa_func
-                    mttr_result = db.session.query(
-                        sa_func.avg(WorkOrder.labor_hours)
-                    ).filter(
-                        WorkOrder.project_code == project_code,
-                        WorkOrder.status == 'Completed',
-                        WorkOrder.labor_hours > 0
-                    ).scalar()
-                    mttr = round(mttr_result, 1) if mttr_result else 0
-                except:
-                    # Fallback: downtime_minutes from failures
-                    try:
-                        from sqlalchemy import func as sa_func
-                        avg_downtime = db.session.query(
-                            sa_func.avg(Failure.downtime_minutes)
-                        ).filter(
-                            Failure.project_code == project_code,
-                            Failure.downtime_minutes > 0
-                        ).scalar()
-                        mttr = round(avg_downtime / 60, 1) if avg_downtime else 0
-                    except:
-                        mttr = 0
+                wo = wo_stats.get(project_code, {})
+                if wo.get('avg_labor', 0) > 0:
+                    mttr = wo['avg_labor']
                 
-                # === GELIŞMIŞ KPİ'LAR ===
-                # Sınıf A (Kritik) Arıza Sayısı
+                # --- Kritik arıza (FRACAS Sınıf A) ---
                 critical_failures = 0
-                try:
-                    # FRACAS dosyasından sınıf A arızaları oku
-                    fracas_df = get_fracas_data(project_code)
-                    if fracas_df is not None and not fracas_df.empty:
-                        # Sınıf sütununu bul
+                if _fracas is not None and not _fracas.empty:
+                    try:
                         class_col = None
-                        for col in fracas_df.columns:
+                        for col in _fracas.columns:
                             if 'sınıf' in col.lower() or 'class' in col.lower():
                                 class_col = col
                                 break
-                        
                         if class_col:
-                            critical_failures = len(fracas_df[fracas_df[class_col].astype(str).str.contains('A', case=False, na=False)])
-                except:
-                    critical_failures = 0
+                            critical_failures = len(_fracas[_fracas[class_col].astype(str).str.contains('A', case=False, na=False)])
+                    except Exception:
+                        pass
                 
-                # Önleyici Bakım Oranı (%)
+                # --- Önleyici bakım oranı ---
                 preventive_maintenance_ratio = 0
-                try:
-                    total_wo = WorkOrder.query.filter_by(project_code=project_code).count()
-                    preventive_wo = WorkOrder.query.filter(
-                        WorkOrder.project_code == project_code,
-                        WorkOrder.work_type == 'Preventive'
-                    ).count()
-                    preventive_maintenance_ratio = round(
-                        (preventive_wo / total_wo * 100) if total_wo > 0 else 0, 1
-                    )
-                except Exception as e:
-                    logger.debug(f"Preventive ratio calculation failed for {project_code}: {e}")
-                    preventive_maintenance_ratio = 0
+                if wo.get('total', 0) > 0:
+                    preventive_maintenance_ratio = round(wo['preventive'] / wo['total'] * 100, 1)
                 
-                # Ortalama Tamir Süresi (saat)
-                avg_repair_time = 0
-                try:
-                    completed_wo = WorkOrder.query.filter(
-                        WorkOrder.project_code == project_code,
-                        WorkOrder.status == 'Completed'
-                    ).all()
-                    
-                    if completed_wo:
-                        total_hours = 0
-                        count = 0
-                        for wo in completed_wo:
-                            if wo.labor_hours and wo.labor_hours > 0:
-                                total_hours += wo.labor_hours
-                                count += 1
-                        avg_repair_time = round(total_hours / count, 1) if count > 0 else 0
-                except:
-                    avg_repair_time = 0
+                # --- Problem-free araçlar ---
+                project_vehicle_ids = all_vehicles_by_project.get(project_code, [])
+                problem_free_vehicles = sum(1 for vid in project_vehicle_ids if vid not in vehicles_with_failures)
                 
-                # Son 30 Günde Arızasız Araç Sayısı
-                problem_free_vehicles = 0
-                try:
-                    all_vehicles = Equipment.query.filter_by(
-                        project_code=project_code,
-                        parent_id=None
-                    ).all()
-                    
-                    for vehicle in all_vehicles:
-                        try:
-                            vehicle_failures = Failure.query.filter(
-                                Failure.equipment_id == vehicle.id,
-                                Failure.failure_date >= thirty_days_ago
-                            ).count()
-                            if vehicle_failures == 0:
-                                problem_free_vehicles += 1
-                        except:
-                            # If Failure query fails, assume no failures
-                            problem_free_vehicles += 1
-                except Exception as e:
-                    logger.debug(f"Problem-free vehicles calculation failed for {project_code}: {e}")
-                    problem_free_vehicles = 0
-                
-                # Proje durumunu belirle
-                if availability >= 85:
+                # --- Status ---
+                if avg_availability_all >= 85:
                     status = 'active'
-                elif availability >= 75:
+                elif avg_availability_all >= 75:
                     status = 'maintenance'
                 else:
                     status = 'issues'
                 
                 projects_data[project_code] = {
                     'name': project_name,
-                    # Temel
                     'vehicles': total_vehicles,
                     'availability': availability,
                     'failures30': failures_30,
                     'mttr': mttr,
                     'status': status,
-                    # Gelişmiş
                     'critical_failures': critical_failures,
                     'preventive_ratio': preventive_maintenance_ratio,
-                    'avg_repair_time': avg_repair_time,
+                    'avg_repair_time': wo.get('avg_labor', 0),
                     'problem_free_vehicles': problem_free_vehicles,
-                    'active_vehicles': active_vehicles,
-                    'ariza_arazlari': total_vehicles - active_vehicles,
-                    # Yeni alanlar
+                    'active_vehicles': aktif_count,
+                    'ariza_arazlari': servis_disi_count,
                     'aktif_count': aktif_count,
                     'servis_disi_count': servis_disi_count,
                     'isletme_kaynakli_count': isletme_kaynakli_count,
                     'total_failures_all': total_failures_all,
                     'avg_availability_all': avg_availability_all,
-                    'mttr_minutes': mttr_minutes
+                    'mttr_minutes': mttr_minutes,
+                    'servis_date': servis_date
                 }
             except Exception as e:
                 logger.warning(f"Error getting KPI for {project_code}: {e}")
@@ -1273,26 +1324,15 @@ def get_projects_kpi():
                 logger.error(traceback.format_exc())
                 projects_data[project_code] = {
                     'name': project_name,
-                    'vehicles': 0,
-                    'availability': 0,
-                    'failures30': 0,
-                    'mttr': 0,
-                    'status': 'issues',
-                    'critical_failures': 0,
-                    'preventive_ratio': 0,
-                    'avg_repair_time': 0,
-                    'problem_free_vehicles': 0,
-                    'active_vehicles': 0,
-                    'ariza_arazlari': 0,
-                    'aktif_count': 0,
-                    'servis_disi_count': 0,
-                    'isletme_kaynakli_count': 0,
-                    'total_failures_all': 0,
-                    'avg_availability_all': 0,
-                    'mttr_minutes': 0
+                    'vehicles': 0, 'availability': 0, 'failures30': 0, 'mttr': 0,
+                    'status': 'issues', 'critical_failures': 0, 'preventive_ratio': 0,
+                    'avg_repair_time': 0, 'problem_free_vehicles': 0, 'active_vehicles': 0,
+                    'ariza_arazlari': 0, 'aktif_count': 0, 'servis_disi_count': 0,
+                    'isletme_kaynakli_count': 0, 'total_failures_all': 0,
+                    'avg_availability_all': 0, 'mttr_minutes': 0, 'servis_date': ''
                 }
         
-        # NaN/None/inf değerlerini temizle (JSON serializable değiller)
+        # NaN/None/inf temizle
         import math
         for pcode, pdata in projects_data.items():
             for k, v in pdata.items():
