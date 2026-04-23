@@ -514,6 +514,24 @@ def create_app():
         with app.app_context():
             init_reporting_system()
 
+        # ==================== LANGUAGE SUPPORT ====================
+        from utils.translations import get_all_translations, get_translation
+
+        @app.route('/set_language/<lang>')
+        def set_language(lang):
+            if lang in ('tr', 'en'):
+                session['lang'] = lang
+            return redirect(request.referrer or url_for('dashboard.index'))
+
+        @app.context_processor
+        def inject_translations():
+            lang = session.get('lang', 'en')
+            return {
+                't': lambda key: get_translation(key, lang),
+                'T': get_all_translations(lang),
+                'current_lang': lang,
+            }
+
         # ==================== ROUTES ====================
 
         @app.route('/')

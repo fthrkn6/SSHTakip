@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Proje Seç - SSH Takip{% endblock %}
+{% block title %}{{ t('project_select_title') }} - SSH Takip{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -33,7 +33,7 @@
     }
 
     .project-card.active::after {
-        content: '✓ Aktif';
+        content: '\2713 Active';
         position: absolute;
         top: 12px;
         right: 12px;
@@ -118,9 +118,9 @@
 <div class="page-header">
     <div>
         <h1 class="page-title">
-            <i class="bi bi-folder2-open me-2"></i>Proje Seçimi
+            <i class="bi bi-folder2-open me-2"></i>{{ t('project_select_title') }}
         </h1>
-        <p class="text-muted mb-0">Çalışmak istediğiniz projeyi seçin</p>
+        <p class="text-muted mb-0">{{ t('project_select_subtitle') }}</p>
     </div>
 </div>
 
@@ -135,7 +135,7 @@
         <div class="project-status">
             <span class="status-dot {{ 'has-data' if project.has_fracas else 'no-data' }}"></span>
             <span class="{% if not project.has_fracas %}text-warning{% else %}text-success{% endif %}">
-                {{ 'FRACAS Verisi Mevcut' if project.has_fracas else 'FRACAS Dosyası Yok' }}
+                {{ 'FRACAS Data Available' if project.has_fracas else 'No FRACAS File' }}
             </span>
         </div>
 
@@ -144,19 +144,19 @@
                 <div class="project-stat-value {% if not project.has_fracas %}no-data{% endif %}">
                     {{ project.vehicle_count if project.has_fracas else '-' }}
                 </div>
-                <div class="project-stat-label">Araç</div>
+                <div class="project-stat-label">Vehicles</div>
             </div>
             <div class="project-stat">
                 <div class="project-stat-value {% if not project.has_fracas %}no-data{% endif %}">
                     {{ project.failure_count if project.has_fracas else '-' }}
                 </div>
-                <div class="project-stat-label">Arıza Kaydı</div>
+                <div class="project-stat-label">Failure Records</div>
             </div>
             <div class="project-stat">
                 <div class="project-stat-value {% if not project.has_fracas %}no-data{% endif %}">
                     {{ project.open_failures if project.has_fracas else '-' }}
                 </div>
-                <div class="project-stat-label">Açık Arıza</div>
+                <div class="project-stat-label">Open Failures</div>
             </div>
         </div>
     </div>
@@ -166,8 +166,8 @@
 <div class="mt-4">
     <div class="alert alert-info">
         <i class="bi bi-info-circle me-2"></i>
-        <strong>Not:</strong> Her proje için FRACAS Excel dosyasını ilgili klasöre yükleyin:
-        <code>data/[proje_adı]/FRACAS.xlsx</code>
+        <strong>Note:</strong> Upload the FRACAS Excel file for each project to the corresponding folder:
+        <code>data/[project_name]/FRACAS.xlsx</code>
     </div>
 </div>
 

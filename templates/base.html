@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="{{ current_lang }}">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{% block title %}SSH Takip - Bakım Yönetim Sistemi{% endblock %}</title>
+    <title>{% block title %}{{ t('app_title') }}{% endblock %}</title>
 
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -850,7 +850,7 @@
 
 <body>
     <!-- Skip Link for Accessibility -->
-    <a href="#main-content" class="skip-link">İçeriğe Atla</a>
+    <a href="#main-content" class="skip-link">{{ t('skip_to_content') }}</a>
 
     {% if current_user.is_authenticated %}
     <!-- Sidebar Overlay (Mobile) -->
@@ -858,7 +858,7 @@
 
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar" role="navigation" aria-label="Ana menü">
-        <button class="sidebar-close" id="sidebarClose" aria-label="Menüyü kapat">
+        <button class="sidebar-close" id="sidebarClose" aria-label="{{ t('close_menu') }}">
             <i class="bi bi-x-lg"></i>
         </button>
         <div class="sidebar-brand">
@@ -867,160 +867,160 @@
             </div>
             <div class="sidebar-brand-text">
                 SSH Takip
-                <small>{{ session.get('project_name', 'Proje Seçilmedi') }}</small>
+                <small>{{ session.get('project_name', t('no_project_selected')) }}</small>
             </div>
         </div>
 
         <nav class="sidebar-menu">
-            <div class="sidebar-menu-title">Ana Menü</div>
+            <div class="sidebar-menu-title">{{ t('main_menu') }}</div>
 
             <a href="{{ url_for('dashboard.index') }}"
                 class="sidebar-link {{ 'active' if request.endpoint == 'dashboard.index' }}"
                 aria-current="{{ 'page' if request.endpoint == 'dashboard.index' else 'false' }}">
                 <i class="bi bi-grid-1x2-fill"></i>
-                <span>Dashboard</span>
+                <span>{{ t('Dashboard') }}</span>
             </a>
 
-            <!-- İş Yönetimi - Collapsible -->
+            <!-- Work Management - Collapsible -->
             <div class="sidebar-menu-title sidebar-submenu-toggle" data-bs-toggle="collapse" data-bs-target="#menuIsYonetimi" aria-expanded="true">
-                İş Yönetimi
+                {{ t('work_management') }}
             </div>
             <div class="collapse show sidebar-submenu" id="menuIsYonetimi">
                 <a href="{{ url_for('yeni_ariza_bildir') }}"
                     class="sidebar-link {{ 'active' if 'ariza_bildir' in request.endpoint|string }}">
                     <i class="bi bi-plus-circle-fill"></i>
-                    <span>Yeni Arıza Bildir</span>
+                    <span>{{ t('report_failure') }}</span>
                 </a>
 
                 <a href="{{ url_for('ariza_listesi_veriler') }}"
                     class="sidebar-link {{ 'active' if 'ariza_listesi_veriler' in request.endpoint|string }}">
                     <i class="bi bi-list-check"></i>
-                    <span>Arıza Listesi - Veriler</span>
+                    <span>{{ t('failure_list') }}</span>
                 </a>
 
                 <a href="{{ url_for('hbr_listesi') }}"
                     class="sidebar-link {{ 'active' if 'hbr_listesi' in request.endpoint|string }}">
                     <i class="bi bi-file-earmark-pdf"></i>
-                    <span>HBR Listesi</span>
+                    <span>{{ t('hbr_list') }}</span>
                 </a>
 
                 <a href="{{ url_for('bakim_planlari') }}"
                     class="sidebar-link {{ 'active' if 'bakim_plan' in request.endpoint|string }}">
                     <i class="bi bi-calendar3"></i>
-                    <span>Bakım Planları</span>
+                    <span>{{ t('maintenance_plans') }}</span>
                 </a>
 
                 <a href="{{ url_for('tramvay_km.index') }}"
                     class="sidebar-link {{ 'active' if 'tramvay_km' in request.endpoint|string }}">
                     <i class="bi bi-speedometer"></i>
-                    <span>Tramvay KM</span>
+                    <span>{{ t('tram_km') }}</span>
                 </a>
 
                 <a href="{{ url_for('servis_durumu') }}"
                     class="sidebar-link {{ 'active' if 'servis_durumu' in request.endpoint|string }}">
                     <i class="bi bi-toggle-on"></i>
-                    <span>Servis Durumu</span>
+                    <span>{{ t('service_status') }}</span>
                 </a>
             </div>
 
-            <!-- Envanter - Collapsible -->
+            <!-- Inventory - Collapsible -->
             <div class="sidebar-menu-title sidebar-submenu-toggle" data-bs-toggle="collapse" data-bs-target="#menuEnvanter" aria-expanded="true">
-                Envanter
+                {{ t('inventory') }}
             </div>
             <div class="collapse show sidebar-submenu" id="menuEnvanter">
                 <a href="{{ url_for('yedek_parca') }}"
                     class="sidebar-link {{ 'active' if 'yedek_parca' in request.endpoint|string }}">
                     <i class="bi bi-box-seam"></i>
-                    <span>Yedek Parça</span>
+                    <span>{{ t('spare_parts') }}</span>
                 </a>
             </div>
 
-            <!-- Raporlar & Analiz - Collapsible -->
+            <!-- Reports & Analysis - Collapsible -->
             <div class="sidebar-menu-title sidebar-submenu-toggle" data-bs-toggle="collapse" data-bs-target="#menuRaporlar" aria-expanded="true">
-                Raporlar & Analiz
+                {{ t('reports_analysis') }}
             </div>
             <div class="collapse show sidebar-submenu" id="menuRaporlar">
                 <a href="{{ url_for('fracas.index') }}"
                     class="sidebar-link {{ 'active' if 'fracas' in request.endpoint|string }}">
                     <i class="bi bi-graph-up-arrow"></i>
-                    <span>FRACAS Analiz</span>
+                    <span>{{ t('fracas_analysis') }}</span>
                 </a>
 
                 <a href="{{ url_for('kpi.index') }}"
                     class="sidebar-link {{ 'active' if 'kpi' in request.endpoint|string }}">
                     <i class="bi bi-speedometer2"></i>
-                    <span>KPI Dashboard</span>
+                    <span>{{ t('kpi_dashboard') }}</span>
                 </a>
 
                 <a href="{{ url_for('reports.scenarios_page') }}"
                     class="sidebar-link {{ 'active' if 'reports.scenarios' in request.endpoint|string }}">
                     <i class="bi bi-lightbulb"></i>
-                    <span>Proje Analizi</span>
+                    <span>{{ t('project_analysis') }}</span>
                 </a>
 
                 <a href="{{ url_for('reports.recent_reports') }}"
                     class="sidebar-link {{ 'active' if 'reports.recent' in request.endpoint|string }}">
                     <i class="bi bi-file-spreadsheet"></i>
-                    <span>Son Raporlar</span>
+                    <span>{{ t('recent_reports') }}</span>
                 </a>
 
                 <a href="{{ url_for('reports.system_logs_page') }}"
                     class="sidebar-link {{ 'active' if 'reports.system_logs' in request.endpoint|string }}">
                     <i class="bi bi-file-text"></i>
-                    <span>Sistem Logları</span>
+                    <span>{{ t('system_logs') }}</span>
                 </a>
 
                 {% if current_user.role == 'admin' %}
                 <a href="{{ url_for('reports.management_dashboard') }}"
                     class="sidebar-link {{ 'active' if 'reports.management_dashboard' in request.endpoint|string }}">
                     <i class="bi bi-bar-chart-line"></i>
-                    <span>Yönetim Dashboard</span>
+                    <span>{{ t('management_dashboard') }}</span>
                 </a>
                 {% endif %}
             </div>
 
-            <!-- Dokümantasyon -->
-            <div class="sidebar-menu-title">Dokümantasyon</div>
+            <!-- Documentation -->
+            <div class="sidebar-menu-title">{{ t('documentation') }}</div>
 
             <a href="{{ url_for('dokuman_listesi') }}"
                 class="sidebar-link {{ 'active' if 'dokuman' in request.endpoint|string }}">
                 <i class="bi bi-file-earmark-text"></i>
-                <span>Teknik Dokümanlar</span>
+                <span>{{ t('tech_docs') }}</span>
             </a>
 
             {% if current_user.is_admin() %}
-            <!-- Yönetim - Collapsible -->
+            <!-- Management - Collapsible -->
             <div class="sidebar-menu-title sidebar-submenu-toggle" data-bs-toggle="collapse" data-bs-target="#menuYonetim" aria-expanded="true">
-                Yönetim
+                {{ t('management') }}
             </div>
             <div class="collapse show sidebar-submenu" id="menuYonetim">
                 <a href="{{ url_for('admin.dashboard') }}"
                     class="sidebar-link {{ 'active' if 'admin' in request.endpoint|string }}">
                     <i class="bi bi-shield-lock"></i>
-                    <span>Admin Paneli</span>
+                    <span>{{ t('admin_panel') }}</span>
                 </a>
 
                 <a href="{{ url_for('admin.users') }}"
                     class="sidebar-link {{ 'active' if 'admin.users' in request.endpoint|string }}">
                     <i class="bi bi-people"></i>
-                    <span>Kullanıcı Yönetimi</span>
+                    <span>{{ t('user_management') }}</span>
                 </a>
 
                 <a href="{{ url_for('admin.projects') }}"
                     class="sidebar-link {{ 'active' if 'admin.projects' in request.endpoint|string }}">
                     <i class="bi bi-folder2-open"></i>
-                    <span>Proje Yönetimi</span>
+                    <span>{{ t('project_management') }}</span>
                 </a>
 
                 <a href="{{ url_for('admin.backups') }}"
                     class="sidebar-link {{ 'active' if 'admin.backups' in request.endpoint|string }}">
                     <i class="bi bi-database"></i>
-                    <span>Yedekleme</span>
+                    <span>{{ t('backup') }}</span>
                 </a>
 
                 <a href="{{ url_for('admin.yetkilendirme') }}" class="sidebar-link {{ 'active' if request.endpoint == 'admin.yetkilendirme' }}">
                     <i class="bi bi-lock-fill"></i>
-                    <span>Yetki Yönetimi</span>
+                    <span>{{ t('permission_management') }}</span>
                 </a>
             </div>
             {% endif %}
@@ -1032,18 +1032,18 @@
         <!-- Top Navbar -->
         <header class="top-navbar" role="banner">
             <!-- Mobile Hamburger -->
-            <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menüyü aç">
+            <button class="sidebar-toggle" id="sidebarToggle" aria-label="{{ t('open_menu') }}">
                 <i class="bi bi-list"></i>
             </button>
 
             <div class="navbar-search" id="navbarSearch">
                 <i class="bi bi-search"></i>
-                <input type="text" placeholder="Ara... (ekipman, arıza, iş emri)" aria-label="Arama">
+                <input type="text" placeholder="{{ t('search_placeholder') }}" aria-label="{{ t('search') }}">
             </div>
 
             <div class="navbar-actions">
                 <!-- Mobile Search Toggle -->
-                <button class="navbar-icon-btn mobile-search-toggle" id="mobileSearchToggle" aria-label="Arama aç">
+                <button class="navbar-icon-btn mobile-search-toggle" id="mobileSearchToggle" aria-label="{{ t('search') }}">
                     <i class="bi bi-search"></i>
                 </button>
                 <!-- Proje Seçici (Yalnız Saha Kullanıcıları için) -->
@@ -1055,7 +1055,7 @@
                         {% if session.get('project_code') %}
                         {{ session.get('project_code') }}
                         {% else %}
-                        Proje Seç
+                        {{ t('select_project') }}
                         {% endif %}
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end" id="projectDropdownMenu">
@@ -1067,28 +1067,28 @@
                 <div class="navbar-divider d-none d-md-block"></div>
 
                 <!-- Dark Mode Toggle -->
-                <button class="navbar-icon-btn" id="darkModeToggle" title="Karanlık Mod" aria-label="Karanlık mod aç/kapat">
+                <button class="navbar-icon-btn" id="darkModeToggle" title="{{ t('dark_mode') }}" aria-label="{{ t('dark_mode') }}">
                     <i class="bi bi-moon"></i>
                 </button>
 
                 <div class="dropdown">
-                    <button class="navbar-icon-btn" aria-label="Bildirimler" data-bs-toggle="dropdown" id="notificationBtn">
+                    <button class="navbar-icon-btn" aria-label="{{ t('notifications') }}" data-bs-toggle="dropdown" id="notificationBtn">
                         <i class="bi bi-bell"></i>
                         <span class="notification-badge" id="notifBadge" style="display:none;"></span>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end" style="min-width:320px;max-height:400px;overflow-y:auto;" id="notifDropdown">
                         <li class="dropdown-header d-flex justify-content-between align-items-center">
-                            <span>Bildirimler</span>
-                            <a href="#" id="markAllRead" class="small text-primary">Tümünü Okundu İşaretle</a>
+                            <span>{{ t('notifications') }}</span>
+                            <a href="#" id="markAllRead" class="small text-primary">{{ t('mark_all_read') }}</a>
                         </li>
                         <li><hr class="dropdown-divider"></li>
-                        <li class="text-center text-muted p-3" id="noNotif">Bildirim yok</li>
+                        <li class="text-center text-muted p-3" id="noNotif">{{ t('no_notifications') }}</li>
                     </ul>
                 </div>
 
-                <!-- Admin Panel Link (Yalnız Admin) -->
+                <!-- Admin Panel Link -->
                 {% if current_user.is_admin() %}
-                <a href="{{ url_for('admin.dashboard') }}" class="navbar-icon-btn" title="Admin Paneli">
+                <a href="{{ url_for('admin.dashboard') }}" class="navbar-icon-btn" title="{{ t('admin_panel') }}">
                     <i class="bi bi-shield-lock"></i>
                 </a>
                 {% endif %}
@@ -1107,20 +1107,26 @@
                         <i class="bi bi-chevron-down ms-1"></i>
                     </div>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="{{ url_for('profile') }}"><i
-                                    class="bi bi-person me-2"></i>Profil</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('profile') }}"><i class="bi bi-person me-2"></i>{{ t('profile') }}</a></li>
                         {% if current_user.is_admin() %}
-                        <li>
-                            <hr class="dropdown-divider">
-                        </li>
-                        <li><a class="dropdown-item" href="{{ url_for('admin.dashboard') }}"><i
-                                    class="bi bi-shield-lock me-2"></i>Admin Paneli</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.dashboard') }}"><i class="bi bi-shield-lock me-2"></i>{{ t('admin_panel') }}</a></li>
                         {% endif %}
+                        <li><hr class="dropdown-divider"></li>
+                        <!-- Language Switcher -->
+                        <li class="dropdown-header">{{ t('language') }}</li>
                         <li>
-                            <hr class="dropdown-divider">
+                            <a class="dropdown-item {{ 'active' if current_lang == 'en' }}" href="{{ url_for('set_language', lang='en') }}">
+                                <i class="bi bi-globe me-2"></i>{{ t('english') }}
+                            </a>
                         </li>
-                        <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}"><i
-                                    class="bi bi-box-arrow-right me-2"></i>Çıkış Yap</a></li>
+                        <li>
+                            <a class="dropdown-item {{ 'active' if current_lang == 'tr' }}" href="{{ url_for('set_language', lang='tr') }}">
+                                <i class="bi bi-globe me-2"></i>{{ t('turkish') }}
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}"><i class="bi bi-box-arrow-right me-2"></i>{{ t('logout') }}</a></li>
                     </ul>
                 </div>
             </div>
@@ -1149,20 +1155,20 @@
 
     <!-- Quick Actions FAB -->
     <div class="quick-actions" id="quickActions">
-        <button class="quick-actions-trigger" id="quickActionsTrigger" aria-label="Hızlı işlemler">
+        <button class="quick-actions-trigger" id="quickActionsTrigger" aria-label="{{ t('quick_actions') }}">
             <i class="bi bi-plus-lg"></i>
         </button>
         <div class="quick-actions-menu" id="quickActionsMenu">
             <a href="{{ url_for('yeni_ariza_bildir') }}" class="quick-action-item">
-                <span class="qa-label">Yeni Arıza Bildir</span>
+                <span class="qa-label">{{ t('report_failure') }}</span>
                 <span class="qa-icon bg-danger"><i class="bi bi-exclamation-triangle"></i></span>
             </a>
             <a href="{{ url_for('fracas.index') }}" class="quick-action-item">
-                <span class="qa-label">FRACAS Analiz</span>
+                <span class="qa-label">{{ t('fracas_analysis') }}</span>
                 <span class="qa-icon bg-info"><i class="bi bi-graph-up-arrow"></i></span>
             </a>
             <a href="{{ url_for('kpi.index') }}" class="quick-action-item">
-                <span class="qa-label">KPI Dashboard</span>
+                <span class="qa-label">{{ t('kpi_dashboard') }}</span>
                 <span class="qa-icon bg-primary"><i class="bi bi-speedometer2"></i></span>
             </a>
         </div>

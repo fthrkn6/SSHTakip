@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="{{ current_lang }}">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Giriş - Bozankaya SSH Takip</title>
+    <title>{{ t('login_title') }}</title>
 
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -314,8 +314,8 @@
                 <div class="login-logo">
                     <img src="{{ url_for('static', filename='img/bozankaya-logo.png') }}" alt="Bozankaya">
                 </div>
-                <h1>SSH Takip Sistemi</h1>
-                <p class="subtitle">Tramvay Bakım Yönetim Platformu</p>
+                <h1>SSH Takip</h1>
+                <p class="subtitle">{{ t('login_subtitle') }}</p>
             </div>
 
             {% with messages = get_flashed_messages(with_categories=true) %}
@@ -332,53 +332,53 @@
             <form method="POST" data-validate data-loading>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group">
-                    <label class="form-label">Proje Seçin *</label>
+                    <label class="form-label">{{ t('select_project') }} *</label>
                     <div class="input-group-icon">
                         <i class="bi bi-folder2-open"></i>
                         <select name="project" id="projectSelect" class="form-control" required
                             onchange="validateProjectSelection(this)">
-                            <option value="">-- Lütfen Proje Seçin --</option>
+                            <option value="">-- Please Select Project --</option>
                         </select>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Kullanıcı Adı</label>
+                    <label class="form-label">{{ t('username') }}</label>
                     <div class="input-group-icon">
                         <i class="bi bi-person"></i>
-                        <input type="text" name="username" class="form-control" placeholder="Kullanıcı adınızı girin"
+                        <input type="text" name="username" class="form-control" placeholder="Enter your username"
                             required autofocus>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Şifre</label>
+                    <label class="form-label">{{ t('password') }}</label>
                     <div class="input-group-icon">
                         <i class="bi bi-lock"></i>
-                        <input type="password" name="password" class="form-control" placeholder="Şifrenizi girin"
+                        <input type="password" name="password" class="form-control" placeholder="Enter your password"
                             required>
                     </div>
                 </div>
 
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" name="remember" id="remember">
-                    <label class="form-check-label" for="remember">Beni hatırla</label>
+                    <label class="form-check-label" for="remember">{{ t('remember_me') }}</label>
                 </div>
 
                 <button type="submit" class="btn btn-login">
                     <i class="bi bi-box-arrow-in-right"></i>
-                    Giriş Yap
+                    {{ t('login') }}
                 </button>
             </form>
 
             <div class="features">
                 <div class="feature-item">
                     <i class="bi bi-shield-check"></i>
-                    <span>Güvenli</span>
+                    <span>Secure</span>
                 </div>
                 <div class="feature-item">
                     <i class="bi bi-speedometer2"></i>
-                    <span>Hızlı</span>
+                    <span>Fast</span>
                 </div>
                 <div class="feature-item">
                     <i class="bi bi-graph-up"></i>
